@@ -1,6 +1,8 @@
 # LangChain4j EasyWorkflow
 
-LangChain4j EasyWorkflow is a library that provides a fluent API for building complex agentic workflows using [LangChain4j](https://docs.langchain4j.dev/)'s Agentic framework. It allows defining sequences of agents, conditional execution, parallel execution, agent grouping, and loops.
+LangChain4j EasyWorkflow is a library that offers a fluent, DSL-style API for building complex agentic workflows on top of the LangChain4j Agentic framework. It removes boilerplate and makes it simple to express AI workflows in a clear, readable way.
+
+With EasyWorkflow, you can define workflows that include sequences of agents, conditional branches, parallel execution, agent groups, and loops, combining flexibility with elegance.
 
 ## Features
 

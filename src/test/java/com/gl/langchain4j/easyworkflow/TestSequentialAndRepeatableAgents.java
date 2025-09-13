@@ -52,17 +52,17 @@ public class TestSequentialAndRepeatableAgents {
                 .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another Groq BASE_MODEL name
                 .build();
 
-        NovelCreator novelCreator1 = EasyWorkflow.builder(NovelCreator.class)
+        NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
                 .chatModel(BASE_MODEL)
                 .agent(CreativeWriter.class)
                 .agent(AudienceEditor.class)
-                .repeat(5, agenticScope -> agenticScope.readState("score", 0.0) >= 0.8)
+                .repeat(agenticScope -> agenticScope.readState("score", 0.0) >= 0.8)
                     .agent(StyleScorer.class)
                     .agent(StyleEditor.class)
                 .end()
                 .build();
 
-        String story = novelCreator1.createNovel("dragons and wizards", "infants", "fantasy");
+        String story = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
         System.out.println(story);
     }
 
