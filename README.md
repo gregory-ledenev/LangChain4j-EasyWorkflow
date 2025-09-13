@@ -90,7 +90,7 @@ Terminal operation that builds the EasyWorkflow and returns the main agent insta
 ## Sequential and Repeatable Agents
 
 The following example shows how to create a sequential workflow with a repeatable block of agents. You may check the [Sequential Workflow](https://docs.langchain4j.dev/tutorials/agents#sequential-workflow)
-and [Loop Workflow](https://docs.langchain4j.dev/tutorials/agents#loop-workflow) for complete samples description or check the runnable test at [TestSequentialAndRepeatableAgents.java](test/java/com/gl/langchain4j/easyworkflow/TestSequentialAndRepeatableAgents.java)
+and [Loop Workflow](https://docs.langchain4j.dev/tutorials/agents#loop-workflow) for complete samples description or check the runnable test at [TestSequentialAndRepeatableAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestSequentialAndRepeatableAgents.java)
 
 ```java
 NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
