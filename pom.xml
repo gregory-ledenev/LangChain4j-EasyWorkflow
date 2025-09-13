@@ -8,7 +8,7 @@
     <artifactId>langchain4j-easyworkflow</artifactId>
     <version>0.9.0</version>
 
-    <name>EasyWorkflow for langchain4j</name>
+    <name>EasyWorkflow for LangChain4j</name>
     <description>
         EasyWorkflow is an extension for LangChain4j that streamlines the design of complex workflows through a fluent, DSL-inspired builder API
     </description>

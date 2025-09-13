@@ -1,6 +1,6 @@
 # LangChain4j EasyWorkflow
 
-LangChain4j EasyWorkflow is a library that provides a fluent API for building complex agentic workflows using LangChain4j's Agentic framework. It allows defining sequences of agents, conditional execution, parallel execution, agent grouping, and loops.
+LangChain4j EasyWorkflow is a library that provides a fluent API for building complex agentic workflows using [LangChain4j](https://docs.langchain4j.dev/)'s Agentic framework. It allows defining sequences of agents, conditional execution, parallel execution, agent grouping, and loops.
 
 ## Features
 
@@ -17,77 +17,81 @@ To use LangChain4j EasyWorkflow, you need to add the following dependency to you
 
 ```xml
 <dependency>
-    <groupId>com.gl.langchain4j</groupId>
-    <artifactId>easy-workflow</artifactId>
-    <version>1.0.0</version>
+    <groupId>io.github.gregory-ledenev</groupId>
+    <artifactId>langchain4j-easyworkflow</artifactId>
+    <version>0.9.0</version>
+</dependency>
+```
+to get JavaDoc for it:
+
+```xml
+<dependency>
+    <groupId>io.github.gregory-ledenev</groupId>
+    <artifactId>langchain4j-easyworkflow</artifactId>
+    <version>0.9.0</version>
+    <classifier>javadoc</classifier>
 </dependency>
 ```
 
-## AgentWorkflowBuilder Methods
+## How to use EasyWorkflow
 
-The `AgentWorkflowBuilder` provides the following methods for constructing a workflow:
+The `EasyWorkflow` is the main entry point for creating workflows. Here’s how to use it for common tasks. To start you can use `EasyWorkflow.builder(Class<?> agentClass)` method to get a builder object and provide the main agentic interface.
 
-### `outputName(String outputName)`
-Sets the output name for the main agent of this workflow.
+### 1. Basic Configuration
 
-### `chatModel(ChatModel chatModel)`
-Sets the `ChatModel` to be used by all agents in this workflow.
+Before adding agents, you need to configure the workflow. At a minimum, you must provide a `ChatModel`. You can also provide a `ChatMemory` instance to maintain conversation history and specify an `outputName` for the final result.
 
-### `chatMemory(ChatMemory chatMemory)`
-Sets the `ChatMemory` to be used by all agents in this workflow.
+```java
+// Import your chat model, e.g., OpenAiChatModel
+// Import a chat memory, e.g., MessageWindowChatMemory
 
-### `agent(Class<?> agentClass)`
-Adds an agent to the workflow using its class.
+ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
+        .chatModel(chatModel) // Mandatory: The chat model for the agents
+        .chatMemory(chatMemory) // Optional: Shared memory for the agents
+        .outputName("finalAnswer") // Optional: Name for the workflow's output
+        // ... add agents and control flow here
+        .build();
+```
 
-### `agent(Class<?> agentClass, String outputName)`
-Adds an agent to the workflow using its class and specifies an output name.
+### 2. Adding Agents
 
-### `agent(Class<?> agentClass, Consumer<AgentBuilder<?>> configurator)`
-Adds an agent to the workflow using its class and a configurator for its builder.
+You can add agents to the workflow to be executed sequentially. You can add an agent by its class or by providing an already-created instance.
 
-### `agent(Class<?> agentClass, String outputName, Consumer<AgentBuilder<?>> configurator)`
-Adds an agent to the workflow using its class, an output name, and a configurator.
+```java
+NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
+        .chatModel(BASE_MODEL)
+        // Add agents by their class
+        .agent(CreativeWriter.class)
+        .agent(AudienceEditor.class)
+        // You can also add a pre-configured agent instance
+        // .agent(new MyCustomAgent())
+        .build();
+```
 
-### `agent(Object agent)`
-Adds an existing agent instance to the workflow.
+### 3. Adding Control Flow
 
-### `agent(Object agent, String outputName)`
-Adds an existing agent instance to the workflow and specifies an output name.
+For more complex workflows, you can use control flow statements like `ifThen`, `repeat`, `doParallel`, and `group`. Each of these statements opens a block that must be closed with the `end()` method.
 
-### `agent(Object agent, Consumer<AgentBuilder<?>> configurator)`
-Adds an existing agent instance to the workflow and a configurator for its builder.
+Here's an example combining a conditional and a loop:
 
-### `agent(Object agent, String outputName, Consumer<AgentBuilder<?>> configurator)`
-Adds an existing agent instance to the workflow, an output name, and a configurator.
+```java
+ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
+        .chatModel(BASE_MODEL)
+        .agent(CategoryRouter.class)
+        // Execute a block of agents only if a condition is met
+        .ifThen(scope -> scope.readState("category", "UNKNOWN").equals("LEGAL"))
+            .agent(LegalExpert.class)
+            // You can nest control flow
+            .repeat(2, scope -> scope.readState("isClear", false) == true)
+                .agent(LegalClarifier.class)
+            .end() // Closes the 'repeat' block
+        .end() // Closes the 'ifThen' block
+        .build();
+```
 
-### `ifThen(Predicate<AgenticScope> condition)`
-Starts an "if-then" conditional block.
+You can find more detailed examples in the following sections.
 
-### `doParallel(Function<AgenticScope, Object> outputComposer)`
-Starts a "do parallel" block.
-
-### `doParallel(String outputName, Function<AgenticScope, Object> outputComposer)`
-Starts a "do parallel" block with a specified output name.
-
-### `group()`
-Starts a "group" block.
-
-### `group(String outputName)`
-Starts a "group" block with a specified output name.
-
-### `repeat(Predicate<AgenticScope> condition)`
-Starts a "repeat" block.
-
-### `repeat(int maxIterations, Predicate<AgenticScope> condition)`
-Starts a "repeat" block with a specified maximum number of iterations.
-
-### `end()`
-Ends the current nested statement.
-
-### `build()`
-Terminal operation that builds the EasyWorkflow and returns the main agent instance.
-
-## Sequential and Repeatable Agents
+## Sample for Sequential and Repeatable Agents
 
 The following example shows how to create a sequential workflow with a repeatable block of agents. You may check the [Sequential Workflow](https://docs.langchain4j.dev/tutorials/agents#sequential-workflow)
 and [Loop Workflow](https://docs.langchain4j.dev/tutorials/agents#loop-workflow) for complete samples description or check the runnable test at [TestSequentialAndRepeatableAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestSequentialAndRepeatableAgents.java)
@@ -106,9 +110,9 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
 String story = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
 ```
 
-## Conditional Agents
+## Sample for Conditional Agents
 
-The following example shows how to create a workflow with conditional execution of agents.
+The following example shows how to create a workflow with conditional execution of agents. You may check the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow) for complete samples description or check the runnable test at [TestConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestConditionalAgents.java)
 
 ```java
 ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
@@ -126,9 +130,10 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
 expertRouterAgent.ask("Should I sue my neighbor who caused this damage?");
 ```
 
-## Parallel Agents
+## Sample for Parallel Agents
 
-The following example shows how to create a workflow with parallel execution of agents.
+The following example shows how to create a workflow with parallel execution of agents. You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#parallel-workflow) for complete samples description or check the runnable test at [TestParallelAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestParallelAgents.java)
+
 
 ```java
 Function<AgenticScope, Object> resultFunction = agenticScope -> {
@@ -158,4 +163,5 @@ eveningPlannerAgent.plan("happy");
 
 ## License
 
-This project is licensed under the MIT License.
+The Vert.x-EasyRouting is licensed under the terms of
+the [MIT License](https://opensource.org/license/mit).
