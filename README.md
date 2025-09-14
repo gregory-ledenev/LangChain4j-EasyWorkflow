@@ -1,6 +1,6 @@
-# LangChain4j EasyWorkflow
+# EasyWorkflow for LangChain4j
 
-LangChain4j EasyWorkflow is a library that offers a fluent, DSL-style API for building complex agentic workflows on top of the LangChain4j Agentic framework. It removes boilerplate and makes it simple to express AI workflows in a clear, readable way.
+EasyWorkflow for LangChain4j is a library that offers a fluent, DSL-style API for building complex agentic workflows on top of the LangChain4j Agentic framework. It removes boilerplate and makes it simple to express AI workflows in a clear, readable way.
 
 With EasyWorkflow, you can define workflows that include sequences of agents, conditional branches, parallel execution, agent groups, and loops, combining flexibility with elegance.
 
@@ -13,15 +13,15 @@ With EasyWorkflow, you can define workflows that include sequences of agents, co
 *   **Agent Grouping:** Group agents and supervise their execution.
 *   **Loops:** Repeat a sequence of agents until a condition is met.
 
-## Usage
+## Adding to Your Build
 
-To use LangChain4j EasyWorkflow, you need to add the following dependency to your `pom.xml` file:
+To add EasyWorkflow to your build system, you can use the following Maven dependency:
 
 ```xml
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.0</version>
+    <version>0.9.1</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -30,7 +30,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.0</version>
+    <version>0.9.1</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -50,7 +50,6 @@ Before adding agents, you need to configure the workflow. At a minimum, you must
 ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
         .chatModel(chatModel) // Mandatory: The chat model for the agents
         .chatMemory(chatMemory) // Optional: Shared memory for the agents
-        .outputName("finalAnswer") // Optional: Name for the workflow's output
         // ... add agents and control flow here
         .build();
 ```
@@ -136,7 +135,6 @@ expertRouterAgent.ask("Should I sue my neighbor who caused this damage?");
 
 The following example shows how to create a workflow with parallel execution of agents. You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#parallel-workflow) for complete samples description or check the runnable test at [TestParallelAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestParallelAgents.java)
 
-
 ```java
 Function<AgenticScope, Object> resultFunction = agenticScope -> {
     List<String> movies = agenticScope.readState("movies", List.of());
@@ -162,6 +160,10 @@ EveningPlannerAgent eveningPlannerAgent = EasyWorkflow.builder(EveningPlannerAge
 
 eveningPlannerAgent.plan("happy");
 ```
+## Sample for Pure Agentic AI
+
+The following example shows how to create a workflow with a supervised group of agents that form a pure agentic AI.
+You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#pure-agentic-ai) for complete samples description or check the runnable test at [TestSupervisedAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestSupervisedAgents.java)
 
 ## License
 

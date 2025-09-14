@@ -282,8 +282,8 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "group" block. Agents within this block will be supervised and their responses summarized. The
-         * default output name for the group's response is "response".
+         * Starts a "group" block. Agents within this group will represent pure agentic AI; they will be supervised, and
+         * their responses summarized. The default output name for the group's response is "response".
          *
          * @return A new builder instance representing the group block. Call {@code end()} to return to the parent
          * builder.
@@ -293,8 +293,8 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "group" block with a specified output name. Agents within this block will be supervised and their
-         * responses summarized.
+         * Starts a "group" block. Agents within this group will represent pure agentic AI; they will be supervised, and
+         * their responses summarized. The default output name for the group's response is "response".
          *
          * @param outputName The name to assign to the output of this group.
          * @return A new builder instance representing the group block. Call {@code end()} to return to the parent
