@@ -165,6 +165,17 @@ eveningPlannerAgent.plan("happy");
 The following example shows how to create a workflow with a supervised group of agents that form a pure agentic AI.
 You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#pure-agentic-ai) for complete samples description or check the runnable test at [TestSupervisedAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestSupervisedAgents.java)
 
+```java
+SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
+        .chatModel(BASE_MODEL)
+        .group()
+            .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
+            .agent(CreditAgent.class, builder -> builder.tools(bankTool))
+            .agent(ExchangeAgent.class, builder -> builder.tools(new ExchangeTool()))
+            .agent(humanInTheLoop)
+        .end()
+        .build();
+```
 ## License
 
 The Vert.x-EasyRouting is licensed under the terms of
