@@ -52,6 +52,7 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
         .chatMemory(chatMemory) // Optional: Shared memory for the agents
         // ... add agents and control flow here
         .build();
+
 ```
 
 ### 2. Adding Agents
@@ -69,6 +70,15 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
         // You can also add a pre-configured agent instance
         // .agent(new MyCustomAgent())
         .build();
+
+public interface CreativeWriter {
+    @UserMessage("""
+                 You are a creative writer. Generate a draft of a story no more than 3 sentences long around the
+                 given topic. Return only the story and nothing else. The topic is {{topic}}.
+                 """)
+    @Agent(value = "Generates a story based on the given topic", outputName = "story")
+    String generateStory(@V("topic") String topic);
+}
 ```
 
 ### 3. Adding Control Flow
