@@ -37,11 +37,11 @@ to get JavaDoc for it:
 
 ## How to use EasyWorkflow
 
-The `EasyWorkflow` is the main entry point for creating workflows. Here’s how to use it for common tasks. To start you can use `EasyWorkflow.builder(Class<?> agentClass)` method to get a builder object and provide the main agentic interface.
+The `EasyWorkflow` is the main entry point for creating workflows. Here’s how to use it for common tasks. To start you can use `EasyWorkflow.builder(Class<?> agentClass)` method to get a builder object and provide the main agentic interface. Then you can configure it, add agents and finally use the `build` as a terminal operation to create a configured workflow.
 
 ### 1. Basic Configuration
 
-Before adding agents, you need to configure the workflow. At a minimum, you must provide a `ChatModel`. You can also provide a `ChatMemory` instance to maintain conversation history and specify an `outputName` for the final result.
+Before adding agents, you need to configure the workflow. At a minimum, you must provide a `ChatModel`. You can also provide a `ChatMemory` instance to maintain conversation history and specify some other properties.
 
 ```java
 // Import your chat model, e.g., OpenAiChatModel
