@@ -56,7 +56,9 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
 
 ### 2. Adding Agents
 
-You can add agents to the workflow to be executed sequentially. You can add an agent by its class or by providing an already-created instance.
+You can add agents to the workflow to be executed sequentially. You can add an agent by its class or by providing an
+already-created instance. An agent can be defined either by an interface or a class, having a single method, annotated
+with an `@Agent` annotation. See more: [Agents in LangChain4j](https://docs.langchain4j.dev/tutorials/agents#agents-in-langchain4j)
 
 ```java
 NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
