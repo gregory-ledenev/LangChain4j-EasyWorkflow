@@ -29,7 +29,6 @@ package com.gl.langchain4j.easyworkflow;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agentic.Agent;
-import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.SystemMessage;
@@ -38,7 +37,6 @@ import dev.langchain4j.service.V;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Scanner;
 import java.util.prefs.Preferences;
 
 /**
@@ -52,34 +50,20 @@ public class TestSupervisedAgents {
     public static void main(String[] args) {
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
                 .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
-                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your Groq API key
-                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another Groq BASE_MODEL name
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
                 .build();
 
         BankTool bankTool = new BankTool();
         bankTool.createAccount("Mario", 1000.0);
         bankTool.createAccount("Georgios", 1000.0);
 
-        HumanInTheLoop humanInTheLoop = AgenticServices
-                .humanInTheLoopBuilder()
-                .description("An agent that asks the user to confirm transactions. YES - to confirm; any other value - to decline")
-                .outputName("confirmation")
-                .requestWriter(request -> {
-                    System.out.println(request);
-                    System.out.print("> ");
-                })
-                .responseReader(() -> {
-                    try (Scanner scanner = new Scanner(System.in)) {
-                        String confirmation = scanner.nextLine();
-                        System.out.println("Proceeding...");
-                        return confirmation;
-                    }
-                })
-                .build();
+        HumanInTheLoop humanInTheLoop = EasyWorkflow.consoleHumanInTheLoopAgent("confirmation",
+                "An agent that asks the user to confirm transactions. YES - to confirm; any other value - to decline");
 
         SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
                 .chatModel(BASE_MODEL)
-                .group()
+                .doAsGroup()
                     .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
                     .agent(CreditAgent.class, builder -> builder.tools(bankTool))
                     .agent(ExchangeAgent.class, builder -> builder.tools(new ExchangeTool()))

@@ -34,8 +34,12 @@ import dev.langchain4j.service.V;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.prefs.Preferences;
+
+import static com.gl.langchain4j.easyworkflow.ResultComposers.*;
 
 /**
  * This class provides a sample for
@@ -50,11 +54,11 @@ public class TestParallelAgents {
 
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
                 .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
-                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your Groq API key
-                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another Groq BASE_MODEL name
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
                 .build();
 
-        // result function, that composes outputs of meals and movies agents running in parallel
+        // result function that combines the outputs of meals and movies agents running in parallel
         Function<AgenticScope, Object> resultFunction = agenticScope -> {
             List<String> movies = agenticScope.readState("movies", List.of());
             List<String> meals = agenticScope.readState("meals", List.of());
@@ -69,17 +73,49 @@ public class TestParallelAgents {
             return moviesAndMeals;
         };
 
-        EveningPlannerAgent eveningPlannerAgent = EasyWorkflow.builder(EveningPlannerAgent.class)
-                .chatModel(BASE_MODEL)
-                .doParallel(resultFunction)
-                    .agent(FoodExpert.class)
-                    .agent(MovieExpert.class)
-                .end()
-                .build();
+        try {
+            // getting results in parallel and using a custom function to combine them
+            EveningPlannerAgent eveningPlannerAgent = EasyWorkflow.builder(EveningPlannerAgent.class)
+                    .chatModel(BASE_MODEL)
+                    .doParallel(resultFunction)
+                        .agent(FoodExpert.class)
+                        .agent(MovieExpert.class)
+                    .end()
+                    .build();
 
-        System.out.println(eveningPlannerAgent.plan("happy"));
-        System.out.println(eveningPlannerAgent.plan("sad"));
-        EasyWorkflow.closeSharedExecutorService();
+            System.out.println(eveningPlannerAgent.plan("happy"));
+            System.out.println(eveningPlannerAgent.plan("sad"));
+
+            // getting results in parallel and mapping function to combine them
+            GenericEveningPlannerAgent genericEveningPlannerAgent = EasyWorkflow.builder(GenericEveningPlannerAgent.class)
+                    .chatModel(BASE_MODEL)
+                    .doParallel(asMap("movies", "meals"))
+                        .agent(FoodExpert.class)
+                        .agent(MovieExpert.class)
+                    .end()
+                    .build();
+
+            System.out.println(genericEveningPlannerAgent.plan("happy"));
+            System.out.println(genericEveningPlannerAgent.plan("sad"));
+
+            // getting results in parallel and using a bean list function to combine them
+            BeanListEveningPlannerAgent beanListEveningPlannerAgent = EasyWorkflow.builder(BeanListEveningPlannerAgent.class)
+                    .chatModel(BASE_MODEL)
+                    .logInput(true)
+                    .logOutput(true)
+                    .doParallel(asBeanList(EveningPlan.class,
+                            mappingOf("movies", "movie"),
+                            mappingOf("meals", "meal")))
+                        .agent(FoodExpert.class)
+                        .agent(MovieExpert.class)
+                    .end()
+                    .build();
+
+            System.out.println(beanListEveningPlannerAgent.plan("happy"));
+            System.out.println(beanListEveningPlannerAgent.plan("sad"));
+        } finally {
+            EasyWorkflow.closeSharedExecutorService();
+        }
     }
 
     public interface FoodExpert {
@@ -112,13 +148,64 @@ public class TestParallelAgents {
         public List<EveningPlan> plan(@P("mood") String mood);
     }
 
-    public record EveningPlan(String meal, String movie) {
+    public interface GenericEveningPlannerAgent {
+        @Agent
+        public Map<String, List<String>> plan(@P("mood") String mood);
     }
 
-    public static class EveningPlannerAgentImpl {
-        @Agent(outputName = "plan1213")
-        public List<EveningPlan> plan(@P("plan") List<EveningPlan> plan) {
-            return plan;
-        }
+    public interface BeanListEveningPlannerAgent {
+        @Agent
+        public List<EveningPlan> plan(@P("mood") String mood);
     }
+
+    public static final class EveningPlan {
+        private String meal;
+        private String movie;
+
+        public EveningPlan(@P("meal") String meal, @P("movie") String movie) {
+            this.meal = meal;
+            this.movie = movie;
+        }
+
+        public EveningPlan() {
+        }
+
+        public String getMeal() {
+            return meal;
+        }
+
+        public void setMeal(String aMeal) {
+            meal = aMeal;
+        }
+
+        public String getMovie() {
+            return movie;
+        }
+
+        public void setMovie(String aMovie) {
+            movie = aMovie;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj == null || obj.getClass() != this.getClass()) return false;
+            var that = (EveningPlan) obj;
+            return Objects.equals(this.meal, that.meal) &&
+                    Objects.equals(this.movie, that.movie);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(meal, movie);
+        }
+
+        @Override
+        public String toString() {
+            return "EveningPlan[" +
+                    "meal=" + meal + ", " +
+                    "movie=" + movie + ']';
+        }
+
+        }
 }

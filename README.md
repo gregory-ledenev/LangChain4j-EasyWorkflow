@@ -21,7 +21,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.1</version>
+    <version>0.9.2</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -30,7 +30,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.1</version>
+    <version>0.9.2</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -55,11 +55,28 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
 
 ```
 
+It is possible to set up input and output logging by using `logInput(true)` and `logOutput(true)` methods.
+
+Note: EasyWorkflows logging uses corresponding guard rails to intercept agents flow so if you use customizers to set up guard rails of your own — you should set up logging manually using `LoggingGuardrails.Input` and `LoggingGuardrails.Output` loggers.  
+
+```java
+BeanListEveningPlannerAgent agent = EasyWorkflow.builder(BeanListEveningPlannerAgent.class)
+        .chatModel(BASE_MODEL)
+        .logInput(true)
+        .logOutput(true)
+        .doParallel()
+            .agent(FoodExpert.class)
+            .agent(MovieExpert.class)
+        .end()
+        .build();
+```
 ### 2. Adding Agents
 
 You can add agents to the workflow to be executed sequentially. You can add an agent by its class or by providing an
 already-created instance. An agent can be defined either by an interface or a class, having a single method, annotated
-with an `@Agent` annotation. See more: [Agents in LangChain4j](https://docs.langchain4j.dev/tutorials/agents#agents-in-langchain4j)
+with an `@Agent` annotation. 
+
+See more: [Agents in LangChain4j](https://docs.langchain4j.dev/tutorials/agents#agents-in-langchain4j)
 
 ```java
 NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
@@ -81,6 +98,20 @@ public interface CreativeWriter {
 }
 ```
 
+If you need to access a complete set of properties allowed by agent's builder — create an agent, providing a customizer 
+lambda function:
+
+```java
+SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
+    .chatModel(BASE_MODEL)
+    .doAsGroup()
+        .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
+        .agent(CreditAgent.class, builder -> builder.tools(bankTool))
+        .agent(ExchangeAgent.class, builder -> builder.tools(new ExchangeTool()))
+        .agent(humanInTheLoop)
+    .end()
+    .build();
+```
 ### 3. Adding Control Flow
 
 For more complex workflows, you can use control flow statements like `ifThen`, `repeat`, `doParallel`, and `group`. Each of these statements opens a block that must be closed with the `end()` method.

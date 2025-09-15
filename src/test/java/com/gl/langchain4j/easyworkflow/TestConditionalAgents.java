@@ -51,8 +51,8 @@ public class TestConditionalAgents {
 
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
                 .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
-                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your Groq API key
-                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another Groq BASE_MODEL name
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
                 .build();
 
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10);
