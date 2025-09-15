@@ -178,5 +178,4 @@ SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
 ```
 ## License
 
-The Vert.x-EasyRouting is licensed under the terms of
-the [MIT License](https://opensource.org/license/mit).
+The EasyWorkflow for LangChain4j is licensed under the terms of the [MIT License](https://opensource.org/license/mit).
