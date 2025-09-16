@@ -36,10 +36,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.prefs.Preferences;
 
-import static com.gl.langchain4j.easyworkflow.ResultComposers.*;
+import static com.gl.langchain4j.easyworkflow.OutputComposers.*;
 
 /**
  * This class provides a sample for
@@ -73,14 +74,20 @@ public class TestParallelAgents {
             return moviesAndMeals;
         };
 
+        EasyWorkflow.AgentWorkflowBuilder<EveningPlannerAgent> builder = null;
         try {
             // getting results in parallel and using a custom function to combine them
-            EveningPlannerAgent eveningPlannerAgent = EasyWorkflow.builder(EveningPlannerAgent.class)
+            builder = EasyWorkflow.builder(EveningPlannerAgent.class);
+            EveningPlannerAgent eveningPlannerAgent = builder
                     .chatModel(BASE_MODEL)
+                    .logOutput(true)
+                    .executor(Executors.newFixedThreadPool(2))
                     .doParallel(resultFunction)
+                        .outputName("plan")
                         .agent(FoodExpert.class)
                         .agent(MovieExpert.class)
                     .end()
+                    .outputName("plan")
                     .build();
 
             System.out.println(eveningPlannerAgent.plan("happy"));
@@ -97,6 +104,7 @@ public class TestParallelAgents {
 
             System.out.println(genericEveningPlannerAgent.plan("happy"));
             System.out.println(genericEveningPlannerAgent.plan("sad"));
+            System.out.println("--------------------");
 
             // getting results in parallel and using a bean list function to combine them
             BeanListEveningPlannerAgent beanListEveningPlannerAgent = EasyWorkflow.builder(BeanListEveningPlannerAgent.class)
@@ -106,14 +114,18 @@ public class TestParallelAgents {
                     .doParallel(asBeanList(EveningPlan.class,
                             mappingOf("movies", "movie"),
                             mappingOf("meals", "meal")))
+                        .outputName("result")
                         .agent(FoodExpert.class)
                         .agent(MovieExpert.class)
                     .end()
+                    .outputName("result")
                     .build();
 
             System.out.println(beanListEveningPlannerAgent.plan("happy"));
-            System.out.println(beanListEveningPlannerAgent.plan("sad"));
+            System.out.println(genericEveningPlannerAgent.plan("sad"));
         } finally {
+            if (builder != null && builder.getExecutor() != null)
+                builder.getExecutor().shutdownNow();
             EasyWorkflow.closeSharedExecutorService();
         }
     }
@@ -145,17 +157,17 @@ public class TestParallelAgents {
 
     public interface EveningPlannerAgent {
         @Agent
-        public List<EveningPlan> plan(@P("mood") String mood);
+        List<EveningPlan> plan(@P("mood") String mood);
     }
 
     public interface GenericEveningPlannerAgent {
         @Agent
-        public Map<String, List<String>> plan(@P("mood") String mood);
+        Map<String, List<String>> plan(@P("mood") String mood);
     }
 
     public interface BeanListEveningPlannerAgent {
         @Agent
-        public List<EveningPlan> plan(@P("mood") String mood);
+        List<EveningPlan> plan(@P("mood") String mood);
     }
 
     public static final class EveningPlan {

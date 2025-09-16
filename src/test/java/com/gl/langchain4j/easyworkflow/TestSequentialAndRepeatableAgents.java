@@ -27,6 +27,7 @@
 package com.gl.langchain4j.easyworkflow;
 
 import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.guardrail.OutputGuardrail;
 import dev.langchain4j.guardrail.OutputGuardrailResult;
@@ -54,16 +55,18 @@ public class TestSequentialAndRepeatableAgents {
 
         NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
                 .chatModel(BASE_MODEL)
+                .logOutput(true)
                 .agent(CreativeWriter.class)
                 .agent(AudienceEditor.class)
                 .repeat(agenticScope -> agenticScope.readState("score", 0.0) >= 0.8)
                     .agent(StyleScorer.class)
                     .agent(StyleEditor.class)
                 .end()
+                .output(Novel::new)
                 .build();
 
-        String story = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
-        System.out.println(story);
+        Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+        System.out.println(novel);
     }
 
     public interface CreativeWriter {
@@ -80,7 +83,7 @@ public class TestSequentialAndRepeatableAgents {
     public interface AudienceEditor {
         @UserMessage("""
                      You are a professional editor. Analyze and rewrite the following story to better align with the
-                     target audience of {{audience}}. 
+                     target audience of {{audience}}.
                      Return only the story and nothing else.
                      The story is "{{story}}".
                      """)
@@ -99,9 +102,15 @@ public class TestSequentialAndRepeatableAgents {
         String editStory(@V("story") String story, @V("style") String style);
     }
 
+    public record Novel(String story, double score) {
+        public Novel(AgenticScope agenticScope) {
+            this(agenticScope.readState("story", ""), agenticScope.readState("score", 0.0));
+        }
+    }
+
     public interface NovelCreator {
         @Agent(outputName = "story")
-        String createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
+        Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
     }
 
     public interface StyleScorer {

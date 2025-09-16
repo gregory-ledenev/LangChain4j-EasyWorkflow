@@ -25,22 +25,10 @@
  */
 package com.gl.langchain4j.easyworkflow;
 
-import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agentic.Agent;
-import dev.langchain4j.agentic.UntypedAgent;
-import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.service.UserMessage;
-import dev.langchain4j.service.V;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
 import java.util.prefs.Preferences;
-
-import static com.gl.langchain4j.easyworkflow.ResultComposers.*;
 
 /**
  * This class provides a sample for

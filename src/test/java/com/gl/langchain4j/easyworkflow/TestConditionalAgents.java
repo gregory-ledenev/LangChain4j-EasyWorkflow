@@ -27,8 +27,6 @@
 package com.gl.langchain4j.easyworkflow;
 
 import dev.langchain4j.agentic.Agent;
-import dev.langchain4j.agentic.AgenticServices;
-import dev.langchain4j.agentic.UntypedAgent;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -36,6 +34,7 @@ import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 
+import java.util.Map;
 import java.util.prefs.Preferences;
 
 /**
@@ -60,15 +59,25 @@ public class TestConditionalAgents {
         ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
                 .chatModel(BASE_MODEL)
                 .chatMemory(chatMemory)
+//                .logInput(true)
+//                .logOutput(true)
                 .agent(CategoryRouter.class)
                 .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
-                    .agent(MedicalExpert.class).end()
+                    .agent(MedicalExpert.class)
+                    .agent(SummaryAgent.class)
+                .end()
                 .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL)
-                    .agent(LegalExpert.class).end()
+                    .agent(LegalExpert.class)
+                    .agent(SummaryAgent.class)
+                .end()
                 .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.TECHNICAL)
-                    .agent(TechnicalExpert.class).end()
+                    .agent(TechnicalExpert.class)
+                    .agent(SummaryAgent.class)
+                .end()
+                .output(OutputComposers.asMap("response", "summary"))
                 .build();
 
+        System.out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
         System.out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
         System.out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
         System.out.println(expertRouterAgent.ask("What is the meaning of life?"));
@@ -76,6 +85,16 @@ public class TestConditionalAgents {
 
     public enum RequestCategory {
         LEGAL, MEDICAL, TECHNICAL, UNKNOWN
+    }
+
+    public interface SummaryAgent {
+
+        @UserMessage("""
+                     Prepare a short 1-2 sentences summary for provided information.
+                     The information is: '{{response}}'.
+                     """)
+        @Agent(value = "Categorizes a user request", outputName = "summary")
+        String summary(@V("response") String response);
     }
 
     public interface CategoryRouter {
@@ -131,7 +150,7 @@ public class TestConditionalAgents {
     public interface ExpertRouterAgent {
 
         @Agent(outputName = "response")
-        String ask(@V("request") String request);
+        Map<String, String> ask(@V("request") String request);
     }
 
     public interface ContextSummarizer {

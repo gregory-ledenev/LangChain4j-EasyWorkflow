@@ -21,7 +21,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.2</version>
+    <version>0.9.3</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -30,7 +30,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.2</version>
+    <version>0.9.3</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -105,9 +105,9 @@ lambda function:
 SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
     .chatModel(BASE_MODEL)
     .doAsGroup()
-        .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
-        .agent(CreditAgent.class, builder -> builder.tools(bankTool))
-        .agent(ExchangeAgent.class, builder -> builder.tools(new ExchangeTool()))
+        .agent(WithdrawAgent.class, builder -> builder.agentBuilderCustomizer(bankTool))
+        .agent(CreditAgent.class, builder -> builder.agentBuilderCustomizer(bankTool))
+        .agent(ExchangeAgent.class, builder -> builder.agentBuilderCustomizer(new ExchangeTool()))
         .agent(humanInTheLoop)
     .end()
     .build();
@@ -212,9 +212,9 @@ You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/age
 SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
         .chatModel(BASE_MODEL)
         .group()
-            .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
-            .agent(CreditAgent.class, builder -> builder.tools(bankTool))
-            .agent(ExchangeAgent.class, builder -> builder.tools(new ExchangeTool()))
+            .agent(WithdrawAgent.class, builder -> builder.agentBuilderCustomizer(bankTool))
+            .agent(CreditAgent.class, builder -> builder.agentBuilderCustomizer(bankTool))
+            .agent(ExchangeAgent.class, builder -> builder.agentBuilderCustomizer(new ExchangeTool()))
             .agent(humanInTheLoop)
         .end()
         .build();

@@ -37,7 +37,7 @@ import java.util.function.Function;
  * such as Maps or lists of beans. It usually can be used to combine results produced by several agents working in
  * parallel.
  */
-public class ResultComposers {
+public class OutputComposers {
     /**
      * Creates a function that composes the results from specified output names in the {@link AgenticScope} into a Map.
      *
@@ -59,7 +59,7 @@ public class ResultComposers {
 
     /**
      * Creates a {@link Mapping} object that associates an output name from the {@link AgenticScope} with a property
-     * name in a target bean. The property name will be the same as output name.
+     * name in a target bean. The property name will be the same as the output name.
      *
      * @param outputName The name of the output in the {@link AgenticScope}.
      * @return A new {@link Mapping} instance.

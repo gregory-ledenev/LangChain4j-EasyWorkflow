@@ -21,7 +21,6 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * /
  */
 
 package com.gl.langchain4j.easyworkflow;
@@ -33,20 +32,15 @@ import dev.langchain4j.agentic.agent.AgentBuilder;
 import dev.langchain4j.agentic.internal.A2AClientBuilder;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.agentic.supervisor.SupervisorResponseStrategy;
-import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.agentic.workflow.ParallelAgentService;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.guardrail.InputGuardrail;
-import dev.langchain4j.guardrail.InputGuardrailResult;
-import dev.langchain4j.guardrail.OutputGuardrail;
-import dev.langchain4j.guardrail.OutputGuardrailResult;
+import dev.langchain4j.agentic.workflow.SequentialAgentService;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -87,21 +81,29 @@ public class EasyWorkflow {
 
         private final AgentWorkflowBuilder<T> parentBuilder;
         private final Class<T> agentClass;
-        private final Block root;
+        private Block block;
+
         private String outputName;
+        private Function<AgenticScope, Object> outputComposer;
+
         private ChatModel chatModel;
         private ChatMemory chatMemory;
-        private boolean logInput;
-        private boolean logOutput;
+        private Boolean logInput;
+        private Boolean logOutput;
 
-        AgentWorkflowBuilder(AgentWorkflowBuilder<T> aParentBuilder, Block block) {
+        private ExecutorService executor;
+
+        AgentWorkflowBuilder(AgentWorkflowBuilder<T> aParentBuilder) {
             Objects.requireNonNull(aParentBuilder, "Parent builder can't be null");
-            Objects.requireNonNull(block, "Block can't be null");
 
             parentBuilder = aParentBuilder;
-            this.root = block;
             this.agentClass = null;
             this.outputName = null;
+        }
+
+        void setBlock(Block block) {
+            Objects.requireNonNull(block, "Block can't be null");
+            this.block = block;
         }
 
         /**
@@ -113,12 +115,12 @@ public class EasyWorkflow {
             Objects.requireNonNull(agentClass, "Agent class can't be null");
 
             this.parentBuilder = null;
-            this.root = new Block();
+            this.block = new Block();
             this.agentClass = agentClass;
         }
 
         void addExpression(Expression expression) {
-            root.addExpression(expression);
+            block.addExpression(expression);
         }
 
         /**
@@ -129,6 +131,17 @@ public class EasyWorkflow {
          */
         public AgentWorkflowBuilder<T> outputName(String outputName) {
             this.outputName = outputName;
+            return this;
+        }
+
+        /**
+         * Sets a custom output composer for the main agent of this workflow.
+         *
+         * @param outputComposer A function to compose the final output of the workflow from the {@link AgenticScope}.
+         * @return This builder instance.
+         */
+        public AgentWorkflowBuilder<T> output(Function<AgenticScope, Object> outputComposer) {
+            this.outputComposer = outputComposer;
             return this;
         }
 
@@ -179,6 +192,26 @@ public class EasyWorkflow {
         }
 
         /**
+         * Sets the {@link ExecutorService} to be used for parallel execution within this workflow.
+         * If not set, a shared default executor service will be used.
+         * @param executor The {@link ExecutorService} instance.
+         * @return This builder instance.
+         */
+        public AgentWorkflowBuilder<T> executor(ExecutorService executor) {
+            this.executor = executor;
+            return this;
+        }
+
+        /**
+         * Retrieves the {@link ExecutorService} for this workflow. If not explicitly set for this builder,
+         * it delegates to the parent builder.
+         * @return The {@link ExecutorService} to be used for parallel execution.
+         */
+        ExecutorService getExecutor() {
+            return executor == null && parentBuilder != null ? parentBuilder.getExecutor() : executor;
+        }
+
+       /**
          * Adds an agent to the workflow using its class.
          *
          * @param agentClass The class of the agent to add.
@@ -189,7 +222,7 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds an agent to the workflow using its class and specifies an output name.
+         * Adds an agent to the workflow using its class, an output name, and a configurator.
          *
          * @param agentClass The class of the agent to add.
          * @param outputName The output name for this agent.
@@ -200,7 +233,7 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds an agent to the workflow using its class and a configurator for its builder.
+         * Adds an agent to the workflow using its class, an output name, and a configurator.
          *
          * @param agentClass   The class of the agent to add.
          * @param configurator A consumer to configure the {@link AgentBuilder} for this agent.
@@ -219,7 +252,7 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> agent(Class<?> agentClass, String outputName, Consumer<AgentBuilder<?>> configurator) {
-            addExpression(new AgentExpression(agentClass, outputName, configurator));
+            addExpression(new AgentExpression(this, agentClass, outputName, configurator));
             return this;
         }
 
@@ -234,7 +267,7 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds an existing agent instance to the workflow and specifies an output name.
+         * Adds an existing agent instance to the workflow, an output name, and a configurator.
          *
          * @param agent      The agent instance to add.
          * @param outputName The output name for this agent.
@@ -245,7 +278,7 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds an existing agent instance to the workflow and a configurator for its builder.
+         * Adds an existing agent instance to the workflow, an output name, and a configurator.
          *
          * @param agent        The agent instance to add.
          * @param configurator A consumer to configure the {@link AgentBuilder} for this agent.
@@ -264,7 +297,7 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> agent(Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
-            addExpression(new AgentExpression(agent, outputName, configurator));
+            addExpression(new AgentExpression(this, agent, outputName, configurator));
             return this;
         }
 
@@ -309,7 +342,7 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> remoteAgent(String url, Class<?> agentClass, String outputName) {
-            addExpression(new RemoteAgentExpression(url, agentClass, outputName));
+            addExpression(new RemoteAgentExpression(this, url, agentClass, outputName));
             return this;
         }
 
@@ -322,9 +355,10 @@ public class EasyWorkflow {
          * builder.
          */
         public AgentWorkflowBuilder<T> ifThen(Predicate<AgenticScope> condition) {
-            IfThenStatement ifThenStatement = new IfThenStatement(condition);
-            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this, ifThenStatement.getBlocks().get(0));
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            IfThenStatement ifThenStatement = new IfThenStatement(result, condition);
             this.addExpression(ifThenStatement);
+            result.setBlock(ifThenStatement.getBlocks().get(0));
             return result;
         }
 
@@ -341,8 +375,8 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "do parallel" block. Agents within this block will execute in parallel. The output of the parallel
-         * execution will be composed by the provided function.
+         * Starts a "do parallel" block. Agents within this block will execute in parallel.
+         * The output of the parallel execution will be composed by the provided function.
          *
          * @param outputComposer A function to compose the output from the parallel agents. Use state variables from
          * {@code AgenticScope} com compose the output.
@@ -350,24 +384,11 @@ public class EasyWorkflow {
          * builder.
          */
         public AgentWorkflowBuilder<T> doParallel(Function<AgenticScope, Object> outputComposer) {
-            return doParallel("response", outputComposer);
-        }
-
-        /**
-         * Starts a "do parallel" block with a specified output name. Agents within this block will execute in parallel.
-         * The output of the parallel execution will be composed by the provided function.
-         *
-         * @param outputName     The name to assign to the output of this parallel block.
-         * @param outputComposer A function to compose the output from the parallel agents. Use state variables from
-         * {@code AgenticScope} com compose the output.
-         * @return A new builder instance representing the parallel block. Call {@code end()} to return to the parent
-         * builder.
-         */
-        public AgentWorkflowBuilder<T> doParallel(String outputName, Function<AgenticScope, Object> outputComposer) {
-            ParallelAgentsStatement parallelAgentsStatement = new ParallelAgentsStatement(outputName, outputComposer);
-            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this, parallelAgentsStatement.getBlocks().get(0));
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            ParallelAgentsStatement parallelAgentsStatement = new ParallelAgentsStatement(result, outputComposer);
             this.addExpression(parallelAgentsStatement);
-
+            result.outputName = "response";
+            result.setBlock(parallelAgentsStatement.getBlocks().get(0));
             return result;
         }
 
@@ -379,21 +400,11 @@ public class EasyWorkflow {
          * builder.
          */
         public AgentWorkflowBuilder<T> doAsGroup() {
-            return doAsGroup("response");
-        }
-
-        /**
-         * Starts a "group" block. Agents within this group will represent pure agentic AI; they will be supervised, and
-         * their responses summarized. The default output name for the group's response is "response".
-         *
-         * @param outputName The name to assign to the output of this group.
-         * @return A new builder instance representing the group block. Call {@code end()} to return to the parent
-         * builder.
-         */
-        public AgentWorkflowBuilder<T> doAsGroup(String outputName) {
-            GroupStatement groupStatement = new GroupStatement(outputName);
-            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this, groupStatement.getBlocks().get(0));
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            GroupStatement groupStatement = new GroupStatement(result);
             this.addExpression(groupStatement);
+            result.outputName = "response";
+            result.setBlock(groupStatement.getBlocks().get(0));
             return result;
         }
 
@@ -419,9 +430,10 @@ public class EasyWorkflow {
          * builder.
          */
         public AgentWorkflowBuilder<T> repeat(int maxIterations, Predicate<AgenticScope> condition) {
-            RepeatStatement repeatStatement = new RepeatStatement(maxIterations, condition);
-            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this, repeatStatement.getBlocks().get(0));
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            RepeatStatement repeatStatement = new RepeatStatement(result, maxIterations, condition);
             this.addExpression(repeatStatement);
+            result.setBlock(repeatStatement.getBlocks().get(0));
             return result;
         }
 
@@ -449,11 +461,38 @@ public class EasyWorkflow {
             if (parentBuilder != null || agentClass == null)
                 throw new IllegalStateException("Syntax error, e.g. 'repeat' without matching 'end'");
             Objects.requireNonNull(chatModel, "Chat model is not specified");
-            return AgenticServices
+            SequentialAgentService<T> builder = AgenticServices
                     .sequenceBuilder(agentClass)
-                    .subAgents(root.createAgents(chatModel, chatMemory, logInput, logOutput).toArray())
-                    .outputName(outputName != null && !outputName.isEmpty() ? outputName : AgentExpression.getOutputName(agentClass))
-                    .build();
+                    .subAgents(block.createAgents().toArray())
+                    .outputName(outputName != null && !outputName.isEmpty() ? outputName : AgentExpression.getOutputName(agentClass));
+            if (outputComposer != null)
+                builder.output(outputComposer);
+
+            return builder.build();
+        }
+
+        ChatModel getChatModel() {
+            return chatModel == null && parentBuilder != null ? parentBuilder.getChatModel() : chatModel;
+        }
+
+        ChatMemory getChatMemory() {
+            return chatMemory == null && parentBuilder != null ? parentBuilder.getChatMemory() : chatMemory;
+        }
+
+        String getOutputName() {
+            return outputName;
+        }
+
+        boolean isLogInput() {
+            if (logInput != null)
+                return logInput;
+            return parentBuilder != null && parentBuilder.isLogInput();
+        }
+
+        boolean isLogOutput() {
+            if (logOutput != null)
+                return logOutput;
+            return parentBuilder != null && parentBuilder.isLogOutput();
         }
     }
 
@@ -461,11 +500,11 @@ public class EasyWorkflow {
      * Represents an expression within the workflow, which can create an agent.
      */
     interface Expression {
-        Object createAgent(ChatModel chatModel, ChatMemory aChatMemory, boolean logInput, boolean logOutput);
+        Object createAgent();
     }
 
     static class Block {
-        List<Expression> expressions = new ArrayList<>();
+        private final List<Expression> expressions = new ArrayList<>();
 
         public List<Expression> getExpressions() {
             return Collections.unmodifiableList(expressions);
@@ -475,25 +514,27 @@ public class EasyWorkflow {
             expressions.add(expression);
         }
 
-        public List<Object> createAgents(ChatModel chatModel, ChatMemory chatMemory, boolean logInput, boolean logOutput) {
+        public List<Object> createAgents() {
             return expressions.stream()
-                    .map(expression -> expression.createAgent(chatModel, chatMemory, logInput, logOutput))
+                    .map(expression -> expression.createAgent())
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         }
     }
 
     static class Statement implements Expression {
+        final AgentWorkflowBuilder<?> agentWorkflowBuilder;
+        private final List<Block> blocks;
 
-        List<Block> blocks;
-
-        public Statement(List<Block> aBlocks) {
-            blocks = aBlocks;
+        public Statement(AgentWorkflowBuilder<?> agentWorkflowBuilder, List<Block> aBlocks) {
+            this.agentWorkflowBuilder = agentWorkflowBuilder;
+            this.blocks = aBlocks;
         }
 
-        public Statement() {
-            blocks = new ArrayList<>();
-            blocks.add(new Block());
+        public Statement(AgentWorkflowBuilder<?> agentWorkflowBuilder) {
+            this.agentWorkflowBuilder = agentWorkflowBuilder;
+            this.blocks = new ArrayList<>();
+            this.blocks.add(new Block());
         }
 
         public List<Block> getBlocks() {
@@ -501,20 +542,22 @@ public class EasyWorkflow {
         }
 
         @Override
-        public Object createAgent(ChatModel chatModel, ChatMemory aChatMemory, boolean logInput, boolean logOutput) {
+        public Object createAgent() {
             return null;
         }
     }
 
     static class RepeatStatement extends Statement {
-        int maxIterations;
-        Predicate<AgenticScope> condition;
+        private final int maxIterations;
+        private final Predicate<AgenticScope> condition;
 
-        public RepeatStatement(Predicate<AgenticScope> condition) {
-            this(5, condition);
+        public RepeatStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition) {
+            this(builder, 5, condition);
         }
 
-        public RepeatStatement(int maxIterations, Predicate<AgenticScope> condition) {
+        public RepeatStatement(AgentWorkflowBuilder<?> builder, int maxIterations, Predicate<AgenticScope> condition) {
+            super(builder);
+
             if (maxIterations < 1 || maxIterations > 100)
                 throw new IllegalArgumentException("Max iterations must be between 1 and 100");
             Objects.requireNonNull(condition, "Condition can't be null");
@@ -524,8 +567,8 @@ public class EasyWorkflow {
         }
 
         @Override
-        public Object createAgent(ChatModel chatModel, ChatMemory chatMemory, boolean logInput, boolean logOutput) {
-            Object[] subAgents = blocks.get(0).createAgents(chatModel, chatMemory, logInput, logOutput).toArray();
+        public Object createAgent() {
+            Object[] subAgents = getBlocks().get(0).createAgents().toArray();
             return AgenticServices
                     .loopBuilder()
                     .subAgents(subAgents)
@@ -536,96 +579,111 @@ public class EasyWorkflow {
     }
 
     static class IfThenStatement extends Statement {
-        Predicate<AgenticScope> condition;
+        private final Predicate<AgenticScope> condition;
 
-        public IfThenStatement(Predicate<AgenticScope> condition) {
+        public IfThenStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition) {
+            super(builder);
+
             Objects.requireNonNull(condition, "Condition can't be null");
 
             this.condition = condition;
         }
 
         @Override
-        public Object createAgent(ChatModel chatModel, ChatMemory chatMemory, boolean logInput, boolean logOutput) {
+        public Object createAgent( ) {
             return AgenticServices.conditionalBuilder()
-                    .subAgents(condition, blocks.get(0).createAgents(chatModel, chatMemory, logInput, logOutput).toArray())
+                    .subAgents(condition, getBlocks().get(0).createAgents().toArray())
                     .build();
         }
     }
 
     static class GroupStatement extends Statement {
-        private final String outputName;
-
-        public GroupStatement(String outputName) {
-            this.outputName = outputName;
+        public GroupStatement(AgentWorkflowBuilder<?> builder) {
+            super(builder);
         }
 
         @Override
-        public Object createAgent(ChatModel chatModel, ChatMemory chatMemory, boolean logInput, boolean logOutput) {
+        public Object createAgent() {
             return AgenticServices.supervisorBuilder()
-                    .outputName(outputName)
-                    .chatModel(chatModel)
-                    .subAgents(blocks.get(0).createAgents(chatModel, chatMemory, logInput, logOutput).toArray())
+                    .outputName(agentWorkflowBuilder.outputName)
+                    .chatModel(agentWorkflowBuilder.getChatModel())
+                    .subAgents(getBlocks().get(0).createAgents().toArray())
                     .responseStrategy(SupervisorResponseStrategy.SUMMARY)
                     .build();
         }
     }
 
     static class ParallelAgentsStatement extends Statement {
-        private final String outputName;
-        Function<AgenticScope, Object> outputComposer;
+        private final Function<AgenticScope, Object> outputComposer;
 
-        public ParallelAgentsStatement(String aOutputName, Function<AgenticScope, Object> aOutputComposer) {
-            outputName = aOutputName;
+        public ParallelAgentsStatement(AgentWorkflowBuilder<?> builder, Function<AgenticScope, Object> aOutputComposer) {
+            super(builder);
+
             outputComposer = aOutputComposer;
         }
 
         @Override
-        public Object createAgent(ChatModel chatModel, ChatMemory chatMemory, boolean logInput, boolean logOutput) {
+        public Object createAgent() {
             Function<AgenticScope, Object> composer = outputComposer;
-            if (composer == null && outputName != null && ! outputName.isEmpty()) {
+            if (composer == null && agentWorkflowBuilder.getOutputName() != null && ! agentWorkflowBuilder.getOutputName().isEmpty()) {
                 List<String> outputNames = new ArrayList<>();
-                for (Expression expression : blocks.get(0).getExpressions()) {
+                for (Expression expression : getBlocks().get(0).getExpressions()) {
                     if (expression instanceof AgentExpression agentExpression)
                         outputNames.add(agentExpression.getOutputName());
                 }
-                composer = ResultComposers.asMap(outputNames.toArray(new String[0]));
+                composer = OutputComposers.asMap(outputNames.toArray(new String[0]));
             }
+
+            ExecutorService executor = agentWorkflowBuilder.getExecutor();
+
             ParallelAgentService<UntypedAgent> builder = AgenticServices
                     .parallelBuilder()
-                    .subAgents(blocks.get(0).createAgents(chatModel, chatMemory, logInput, logOutput).toArray())
-                    .executor(getSharedExecutorService())
-                    .outputName(outputName);
+                    .subAgents(getBlocks().get(0).createAgents().toArray())
+                    .executor(executor != null ? executor : getSharedExecutorService())
+                    .outputName(agentWorkflowBuilder.getOutputName());
 
-            if (logOutput && composer != null)
+            if (agentWorkflowBuilder.isLogOutput() && composer != null) {
                 builder.output(composer.andThen(result -> {
-                    logOutput(ParallelAgentService.class, outputName, result);
+                    logOutput(ParallelAgentService.class, agentWorkflowBuilder.outputName, result);
                     return result;
                 }));
-            else
+            } else {
                 builder.output(composer);
+            }
 
             return builder.build();
         }
     }
 
     static class AgentExpression implements Expression {
-        Class<?> agentClass;
-        Object agent;
-        String outputName;
-        Consumer<AgentBuilder<?>> configurator;
+        private final AgentWorkflowBuilder<?> agentWorkflowBuilder;
+        private Class<?> agentClass;
+        private Object agent;
+        private final String outputName;
+        private final Consumer<AgentBuilder<?>> configurator;
 
-        public AgentExpression(Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
+        public AgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
             Objects.requireNonNull(agent, "Agent can't be null");
+            this.agentWorkflowBuilder = agentWorkflowBuilder;
             this.agent = agent;
             this.outputName = outputName;
             this.configurator = configurator;
         }
 
-        public AgentExpression(Class<?> agentClass, String outputName, Consumer<AgentBuilder<?>> configurator) {
+        public AgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Class<?> agentClass, String outputName, Consumer<AgentBuilder<?>> configurator) {
             Objects.requireNonNull(agentClass, "Agent class can't be null");
+            this.agentWorkflowBuilder = agentWorkflowBuilder;
             this.agentClass = agentClass;
             this.outputName = outputName;
             this.configurator = configurator;
+        }
+
+        public Class<?> getAgentClass() {
+            return agentClass;
+        }
+
+        public Object getAgent() {
+            return agent;
         }
 
         protected static String getOutputName(Class<?> agentClass) {
@@ -641,21 +699,20 @@ public class EasyWorkflow {
         }
 
         @Override
-        public Object createAgent(ChatModel chatModel, ChatMemory chatMemory, boolean logInput, boolean logOutput) {
+        public Object createAgent() {
             Object result = agent;
             if (result == null) {
                 String outName = getOutputName();
                 AgentBuilder<?> agentBuilder = createAgentBuilder()
-                        .chatModel(chatModel);
+                        .chatModel(agentWorkflowBuilder.getChatModel());
                 if (outName != null && !outName.isEmpty())
                     agentBuilder.outputName(outName);
+                ChatMemory chatMemory = agentWorkflowBuilder.getChatMemory();
                 if (chatMemory != null)
                     agentBuilder.chatMemoryProvider(memoryId -> chatMemory);
 
-                if (logInput)
-                    agentBuilder.inputGuardrails(new LoggingGuardrails.Input(agentClass));
-                if (logOutput)
-                    agentBuilder.outputGuardrails(new LoggingGuardrails.Output(agentClass, outName));
+                createLogging(agentWorkflowBuilder.isLogInput(), agentWorkflowBuilder.isLogOutput(), agentBuilder, outName);
+                invokeAnnotatedConfigurator(agentBuilder);
 
                 if (configurator != null)
                     configurator.accept(agentBuilder);
@@ -664,6 +721,29 @@ public class EasyWorkflow {
             }
 
             return result;
+        }
+
+        private void createLogging(boolean logInput, boolean logOutput, AgentBuilder<?> agentBuilder, String outName) {
+            if (logInput)
+                agentBuilder.inputGuardrails(new LoggingGuardrails.Input(agentClass));
+            if (logOutput)
+                agentBuilder.outputGuardrails(new LoggingGuardrails.Output(agentClass, outName));
+        }
+
+        private void invokeAnnotatedConfigurator(AgentBuilder<?> agentBuilder) {
+            for (Method method : agentClass.getDeclaredMethods()) {
+                if (method.isAnnotationPresent(AgentBuilderConfigurator.class)
+                        && Modifier.isStatic(method.getModifiers())
+                        && Modifier.isPublic(method.getModifiers())
+                        && method.getParameterCount() == 1
+                        && method.getParameterTypes()[0].isAssignableFrom(agentBuilder.getClass())) {
+                    try {
+                        method.invoke(null, agentBuilder);
+                    } catch (Exception e) {
+                        logger.warn("Failed to invoke AgentBuilderConfigurator method {}.{}", agentClass.getName(), method.getName(), e);
+                    }
+                }
+            }
         }
 
         protected AgentBuilder<?> createAgentBuilder() {
@@ -678,17 +758,17 @@ public class EasyWorkflow {
     static class RemoteAgentExpression extends AgentExpression {
         private final String url;
 
-        public RemoteAgentExpression(String url, Class<?> agentClass, String outputName) {
-            super(agentClass, outputName, null);
+        public RemoteAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, String url, Class<?> agentClass, String outputName) {
+            super(agentWorkflowBuilder, agentClass, outputName, null);
             this.url = url;
         }
 
         @Override
-        public Object createAgent(ChatModel chatModel, ChatMemory chatMemory, boolean logInput, boolean logOutput) {
-            Object result = agent;
+        public Object createAgent() {
+            Object result = getAgent();
             if (result == null) {
                 String outName = getOutputName();
-                A2AClientBuilder<?> agentBuilder = AgenticServices.a2aBuilder(url, agentClass);
+                A2AClientBuilder<?> agentBuilder = AgenticServices.a2aBuilder(url, getAgentClass());
                 if (outName != null && !outName.isEmpty())
                     agentBuilder.outputName(outName);
                 result = agentBuilder.build();
@@ -702,7 +782,7 @@ public class EasyWorkflow {
      * A shared {@link ExecutorService} used for parallel agent execution. It is initialized on first use and can be
      * explicitly closed.
      */
-    static AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
+    private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
 
     /**
      * Retrieves the shared {@link ExecutorService}. If it hasn't been initialized, it creates a new fixed thread pool
@@ -727,32 +807,6 @@ public class EasyWorkflow {
         ExecutorService executorService = sharedExecutorService.getAndSet(null);
         if (executorService != null)
             executorService.shutdownNow();
-    }
-
-    /**
-     * Creates a {@link HumanInTheLoop} agent that interacts with the user via the console.
-     *
-     * @param outputName The name to assign to the output of this human-in-the-loop agent.
-     * @param description A description of the human's role or the prompt to display to the human.
-     * @return A new {@link HumanInTheLoop} instance configured for console interaction.
-     */
-    public static HumanInTheLoop consoleHumanInTheLoopAgent(String outputName, String description) {
-        return AgenticServices
-                .humanInTheLoopBuilder()
-                .description(description)
-                .outputName(outputName)
-                .requestWriter(request -> {
-                    System.out.println(request);
-                    System.out.print("> ");
-                })
-                .responseReader(() -> {
-                    try (Scanner scanner = new Scanner(System.in)) {
-                        String confirmation = scanner.nextLine();
-                        System.out.println("Proceeding...");
-                        return confirmation;
-                    }
-                })
-                .build();
     }
 
     private static final Logger logger = LoggerFactory.getLogger(EasyWorkflow.class);
