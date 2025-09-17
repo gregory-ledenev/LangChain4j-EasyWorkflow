@@ -4,6 +4,22 @@ EasyWorkflow for LangChain4j is a library that offers a fluent, DSL-style API fo
 
 With EasyWorkflow, you can define workflows that include sequences of agents, conditional branches, parallel execution, agent groups, and loops, combining flexibility with elegance.
 
+```java
+NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
+        .chatModel(BASE_MODEL)
+        .agent(CreativeWriter.class)
+        .agent(AudienceEditor.class)
+        .repeat(agenticScope -> agenticScope.readState("score", 0.0) >= 0.8)
+            .agent(StyleScorer.class)
+            .agent(StyleEditor.class)
+        .end()
+        .output(OutputComposers.asBean(Novel.class))
+        .build();
+
+Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+System.out.println(novel);
+```
+
 ## Features
 
 *   **Fluent API:** A simple and intuitive DSL-style API for defining complex agent workflows.
@@ -12,6 +28,8 @@ With EasyWorkflow, you can define workflows that include sequences of agents, co
 *   **Parallel Execution:** Execute agents in parallel and compose their outputs.
 *   **Agent Grouping:** Group agents and supervise their execution.
 *   **Loops:** Repeat a sequence of agents until a condition is met.
+*   **Logging:** Simple switches to turn ON agents' input and output logging.
+*   **Output Composers:** Lots of ready-to-use output composers.
 
 ## Adding to Your Build
 
