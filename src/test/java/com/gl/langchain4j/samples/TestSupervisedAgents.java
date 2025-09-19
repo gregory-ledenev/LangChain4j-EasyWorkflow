@@ -24,8 +24,12 @@
  * /
  */
 
-package com.gl.langchain4j.easyworkflow;
+package com.gl.langchain4j.samples;
 
+import com.gl.langchain4j.easyworkflow.AgentBuilderConfigurator;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.HumanInTheLoopAgents;
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agentic.Agent;
@@ -62,19 +66,23 @@ public class TestSupervisedAgents {
         HumanInTheLoop humanInTheLoop = HumanInTheLoopAgents.consoleAgent("confirmation",
                 "An agent that asks the user to confirm transactions. YES - to confirm; any other value - to decline");
 
+        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+
         SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
                 .chatModel(BASE_MODEL)
+                .workflowDebugger(workflowDebugger)
                 .doAsGroup()
-                    .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
-                    .agent(CreditAgent.class, builder -> builder.tools(bankTool))
-                    .agent(ExchangeAgent.class) // ExchangeTool provided via @AgentBuilderConfigurator annotation
-                    .agent(humanInTheLoop)
+                .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
+                .agent(CreditAgent.class, builder -> builder.tools(bankTool))
+                .agent(ExchangeAgent.class) // ExchangeTool provided via @AgentBuilderConfigurator annotation
+                .agent(humanInTheLoop)
                 .end()
                 .build();
 
         System.out.println(supervisorAgent1.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
         System.out.println(bankTool.getBalance("Mario"));
         System.out.println(bankTool.getBalance("Georgios"));
+        System.out.println(workflowDebugger);
     }
 
     public interface WithdrawAgent {
@@ -101,6 +109,12 @@ public class TestSupervisedAgents {
     }
 
     public interface ExchangeAgent {
+        @AgentBuilderConfigurator
+        static AgentBuilder<?> configure(AgentBuilder<?> builder) {
+            builder.tools(new ExchangeTool());
+            return builder;
+        }
+
         @UserMessage("""
                      You are an operator exchanging money in different currencies.
                      Use the tool to exchange {{amount}} {{originalCurrency}} into {{targetCurrency}}
@@ -109,12 +123,6 @@ public class TestSupervisedAgents {
                      """)
         @Agent("A money exchanger that converts a given amount of money from the original to the target currency")
         Double exchange(@V("originalCurrency") String originalCurrency, @V("amount") Double amount, @V("targetCurrency") String targetCurrency);
-
-        @AgentBuilderConfigurator
-        static AgentBuilder<?> configure(AgentBuilder<?> builder) {
-            builder.tools(new ExchangeTool());
-            return builder;
-        }
     }
 
     public interface SupervisorAgent {

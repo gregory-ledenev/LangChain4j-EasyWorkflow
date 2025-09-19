@@ -24,8 +24,10 @@
  * /
  */
 
-package com.gl.langchain4j.easyworkflow;
+package com.gl.langchain4j.samples;
 
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.OutputComposers;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;

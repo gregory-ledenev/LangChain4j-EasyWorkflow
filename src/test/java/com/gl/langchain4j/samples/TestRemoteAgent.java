@@ -23,8 +23,9 @@
  * SOFTWARE.
  * /
  */
-package com.gl.langchain4j.easyworkflow;
+package com.gl.langchain4j.samples;
 
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 

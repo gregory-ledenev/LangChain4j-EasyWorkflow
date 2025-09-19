@@ -23,8 +23,9 @@
  * SOFTWARE.
  * /
  */
-package com.gl.langchain4j.easyworkflow;
+package com.gl.langchain4j.samples;
 
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.scope.AgenticScope;
@@ -36,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.prefs.Preferences;
@@ -74,14 +76,15 @@ public class TestParallelAgents {
             return moviesAndMeals;
         };
 
-        EasyWorkflow.AgentWorkflowBuilder<EveningPlannerAgent> builder = null;
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        EasyWorkflow.AgentWorkflowBuilder<EveningPlannerAgent> builder;
         try {
             // getting results in parallel and using a custom function to combine them
             builder = EasyWorkflow.builder(EveningPlannerAgent.class);
             EveningPlannerAgent eveningPlannerAgent = builder
                     .chatModel(BASE_MODEL)
                     .logOutput(true)
-                    .executor(Executors.newFixedThreadPool(2))
+                    .executor(executor)
                     .doParallel(resultFunction)
                         .outputName("plan")
                         .agent(FoodExpert.class)
@@ -124,8 +127,7 @@ public class TestParallelAgents {
             System.out.println(beanListEveningPlannerAgent.plan("happy"));
             System.out.println(genericEveningPlannerAgent.plan("sad"));
         } finally {
-            if (builder != null && builder.getExecutor() != null)
-                builder.getExecutor().shutdownNow();
+            executor.shutdownNow();
             EasyWorkflow.closeSharedExecutorService();
         }
     }

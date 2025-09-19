@@ -1,6 +1,6 @@
 # EasyWorkflow for LangChain4j
 
-EasyWorkflow for LangChain4j is a library that offers a fluent, DSL-style API for building complex agentic workflows on top of the LangChain4j Agentic framework. It removes boilerplate and makes it simple to express AI workflows in a clear, readable way.
+EasyWorkflow for LangChain4j provides a fluent DSL for building complex agentic workflows on top of the LangChain4j Agentic framework. It removes boilerplate and makes it simple to express AI workflows in a clear, readable way.
 
 With EasyWorkflow, you can define workflows that include sequences of agents, conditional branches, parallel execution, agent groups, and loops, combining flexibility with elegance.
 
@@ -11,6 +11,7 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
         .agent(AudienceEditor.class)
         .repeat(agenticScope -> agenticScope.readState("score", 0.0) >= 0.8)
             .agent(StyleScorer.class)
+            .breakpoint("Score: {{score}}")
             .agent(StyleEditor.class)
         .end()
         .output(OutputComposers.asBean(Novel.class))
@@ -22,12 +23,13 @@ System.out.println(novel);
 
 ## Features
 
-*   **Fluent API:** A simple and intuitive DSL-style API for defining complex agent workflows.
+*   **Fluent API:** A simple and intuitive DSL-style API for defining complex agentic workflows.
+*   **Workflow Debugger:** Debug agentic workflows and examine the results of their execution.
 *   **Sequential Execution:** Define a sequence of agents that will be executed one after another.
 *   **Conditional Execution:** Execute agents based on a condition.
 *   **Parallel Execution:** Execute agents in parallel and compose their outputs.
 *   **Agent Grouping:** Group agents and supervise their execution.
-*   **Loops:** Repeat a sequence of agents until a condition is met.
+*   **Loops:** Repeat a sequence of agents till a condition evaluates to `true`.
 *   **Logging:** Simple switches to turn ON agents' input and output logging.
 *   **Output Composers:** Lots of ready-to-use output composers.
 
@@ -39,7 +41,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.3</version>
+    <version>0.9.5</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -48,18 +50,22 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.3</version>
+    <version>0.9.5</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
 
 ## How to use EasyWorkflow
 
-The `EasyWorkflow` is the main entry point for creating workflows. Here’s how to use it for common tasks. To start you can use `EasyWorkflow.builder(Class<?> agentClass)` method to get a builder object and provide the main agentic interface. Then you can configure it, add agents and finally use the `build` as a terminal operation to create a configured workflow.
+The `EasyWorkflow` is the main entry point for creating workflows. Here’s how to use it for common tasks. To start you
+can use `EasyWorkflow.builder(Class<?> agentClass)` method to get a builder object and provide the main agentic
+interface. Then you can configure it, add agents and finally use the `build` as a terminal operation to create a
+configured workflow.
 
 ### 1. Basic Configuration
 
-Before adding agents, you need to configure the workflow. At a minimum, you must provide a `ChatModel`. You can also provide a `ChatMemory` instance to maintain conversation history and specify some other properties.
+Before adding agents, you need to configure the workflow. At a minimum, you must provide a `ChatModel`. You can also
+provide a `ChatMemory` instance to maintain conversation history and specify some other properties.
 
 ```java
 // Import your chat model, e.g., OpenAiChatModel
@@ -74,8 +80,6 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
 ```
 
 It is possible to set up input and output logging by using `logInput(true)` and `logOutput(true)` methods.
-
-Note: EasyWorkflows logging uses corresponding guard rails to intercept agents flow so if you use customizers to set up guard rails of your own — you should set up logging manually using `LoggingGuardrails.Input` and `LoggingGuardrails.Output` loggers.  
 
 ```java
 BeanListEveningPlannerAgent agent = EasyWorkflow.builder(BeanListEveningPlannerAgent.class)
@@ -107,10 +111,10 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
         .build();
 
 public interface CreativeWriter {
-    @UserMessage("""
+    @UserMessage('''
                  You are a creative writer. Generate a draft of a story no more than 3 sentences long around the
                  given topic. Return only the story and nothing else. The topic is {{topic}}.
-                 """)
+                 ''')
     @Agent(value = "Generates a story based on the given topic", outputName = "story")
     String generateStory(@V("topic") String topic);
 }
@@ -132,7 +136,8 @@ SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
 ```
 ### 3. Adding Control Flow
 
-For more complex workflows, you can use control flow statements like `ifThen`, `repeat`, `doParallel`, and `group`. Each of these statements opens a block that must be closed with the `end()` method.
+For more complex workflows, you can use control flow statements like `ifThen`, `repeat`, `doParallel`, and `group`. Each
+of these statements opens a block that must be closed with the `end()` method.
 
 Here's an example combining a conditional and a loop:
 
@@ -153,10 +158,122 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
 
 You can find more detailed examples in the following sections.
 
+### 4. Workflow Debugging
+
+The `WorkflowDebugger` provides debugging functionality for agentic workflows. It allows you to:
+* Examine the workflow context, including the results of agent executions.
+* Define and handle breakpoints for events like agent input and output.
+
+To use the debugger, create an instance of `WorkflowDebugger` and attach it to a workflow using the builder's 
+`debugger(...)` method:
+
+```java
+WorkflowDebugger debugger = new WorkflowDebugger();
+NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
+        .chatModel(BASE_MODEL)
+        .debugger(debugger)
+        .agent(CreativeWriter.class)
+        .agent(AudienceEditor.class)
+        .repeat(5, agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
+            .agent(StyleScorer.class)
+            .agent(StyleEditor.class)
+        .end()
+        .build();
+
+String story = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+```
+
+#### 4.1 Examining the Workflow Context
+
+The `WorkflowDebugger` captures the `AgenticScope`, which can be accessed with `getAgenticScope()` to examine the
+workflow's context and data. Note that the scope is only available after the workflow has started.
+
+You can check if a workflow is running with `isStarted()`, get its input parameters with `getWorkflowInput()`, and
+retrieve the final result with `getWorkflowResult()`.
+
+The debugger also tracks and caches all agent invocations. You can access this history with
+`getAgentInvocationTraceEntries()` to analyze the workflow process. Each entry contains details about the agent, its
+input, and its output.
+
+For a human-readable summary of the workflow execution, you can use the `WorkflowDebugger.toString(true)` method:
+```
+↓ IN > "audience": infants
+↓ IN > "topic": dragons and wizards
+↓ IN > "style": fantasy
+-----------------------
+      ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a creative writer..
+1. ▷︎ CreativeWriter
+      ↓ OUT > "story": In the mystical realm of Aethoria, where dragons soared the skies and wizards...
+-----------------------
+      ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a professional editor...
+2. ▷︎ AudienceEditor
+      ↓ OUT > "story": In a magical land, a little friend named Eryndor made a best buddy, a big, friendly...
+-----------------------
+...
+-----------------------
+◼ RESULT: Novel[story=In the enchanted realm of Aethoria, a young companion named Eryndor befriended...
+```
+
+#### 4.2 Defining and Handling Breakpoints
+
+The debugger allows you to define breakpoints that trigger custom actions. These actions can be used for logging, custom
+processing, or to pause execution for IDE debugging.
+
+The available breakpoint types are defined in `Breakpoint.Type`:
+* **AGENT_INPUT**: Triggers when an agent receives input.
+* **AGENT_OUTPUT**: Triggers when an agent produces output.
+* **SESSION_STARTED**: Triggers when a workflow session starts.
+* **SESSION_STOPPED**: Triggers when a workflow session stops.
+* **LINE**: A procedural breakpoint that triggers when reached in the workflow definition.
+
+For most breakpoint types, you can define them using `Breakpoint.builder()` and add them with
+`WorkflowDebugger.addBreakpoint()`.
+
+The following code shows how to add breakpoints to print the input for `StyleScorer.class` and to print the `score`
+output when it's greater than or equal to 0.2:
+
+```java
+WorkflowDebugger debugger = new WorkflowDebugger();
+
+debugger.addBreakpoint(Breakpoint.builder((b, ctx) -> {
+            System.out.println("INPUT: " + ctx.readState(WorkflowDebugger.KEY_INPUT, null)");" +
+        "})
+        .agentClasses(StyleScorer.class)
+        .type(WorkflowDebugger.Breakpoint.Type.INPUT)
+        .build());
+            
+debugger.addBreakpoint(Breakpoint.builder((b, ctx) -> {
+            System.out.println("SCORE: " + ctx.getState("score", 0.0)");
+        })
+        .outputNames("score")
+        .condition(ctx -> ctx.getState("score", 0.0) >= 0.2)
+        .build());
+```
+
+`LINE` breakpoints are added directly into the workflow definition using the `breakpoint()` method on the workflow 
+builder:
+```java
+NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
+        .chatModel(BASE_MODEL)
+        .workflowDebugger(workflowDebugger)
+        .agent(CreativeWriter.class)
+        .agent(AudienceEditor.class)
+        .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
+            .agent(StyleScorer.class)
+            .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
+            .agent(StyleEditor.class)
+        .end()
+        .output(OutputComposers.asBean(Novel.class))
+        .build();
+```
+
 ## Sample for Sequential and Repeatable Agents
 
-The following example shows how to create a sequential workflow with a repeatable block of agents. You may check the [Sequential Workflow](https://docs.langchain4j.dev/tutorials/agents#sequential-workflow)
-and [Loop Workflow](https://docs.langchain4j.dev/tutorials/agents#loop-workflow) for complete samples description or check the runnable test at [TestSequentialAndRepeatableAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestSequentialAndRepeatableAgents.java)
+The following example shows how to create a sequential workflow with a repeatable block of agents. You may check
+the [Sequential Workflow](https://docs.langchain4j.dev/tutorials/agents#sequential-workflow)
+and [Loop Workflow](https://docs.langchain4j.dev/tutorials/agents#loop-workflow) for complete samples description or
+check the runnable test
+at [TestSequentialAndRepeatableAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSequentialAndRepeatableAgents.java)
 
 ```java
 NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
@@ -174,7 +291,10 @@ String story = novelCreator.createNovel("dragons and wizards", "infants", "fanta
 
 ## Sample for Conditional Agents
 
-The following example shows how to create a workflow with conditional execution of agents. You may check the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow) for complete samples description or check the runnable test at [TestConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestConditionalAgents.java)
+The following example shows how to create a workflow with conditional execution of agents. You may check
+the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow) for complete samples
+description or check the runnable test
+at [TestConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestConditionalAgents.java)
 
 ```java
 ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
@@ -194,7 +314,10 @@ expertRouterAgent.ask("Should I sue my neighbor who caused this damage?");
 
 ## Sample for Parallel Agents
 
-The following example shows how to create a workflow with parallel execution of agents. You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#parallel-workflow) for complete samples description or check the runnable test at [TestParallelAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestParallelAgents.java)
+The following example shows how to create a workflow with parallel execution of agents. You may check
+the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#parallel-workflow) for complete samples
+description or check the runnable test
+at [TestParallelAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestParallelAgents.java)
 
 ```java
 Function<AgenticScope, Object> resultFunction = agenticScope -> {
@@ -224,12 +347,14 @@ eveningPlannerAgent.plan("happy");
 ## Sample for Pure Agentic AI
 
 The following example shows how to create a workflow with a supervised group of agents that form a pure agentic AI.
-You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#pure-agentic-ai) for complete samples description or check the runnable test at [TestSupervisedAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/TestSupervisedAgents.java)
+You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#pure-agentic-ai) for complete
+samples description or check the runnable test
+at [TestSupervisedAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSupervisedAgents.java)
 
 ```java
 SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
         .chatModel(BASE_MODEL)
-        .group()
+        .doAsGroup()
             .agent(WithdrawAgent.class, builder -> builder.agentBuilderCustomizer(bankTool))
             .agent(CreditAgent.class, builder -> builder.agentBuilderCustomizer(bankTool))
             .agent(ExchangeAgent.class, builder -> builder.agentBuilderCustomizer(new ExchangeTool()))

@@ -24,10 +24,14 @@
  * /
  */
 
-package com.gl.langchain4j.easyworkflow;
+package com.gl.langchain4j.samples;
 
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.OutputComposers;
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
 import dev.langchain4j.agentic.Agent;
-import dev.langchain4j.agentic.scope.AgenticScope;
+import dev.langchain4j.agentic.internal.AgenticScopeOwner;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.guardrail.OutputGuardrail;
 import dev.langchain4j.guardrail.OutputGuardrailResult;
@@ -35,6 +39,7 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 
+import java.util.Objects;
 import java.util.prefs.Preferences;
 
 /**
@@ -53,20 +58,53 @@ public class TestSequentialAndRepeatableAgents {
                 .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
                 .build();
 
+        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+
+        Breakpoint scoreBreakpoint = Breakpoint.
+                builder(Breakpoint.Type.AGENT_OUTPUT, "SCORE for '{{$agentClass}}': {{score}}")
+                .outputNames("score")
+                .condition(ctx -> ctx.readState("score", 0.0) >= 0.0)
+                .agentClasses(StyleScorer.class)
+                .enabled(false)
+                .build();
+        workflowDebugger.addBreakpoint(scoreBreakpoint);
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.SESSION_STARTED, "SESSION STARTED")
+                .build());
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.SESSION_STARTED, WorkflowDebugger.breakpointsActionToggle(true, scoreBreakpoint))
+                .build());
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.SESSION_STOPPED, "SESSION STOPPED")
+                .build());
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.AGENT_INPUT, "INPUT for '{{$agentClass}}': {{$input}}")
+                .build());
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.AGENT_OUTPUT, "OUTPUT for '{{$agentClass}}': {{$output}}")
+                .build());
+
         NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
                 .chatModel(BASE_MODEL)
-                .logOutput(true)
+                .workflowDebugger(workflowDebugger)
                 .agent(CreativeWriter.class)
                 .agent(AudienceEditor.class)
-                .repeat(agenticScope -> agenticScope.readState("score", 0.0) >= 0.8)
+                .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
                     .agent(StyleScorer.class)
+                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
                     .agent(StyleEditor.class)
                 .end()
-                .output(Novel::new)
+                .output(OutputComposers.asBean(Novel.class))
                 .build();
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
         System.out.println(novel);
+        System.out.println("Agentic Scope: " + workflowDebugger.getAgenticScope().state());
+        System.out.println(workflowDebugger.toString(true));
     }
 
     public interface CreativeWriter {
@@ -102,13 +140,7 @@ public class TestSequentialAndRepeatableAgents {
         String editStory(@V("story") String story, @V("style") String style);
     }
 
-    public record Novel(String story, double score) {
-        public Novel(AgenticScope agenticScope) {
-            this(agenticScope.readState("story", ""), agenticScope.readState("score", 0.0));
-        }
-    }
-
-    public interface NovelCreator {
+    public interface NovelCreator extends AgenticScopeOwner {
         @Agent(outputName = "story")
         Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
     }
@@ -122,6 +154,49 @@ public class TestSequentialAndRepeatableAgents {
                      """)
         @Agent(value = "Scores a story based on how well it aligns with a given style", outputName = "score")
         double scoreStyle(@V("story") String story, @V("style") String style);
+    }
+
+    public static final class Novel {
+        private String story;
+        private double score;
+
+        public void setStory(String aStory) {
+            story = aStory;
+        }
+
+        public void setScore(double aScore) {
+            score = aScore;
+        }
+
+        public String story() {
+            return story;
+        }
+
+        public double score() {
+            return score;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj == null || obj.getClass() != this.getClass()) return false;
+            var that = (Novel) obj;
+            return Objects.equals(this.story, that.story) &&
+                    Double.doubleToLongBits(this.score) == Double.doubleToLongBits(that.score);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(story, score);
+        }
+
+        @Override
+        public String toString() {
+            return "Novel[" +
+                    "story=" + story + ", " +
+                    "score=" + score + ']';
+        }
+
     }
 
     public static class LoggingOutputGuardrail implements OutputGuardrail {
