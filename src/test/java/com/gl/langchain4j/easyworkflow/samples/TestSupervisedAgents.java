@@ -24,7 +24,7 @@
  * /
  */
 
-package com.gl.langchain4j.samples;
+package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.AgentBuilderConfigurator;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;

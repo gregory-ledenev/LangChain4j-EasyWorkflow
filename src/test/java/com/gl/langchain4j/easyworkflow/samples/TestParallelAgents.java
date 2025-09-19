@@ -23,7 +23,7 @@
  * SOFTWARE.
  * /
  */
-package com.gl.langchain4j.samples;
+package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import dev.langchain4j.agent.tool.P;
