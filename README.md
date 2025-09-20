@@ -136,7 +136,7 @@ SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
 ```
 ### 3. Adding Control Flow
 
-For more complex workflows, you can use control flow statements like `ifThen`, `repeat`, `doParallel`, and `group`. Each
+For more complex workflows, you can use control flow statements like `ifThen`, `dowWhen/match`, `repeat`, `doParallel`, and `group`. Each
 of these statements opens a block that must be closed with the `end()` method.
 
 Here's an example combining a conditional and a loop:
