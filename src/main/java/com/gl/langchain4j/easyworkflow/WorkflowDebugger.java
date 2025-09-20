@@ -46,6 +46,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public static final String KEY_INPUT = "$input";
     public static final String KEY_OUTPUT = "$output";
     public static final String KEY_AGENT_CLASS = "$agentClass";
+    public static final String KEY_AGENT_CLASS_SIMPLE_NAME = "$agentClass.simpleName";
     public static final String KEY_OUTPUT_NAME = "$outputName";
 
     private static final Logger logger = LoggerFactory.getLogger(WorkflowDebugger.class);
@@ -246,6 +247,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 if (breakpoint.isEnabled() && (breakpoint.getCondition() == null || breakpoint.getCondition().test(getAgenticScope()))) {
                     if (agenticScope != null) {
                         agenticScope.writeState(KEY_AGENT_CLASS, agentClass);
+                        agenticScope.writeState(KEY_AGENT_CLASS_SIMPLE_NAME, agentClass.getSimpleName());
                         agenticScope.writeState(KEY_OUTPUT_NAME, outputName);
                     }
                     try {
@@ -253,6 +255,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                     } finally {
                         if (agenticScope != null) {
                             agenticScope.writeState(KEY_AGENT_CLASS, null);
+                            agenticScope.writeState(KEY_AGENT_CLASS_SIMPLE_NAME, null);
                             agenticScope.writeState(KEY_OUTPUT_NAME, null);
                         }
                     }

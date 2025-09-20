@@ -33,6 +33,7 @@ import dev.langchain4j.agentic.internal.AgentSpecification;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.agentic.supervisor.SupervisorResponseStrategy;
+import dev.langchain4j.agentic.workflow.ConditionalAgentService;
 import dev.langchain4j.agentic.workflow.ParallelAgentService;
 import dev.langchain4j.agentic.workflow.SequentialAgentService;
 import dev.langchain4j.guardrail.InputGuardrail;
@@ -45,17 +46,11 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.function.*;
 import java.util.stream.Collectors;
 
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
@@ -396,6 +391,31 @@ public class EasyWorkflow {
         }
 
         /**
+         * Sets a state variable in the workflow's {@link AgenticScope}. This can be used to pass data between agents or
+         * to control conditional logic.
+         *
+         * @param stateKey   The key for the state variable.
+         * @param stateValue The value for the state variable.
+         * @return This builder instance.
+         */
+        public AgentWorkflowBuilder<T> setState(String stateKey, Object stateValue) {
+            agent(new SetStatesAgent(stateKey, stateValue));
+            return this;
+        }
+
+        /**
+         * Sets multiple state variables in the workflow's {@link AgenticScope}. This can be used to pass data between
+         * agents or to control conditional logic.
+         *
+         * @param states A map of state keys to state values.
+         * @return This builder instance.
+         */
+        public AgentWorkflowBuilder<T> setStates(Map<String, Object> states) {
+            agent(new SetStatesAgent(states));
+            return this;
+        }
+
+        /**
          * Adds a remote A2A agent to the workflow using its class and specifies an output name.
          *
          * @param url The URL of the remote A2A agent.
@@ -508,6 +528,57 @@ public class EasyWorkflow {
             IfThenStatement ifThenStatement = new IfThenStatement(result, condition);
             this.addExpression(ifThenStatement);
             result.setBlock(ifThenStatement.getBlocks().get(0));
+            return result;
+        }
+
+        /**
+         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements,
+         * where each match statement's agents will execute if its condition (based on the function's
+         * result) is met.
+         *
+         * @param function A function that provides a value to be matched against in subsequent
+         *                 {@code match} statements.
+         * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen"
+         *         return to the parent builder.
+         * @see #match(Object)
+         */
+        public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function) {
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            DoWhenStatement doWhenStatement = new DoWhenStatement(result, function);
+            this.addExpression(doWhenStatement);
+            result.setBlock(doWhenStatement.getBlocks().get(0));
+            return result;
+        }
+
+        /**
+         * Adds a "match" statement to a {@code doWhen} block. The agents within this match statement will execute
+         * if the value provided here matches the value returned by the {@code doWhen} function.
+         *
+         * @param value The value to match against.
+         * @return A new builder instance representing the "match" block. Call {@code end()} to close the "match"
+         *         and return to the parent builder.
+         */
+        public AgentWorkflowBuilder<T> match(Object value) {
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            MatchStatement matchStatement = new MatchStatement(result, value);
+            this.addExpression(matchStatement);
+            result.setBlock(matchStatement.getBlocks().get(0));
+            return result;
+        }
+
+        /**
+         * Adds a "match" statement to a {@code doWhen} block. The agents within this match statement will execute
+         * if the value provided by the supplier here matches the value returned by the {@code doWhen} function.
+         *
+         * @param supplier A supplier that provides the value to match against.
+         * @return A new builder instance representing the "match" block. Call {@code end()} to close the "match"
+         *         and return to the parent builder.
+         */
+        public AgentWorkflowBuilder<T> match(Supplier<Object> supplier) {
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            MatchStatement matchStatement = new MatchStatement(result, supplier);
+            this.addExpression(matchStatement);
+            result.setBlock(matchStatement.getBlocks().get(0));
             return result;
         }
 
@@ -764,6 +835,74 @@ public class EasyWorkflow {
         }
     }
 
+    static class DoWhenStatement extends Statement {
+        private final Function<AgenticScope, Object> function;
+
+        public DoWhenStatement(AgentWorkflowBuilder<?> builder, Function<AgenticScope, Object> function) {
+            super(builder);
+
+            Objects.requireNonNull(function, "Function can't be null");
+
+            this.function = function;
+        }
+
+        @Override
+        public Object createAgent() {
+            ConditionalAgentService<UntypedAgent> builder = AgenticServices.conditionalBuilder();
+
+            for (Expression expression : getBlocks().get(0).getExpressions()) {
+                if (expression instanceof MatchStatement matchStatement) {
+                    builder.subAgents(ctx -> {
+                                Object state = function.apply(ctx);
+                                Object valueToCompare = matchStatement.getValue();
+                                return state == valueToCompare ||
+                                        (state != null && state.equals(valueToCompare)) ||
+                                        (valueToCompare != null && valueToCompare.equals(state));
+                            },
+                            matchStatement.getBlocks().get(0).createAgents().toArray());
+                } else {
+                    throw new IllegalStateException("'Syntax error: doWhen' statement may contain only 'match' statements");
+                }
+            }
+            return builder.build();
+        }
+    }
+
+
+    static class MatchStatement extends Statement {
+        private final Object value;
+        private final Supplier<Object> supplier;
+
+        public MatchStatement(AgentWorkflowBuilder<?> builder, Object value) {
+            super(builder);
+
+            this.value = value;
+            this.supplier = null;
+        }
+
+        public MatchStatement(AgentWorkflowBuilder<?> builder, Supplier<Object> supplier) {
+            super(builder);
+
+            Objects.requireNonNull(supplier);
+
+            this.supplier = supplier;
+            this.value = null;
+        }
+
+        public Object getValue() {
+            return value != null ?
+                    value :
+                    (supplier != null ? supplier.get() : null);
+        }
+
+        @Override
+        public Object createAgent() {
+            return AgenticServices.sequenceBuilder()
+                    .subAgents(getBlocks().get(0).createAgents().toArray())
+                    .build();
+        }
+    }
+
     static class GroupStatement extends Statement {
         public GroupStatement(AgentWorkflowBuilder<?> builder) {
             super(builder);
@@ -868,6 +1007,7 @@ public class EasyWorkflow {
         @Override
         public Object createAgent() {
             Object result = agent;
+
             if (result == null) {
                 String outName = getOutputName();
                 AgentBuilder<?> agentBuilder = createAgentBuilder()

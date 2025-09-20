@@ -41,7 +41,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.5</version>
+    <version>0.9.6</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -50,7 +50,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.5</version>
+    <version>0.9.6</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -289,12 +289,13 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
 String story = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
 ```
 
-## Sample for Conditional Agents
+## Sample for Conditional Agents Using ifThen
 
-The following example shows how to create a workflow with conditional execution of agents. You may check
-the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow) for complete samples
-description or check the runnable test
+The following example shows how to create a workflow with conditional execution of agents using a set of `ifThen` 
+statements. You may check the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow)
+for complete samples description or check the runnable test
 at [TestConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestConditionalAgents.java)
+
 
 ```java
 ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
@@ -310,6 +311,33 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
         .build();
 
 expertRouterAgent.ask("Should I sue my neighbor who caused this damage?");
+```
+## Sample for Conditional Agents Using doWhen
+
+The following example shows how to create a workflow with conditional execution of agents using a `doWhen` statement. 
+You may check the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow) for complete
+samples description or check the runnable test
+at [TestConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSwitchAgents.java)
+
+```java
+        ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
+        .chatModel(BASE_MODEL)
+        .chatMemory(chatMemory)
+        .agent(CategoryRouter.class)
+        .doWhen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN))
+            .match(RequestCategory.MEDICAL)
+                .agent(MedicalExpert.class)
+            .end()
+            .match(RequestCategory.LEGAL)
+                .agent(LegalExpert.class)
+            .end()
+            .match(RequestCategory.TECHNICAL)
+                .agent(TechnicalExpert.class)
+            .end()
+        .end()
+        .build();
+
+expertRouterAgent.ask("How to setup a VPN?");
 ```
 
 ## Sample for Parallel Agents

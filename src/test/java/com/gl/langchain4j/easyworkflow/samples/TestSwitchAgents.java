@@ -28,7 +28,6 @@ package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
-import com.gl.langchain4j.easyworkflow.SetStatesAgent;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.memory.ChatMemory;
@@ -49,7 +48,7 @@ import static java.lang.System.out;
  * using EasyWorkflow DSL-style
  * workflow initialization.
  */
-public class TestConditionalAgents {
+public class TestSwitchAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 
     public static void main(String[] args) {
@@ -67,27 +66,29 @@ public class TestConditionalAgents {
                 .chatModel(BASE_MODEL)
                 .chatMemory(chatMemory)
                 .workflowDebugger(workflowDebugger)
-                .setState("response", "")
                 .agent(CategoryRouter.class)
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
-                    .agent(MedicalExpert.class)
+                .doWhen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN))
+                    .match(RequestCategory.MEDICAL)
+                        .agent(MedicalExpert.class)
+                        .agent(SummaryAgent.class)
+                    .end()
+                    .match(RequestCategory.LEGAL)
+                        .agent(LegalExpert.class)
+                        .agent(SummaryAgent.class)
+                    .end()
+                    .match(RequestCategory.TECHNICAL)
+                        .agent(TechnicalExpert.class)
+                        .agent(SummaryAgent.class)
+                    .end()
                 .end()
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL)
-                    .agent(LegalExpert.class)
-                .end()
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.TECHNICAL)
-                    .agent(TechnicalExpert.class)
-                .end()
-
-                .agent(SummaryAgent.class)
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
 
-//        out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
-//        out.println(workflowDebugger.toString(true));
+        out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
 //        out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
 //        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
-        out.println(expertRouterAgent.ask("What is the meaning of life?"));
+//        out.println(expertRouterAgent.ask("What is the meaning of life?"));
+        out.println(workflowDebugger.toString(true));
     }
 
     public enum RequestCategory {
