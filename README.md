@@ -317,7 +317,7 @@ expertRouterAgent.ask("Should I sue my neighbor who caused this damage?");
 The following example shows how to create a workflow with conditional execution of agents using a `doWhen` statement. 
 You may check the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow) for complete
 samples description or check the runnable test
-at [TestConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSwitchAgents.java)
+at [TestSwitchAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSwitchAgents.java)
 
 ```java
         ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
