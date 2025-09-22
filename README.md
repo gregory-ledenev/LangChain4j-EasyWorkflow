@@ -26,6 +26,8 @@ Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantas
 System.out.println(novel);
 ```
 
+You may explore [Building AI Workflows with EasyWorkflow for LangChain4j](tutorial.md) tutorial for a quick start.
+
 ## Features
 
 *   **Fluent API:** A simple and intuitive DSL-style API for defining complex agentic workflows.
