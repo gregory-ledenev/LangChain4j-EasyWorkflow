@@ -86,10 +86,10 @@ public class SampleSupervisedAgents {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-//        System.out.println(supervisorAgent1.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
-//        System.out.println(bankTool.getBalance("Mario"));
-//        System.out.println(bankTool.getBalance("Georgios"));
-//        System.out.println(workflowDebugger);
+        System.out.println(supervisorAgent1.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
+        System.out.println(bankTool.getBalance("Mario"));
+        System.out.println(bankTool.getBalance("Georgios"));
+        System.out.println(workflowDebugger.toString(true));
     }
 
     public interface WithdrawAgent {
