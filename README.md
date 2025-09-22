@@ -2,6 +2,11 @@
 
 EasyWorkflow for LangChain4j provides a fluent DSL for building complex agentic workflows on top of the LangChain4j Agentic framework. It removes boilerplate and makes it simple to express AI workflows in a clear, readable way.
 
+On top of clean workflow design, EasyWorkflow gives you powerful tools:
+
+* Workflow Debugger – Step inside your workflows with full visibility into context and agent execution results. Set breakpoints on key events, like agent input or output, to watch your workflow come alive in real time.
+* Visual Flow Diagrams – Instantly generate flowcharts for your workflows, making it easy to debug, document, and illustrate agent logic at a glance.
+
 With EasyWorkflow, you can define workflows that include sequences of agents, conditional branches, parallel execution, agent groups, and loops, combining flexibility with elegance.
 
 ```java
