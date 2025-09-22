@@ -41,7 +41,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.6</version>
+    <version>0.9.7</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -50,7 +50,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.6</version>
+    <version>0.9.7</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -296,6 +296,15 @@ public static class QualityScorer implements WorkflowDebuggerSupport {
     public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) { this.workflowDebugger = workflowDebugger; }
 }
 ```
+ 
+#### 4.4 Getting Diagrams
+
+EasyWorkflow offers functionality to generate visual flow chart diagrams of the agentic workflow as HTML files. These diagrams
+serve as valuable tools for debugging as well as for illustration and documentation purposes. The diagrams can be
+created using the `AgentWorkflowBuilder.toHtmlFile(...)` method to save directly to a file, or the
+`AgentWorkflowBuilder.toHtml()` method to get the HTML content as a string.
+
+<img src="diagram.png" style="display: block; margin-left: auto; margin-right: auto; width: 806px;"/>
 
 ## Sample for Sequential and Repeatable Agents
 

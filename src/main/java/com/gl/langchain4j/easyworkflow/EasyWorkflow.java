@@ -359,7 +359,8 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> agent(Object agent) {
-            return agent(agent, null, null);
+            addExpression(new NonAIAgentExpression(this, agent, null, null));
+            return this;
         }
 
         /**
@@ -393,7 +394,7 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> agent(Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
-            addExpression(new AgentExpression(this, agent, outputName, configurator));
+            addExpression(new NonAIAgentExpression(this, agent, outputName, configurator));
             return this;
         }
 
@@ -406,8 +407,7 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> setState(String stateKey, Object stateValue) {
-            agent(SetStatesAgents.agentOf(stateKey, stateValue));
-            return this;
+            return setStates(SetStateAgents.agentOf(stateKey, stateValue));
         }
 
         /**
@@ -418,8 +418,7 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> setStates(Map<String, Object> states) {
-            agent(SetStatesAgents.agentOf(states));
-            return this;
+            return setStates(SetStateAgents.agentOf(states));
         }
 
         /**
@@ -430,7 +429,11 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> setStates(Supplier<Map<String, Object>> stateSupplier) {
-            agent(SetStatesAgents.agentOf(stateSupplier));
+            return setStates(SetStateAgents.agentOf(stateSupplier));
+        }
+
+        AgentWorkflowBuilder<T> setStates(Object agent) {
+            addExpression(new SetStateAgentExpression(this, agent));
             return this;
         }
 
@@ -560,6 +563,7 @@ public class EasyWorkflow {
          *
          * @param condition The condition to evaluate. Use state variables from {@code AgenticScope} com compose a
          *                  condition.
+         * @param conditionExpression textual representation of the condition should be shown in the diagram node
          * @return A new builder instance representing the "then" block. Call {@code end()} to return to the parent
          * builder.
          */
@@ -600,22 +604,50 @@ public class EasyWorkflow {
         }
 
         /**
+         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements, where
+         * each match statement's agents will execute if its condition (based on the function's result) is met.
+         *
+         * @param function A function that provides a value to be matched against in subsequent {@code match}
+         *                 statements.
+         * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen"
+         * return to the parent builder.
+         * @see #match(Object)
+         */
+        public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function) {
+            return doWhen(function, null);
+        }
+
+        /**
          * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements,
          * where each match statement's agents will execute if its condition (based on the function's
          * result) is met.
          *
          * @param function A function that provides a value to be matched against in subsequent
          *                 {@code match} statements.
+         * @param whenExpression textual representation of the function expression should be shown in the diagram node
          * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen"
          *         return to the parent builder.
          * @see #match(Object)
          */
-        public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function) {
+        public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function, String whenExpression) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
-            DoWhenStatement doWhenStatement = new DoWhenStatement(result, function);
+            DoWhenStatement doWhenStatement = new DoWhenStatement(result, function, whenExpression);
             this.addExpression(doWhenStatement);
             result.setBlock(doWhenStatement.getBlocks().get(0));
             return result;
+        }
+
+        /**
+         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements,
+         * where each match statement's agents will execute if its condition (based on the state variable's
+         * value) is met.
+         *
+         * @param stateName The name of the state variable to read from the {@link AgenticScope}.
+         * @param defaultValue The default value to use if the state variable is not found.
+         * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen" return to the parent builder.
+         */
+        public AgentWorkflowBuilder<T> doWhen(String stateName, Object defaultValue) {
+            return doWhen(agenticScope -> agenticScope.readState(stateName, defaultValue), stateName);
         }
 
         /**
@@ -826,29 +858,33 @@ public class EasyWorkflow {
         public String toHtml() {
             String mermaidCode = toMermaid();
             StringBuilder html = new StringBuilder();
-            html.append("<html>\n");
-            html.append("<head>\n");
-            html.append("<title>Workflow Diagram</title>\n");
-            html.append("<script src=\"https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js\"></script>\n");
-            html.append("<script>mermaid.initialize({startOnLoad:true});</script>\n");
-            html.append("    <style>\n" +
-                    "        .mermaid {\n" +
-                    "          width: 100%;\n" +
-                    "          min-width: 900px;       /* or your preferred minimum width */\n" +
-                    "          overflow-x: auto;\n" +
-                    "          display: block;\n" +
-                    "          /* Optionally: */\n" +
-                    "          max-width: 100vw;\n" +
-                    "        }\n" +
-                    "    </style>");
-            html.append("</head>\n");
-            html.append("<body>\n");
-            html.append("<h1>Workflow Diagram</h1>\n");
-            html.append("<div class=\"mermaid\">\n");
+            html.append("""
+                    <html>
+                    <!-- generated by https://github.com/gregory-ledenev/LangChain4j-EasyWorkflow -->
+                    <head>
+                    <title>Workflow Diagram</title>
+                    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+                    <script>mermaid.initialize({startOnLoad:true});</script>
+                        <style>
+                            .mermaid {
+                              width: 100%;
+                              min-width: 900px;
+                              overflow-x: auto;
+                              display: block;
+                              max-width: 100vw;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                    <h1>Workflow Diagram</h1>
+                    <div class="mermaid">
+                    """);
             html.append(mermaidCode);
-            html.append("</div>\n");
-            html.append("</body>\n");
-            html.append("</html>\n");
+            html.append("""
+                    </div>
+                    </body>
+                    </html>
+                    """);
             return html.toString();
         }
 
@@ -857,12 +893,12 @@ public class EasyWorkflow {
             mermaid.append("graph TD\n");
             AtomicInteger counter = new AtomicInteger(0);
             String startId = "node" + counter.getAndIncrement();
-            mermaid.append(String.format("    %s[\"Start\"]\n", startId));
+            mermaid.append(String.format("    %s([\"Start\"])\n", startId));
 
             String lastId = this.block.toMermaid(mermaid, counter, startId, null);
 
             String endId = "node" + counter.getAndIncrement();
-            mermaid.append(String.format("    %s[\"End\"]\n", endId));
+            mermaid.append(String.format("    %s([\"End\"])\n", endId));
             mermaid.append(String.format("    %s --> %s\n", lastId, endId));
 
             return mermaid.toString();
@@ -1059,14 +1095,16 @@ public class EasyWorkflow {
     }
 
     static class DoWhenStatement extends Statement {
+        private final String whenExpression;
         private final Function<AgenticScope, Object> function;
 
-        public DoWhenStatement(AgentWorkflowBuilder<?> builder, Function<AgenticScope, Object> function) {
+        public DoWhenStatement(AgentWorkflowBuilder<?> builder, Function<AgenticScope, Object> function, String whenExpression) {
             super(builder);
 
             Objects.requireNonNull(function, "Function can't be null");
 
             this.function = function;
+            this.whenExpression = whenExpression;
         }
 
         @Override
@@ -1093,7 +1131,9 @@ public class EasyWorkflow {
         @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
             String switchNodeId = "node" + counter.getAndIncrement();
-            mermaid.append(String.format("    %s{\"Switch\"}\n", switchNodeId));
+            mermaid.append(String.format("    %s{{\"Switch (%s)\"}}\n",
+                    switchNodeId,
+                    whenExpression != null && ! whenExpression.isEmpty() ? whenExpression : "..."));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, switchNodeId) :
                     String.format("    %s --> %s\n", entryNodeId, switchNodeId);
@@ -1335,17 +1375,23 @@ public class EasyWorkflow {
         @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
             String nodeId = "node" + counter.getAndIncrement();
-            String agentName = getAgentClass() != null ? getAgentClass().getSimpleName() : getAgent().getClass().getSimpleName();
-            if (agentName.startsWith("SetStatesAgent")) {
-                agentName = "Set State";
-            }
+            String agentName = getMermaidNodeLabel();
 
             mermaid.append(String.format("    %s[\"%s\"]\n", nodeId, agentName));
+            mermaid.append(String.format("    style %s fill:%s\n", nodeId, getMermaidNodeColor()));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, nodeId) :
                     String.format("    %s --> %s\n", entryNodeId, nodeId);
             mermaid.append(edge);
             return nodeId;
+        }
+
+        protected String getMermaidNodeLabel() {
+            return getAgentClass() != null ? getAgentClass().getSimpleName() : getAgent().getClass().getSimpleName();
+        }
+
+        protected String getMermaidNodeColor() {
+            return "#ffff99";
         }
 
         record WorkflowContextConfig(WorkflowContext.Input input, WorkflowContext.Output output) {}
@@ -1504,6 +1550,28 @@ public class EasyWorkflow {
         }
     }
 
+    static class NonAIAgentExpression extends AgentExpression {
+        public NonAIAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
+            super(agentWorkflowBuilder, agent, outputName, configurator);
+        }
+
+        @Override
+        protected String getMermaidNodeColor() {
+            return "#f5f5f5";
+        }
+    }
+
+    static class SetStateAgentExpression extends NonAIAgentExpression {
+        @Override
+        protected String getMermaidNodeLabel() {
+            return String.format("SetStates (%s)", String.join(", ", ((SetStateAgents.SetStateAgent) getAgent()).listStates()));
+        }
+
+        public SetStateAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent) {
+            super(agentWorkflowBuilder, agent, null, null);
+        }
+    }
+
     static class RemoteAgentExpression extends AgentExpression {
         private final String url;
 
@@ -1570,7 +1638,7 @@ public class EasyWorkflow {
         @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
             String nodeId = "node" + counter.getAndIncrement();
-            mermaid.append(String.format("    %s@{ shape: dbl-circ, label: \"Break\" }\n", nodeId));
+            mermaid.append(String.format("    %s@{ shape: dbl-circ, label: \" \" }\n", nodeId));
             mermaid.append(String.format("    style %s stroke:#f66\n", nodeId));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, nodeId) :

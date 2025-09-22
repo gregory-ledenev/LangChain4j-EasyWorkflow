@@ -69,20 +69,18 @@ public class SampleSwitchAgents {
                 .chatMemory(chatMemory)
                 .workflowDebugger(workflowDebugger)
                 .agent(CategoryRouter.class)
-                .doWhen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN))
+                .doWhen("category", RequestCategory.UNKNOWN)
                     .match(RequestCategory.MEDICAL)
                         .agent(MedicalExpert.class)
-                        .agent(SummaryAgent.class)
                     .end()
                     .match(RequestCategory.LEGAL)
                         .agent(LegalExpert.class)
-                        .agent(SummaryAgent.class)
                     .end()
                     .match(RequestCategory.TECHNICAL)
                         .agent(TechnicalExpert.class)
-                        .agent(SummaryAgent.class)
                     .end()
                 .end()
+                .agent(SummaryAgent.class)
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
 
@@ -93,9 +91,9 @@ public class SampleSwitchAgents {
         }
 
         out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
-//        out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
-//        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
-//        out.println(expertRouterAgent.ask("What is the meaning of life?"));
+        out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
+        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
+        out.println(expertRouterAgent.ask("What is the meaning of life?"));
         out.println(workflowDebugger.toString(true));
     }
 

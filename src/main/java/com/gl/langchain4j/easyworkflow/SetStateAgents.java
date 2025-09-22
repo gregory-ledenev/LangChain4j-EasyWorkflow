@@ -28,13 +28,18 @@ import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.service.V;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 
 /**
  * An agent that sets states within an {@link AgenticScope}.
  */
-public class SetStatesAgents {
+public class SetStateAgents {
+
+    public interface SetStateAgent {
+        List<String> listStates();
+    }
 
     /**
      * Creates an agent that sets states within an {@link AgenticScope} using the provided map.
@@ -69,7 +74,7 @@ public class SetStatesAgents {
     /**
      * An agent that takes a map and uses it sets states within an {@link AgenticScope}.
      */
-    public static class MapAgent {
+    public static class MapAgent implements SetStateAgent {
         private final Map<String, Object> states;
 
         /**
@@ -96,12 +101,17 @@ public class SetStatesAgents {
             agenticScope.writeStates(states);
             return null;
         }
+
+        @Override
+        public List<String> listStates() {
+            return states.keySet().stream().sorted().toList();
+        }
     }
 
     /**
      * An agent that takes a {@link Supplier} of a map and uses it to set states within an {@link AgenticScope}.
      */
-    public static class SupplierAgent {
+    public static class SupplierAgent implements SetStateAgent {
         private final Supplier<Map<String, Object>> stateSupplier;
 
         public SupplierAgent(Supplier<Map<String, Object>> aStateSupplier) {
@@ -119,6 +129,10 @@ public class SetStatesAgents {
             agenticScope.writeStates(stateSupplier.get());
             return null;
         }
-    }
 
+        @Override
+        public List<String> listStates() {
+            return stateSupplier.get().keySet().stream().sorted().toList();
+        }
+    }
 }
