@@ -50,7 +50,7 @@ import static com.gl.langchain4j.easyworkflow.OutputComposers.*;
  * using EasyWorkflow DSL-style
  * workflow initialization.
  */
-public class TestParallelAgents {
+public class SampleParallelAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 
     public static void main(String[] args) {
@@ -123,7 +123,7 @@ public class TestParallelAgents {
                     .end()
                     .outputName("result")
                     .build();
-
+            System.out.println(builder.toHtml());
             System.out.println(beanListEveningPlannerAgent.plan("happy"));
             System.out.println(genericEveningPlannerAgent.plan("sad"));
         } finally {

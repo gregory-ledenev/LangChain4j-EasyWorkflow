@@ -267,13 +267,43 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
         .build();
 ```
 
+#### 4.3 Debugging Support for Non-AI Agents
+
+It is possible to implement and use non-AI agents that are coded-manually and produce results without involving AI 
+functionality. Unfortunately, such agents can't be tracked automatically by `WofkflowDebugger` so they should be adopted 
+to support debugging. To support debugging, each agent must:
+1. Implement `WorkflowDebuggerSupport` interface and save provided instances of `WofkflowDebugger`.
+2. Call an `inputReceived(...)` method to notify debugger about input received.
+3. Call the `outputProduced(...)` method to notify debugger about output produced.
+
+```java
+public static class QualityScorer implements WorkflowDebuggerSupport {
+    private WorkflowDebugger workflowDebugger;
+    
+    @Agent(outputName = "quality")
+    public double scoreStyle(@V("story") String story) {
+        if (workflowDebugger != null) {
+            inputReceived(story);
+            outputProduced(0.74);
+        }
+        return 0.74;
+    }
+
+    @Override
+    public WorkflowDebugger getWorkflowDebugger() { return workflowDebugger; }
+
+    @Override
+    public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) { this.workflowDebugger = workflowDebugger; }
+}
+```
+
 ## Sample for Sequential and Repeatable Agents
 
 The following example shows how to create a sequential workflow with a repeatable block of agents. You may check
 the [Sequential Workflow](https://docs.langchain4j.dev/tutorials/agents#sequential-workflow)
 and [Loop Workflow](https://docs.langchain4j.dev/tutorials/agents#loop-workflow) for complete samples description or
 check the runnable test
-at [TestSequentialAndRepeatableAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSequentialAndRepeatableAgents.java)
+at [SampleSequentialAndRepeatableAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleSequentialAndRepeatableAgents.java)
 
 ```java
 NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
@@ -294,7 +324,7 @@ String story = novelCreator.createNovel("dragons and wizards", "infants", "fanta
 The following example shows how to create a workflow with conditional execution of agents using a set of `ifThen` 
 statements. You may check the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow)
 for complete samples description or check the runnable test
-at [TestConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestConditionalAgents.java)
+at [SampleConditionalAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleConditionalAgents.java)
 
 
 ```java
@@ -317,7 +347,7 @@ expertRouterAgent.ask("Should I sue my neighbor who caused this damage?");
 The following example shows how to create a workflow with conditional execution of agents using a `doWhen` statement. 
 You may check the [Conditional Workflow](https://docs.langchain4j.dev/tutorials/agents#conditional-workflow) for complete
 samples description or check the runnable test
-at [TestSwitchAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSwitchAgents.java)
+at [SampleSwitchAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleSwitchAgents.java)
 
 ```java
         ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.class)
@@ -345,7 +375,7 @@ expertRouterAgent.ask("How to setup a VPN?");
 The following example shows how to create a workflow with parallel execution of agents. You may check
 the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#parallel-workflow) for complete samples
 description or check the runnable test
-at [TestParallelAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestParallelAgents.java)
+at [SampleParallelAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleParallelAgents.java)
 
 ```java
 Function<AgenticScope, Object> resultFunction = agenticScope -> {
@@ -375,9 +405,9 @@ eveningPlannerAgent.plan("happy");
 ## Sample for Pure Agentic AI
 
 The following example shows how to create a workflow with a supervised group of agents that form a pure agentic AI.
-You may check the [Parallel Workflow](https://docs.langchain4j.dev/tutorials/agents#pure-agentic-ai) for complete
+You may check the [Pure Agentic AI](https://docs.langchain4j.dev/tutorials/agents#pure-agentic-ai) for complete
 samples description or check the runnable test
-at [TestSupervisedAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/TestSupervisedAgents.java)
+at [SampleSupervisedAgents.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleSupervisedAgents.java)
 
 ```java
 SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)

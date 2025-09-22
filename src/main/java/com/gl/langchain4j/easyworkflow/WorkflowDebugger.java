@@ -94,7 +94,18 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @return An expanded text
      */
     public static String expandTemplate(String template, AgenticScope ctx) {
-        return PromptTemplate.from(template).apply(ctx.state()).text();
+        return expandTemplate(template, ctx.state());
+    }
+
+    /**
+     * Expands a prompt template using the provided map of states.
+     *
+     * @param template The template string to expand.
+     * @param states   The map containing the state variables.
+     * @return An expanded text.
+     */
+    public static String expandTemplate(String template, Map<String, Object> states) {
+        return PromptTemplate.from(template).apply(states).text();
     }
 
     /**
@@ -110,7 +121,13 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 stream(breakpoints).forEach(toToggle -> toToggle.setEnabled(enabled));
     }
 
-    static String replaceNewLineCharacters(String text) {
+    /**
+     * Replaces newline characters in a given string with their escaped representation ("\\n").
+     *
+     * @param text The input string.
+     * @return The string with newline characters replaced, or {@code null} if the input is {@code null}.
+     */
+    public static String replaceNewLineCharacters(String text) {
         return text != null ? text.replaceAll("\\n", "\\\\n") : null;
     }
 
@@ -233,7 +250,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
     }
 
-    private void findAndExecuteBreakpoints(Breakpoint.Type type, Class<?> agentClass, String outputName) {
+    protected void findAndExecuteBreakpoints(Breakpoint.Type type, Class<?> agentClass, String outputName) {
         if (!breakpointsEnabled)
             return;
 
@@ -246,8 +263,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             if (breakpoint.matches(type, agentClass, outputName)) {
                 if (breakpoint.isEnabled() && (breakpoint.getCondition() == null || breakpoint.getCondition().test(getAgenticScope()))) {
                     if (agenticScope != null) {
-                        agenticScope.writeState(KEY_AGENT_CLASS, agentClass);
-                        agenticScope.writeState(KEY_AGENT_CLASS_SIMPLE_NAME, agentClass.getSimpleName());
+                        if (agentClass != null) {
+                            agenticScope.writeState(KEY_AGENT_CLASS, agentClass);
+                            agenticScope.writeState(KEY_AGENT_CLASS_SIMPLE_NAME, agentClass.getSimpleName());
+                        }
                         agenticScope.writeState(KEY_OUTPUT_NAME, outputName);
                     }
                     try {

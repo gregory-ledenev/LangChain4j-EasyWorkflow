@@ -40,6 +40,7 @@ import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.prefs.Preferences;
@@ -49,7 +50,7 @@ import java.util.prefs.Preferences;
  * <a href="https://docs.langchain4j.dev/tutorials/agents#pure-agentic-ai">Pure Agentic AI</a>
  * using EasyWorkflow DSL-style workflow initialization.
  */
-public class TestSupervisedAgents {
+public class SampleSupervisedAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 
     public static void main(String[] args) {
@@ -68,7 +69,8 @@ public class TestSupervisedAgents {
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
 
-        SupervisorAgent supervisorAgent1 = EasyWorkflow.builder(SupervisorAgent.class)
+        EasyWorkflow.AgentWorkflowBuilder<SupervisorAgent> workflowBuilder = EasyWorkflow.builder(SupervisorAgent.class);
+        SupervisorAgent supervisorAgent1 = workflowBuilder
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(workflowDebugger)
                 .doAsGroup()
@@ -79,6 +81,11 @@ public class TestSupervisedAgents {
                 .end()
                 .build();
 
+        try {
+            workflowBuilder.toHtmlFile("workflow.html");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
         System.out.println(supervisorAgent1.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
         System.out.println(bankTool.getBalance("Mario"));
         System.out.println(bankTool.getBalance("Georgios"));

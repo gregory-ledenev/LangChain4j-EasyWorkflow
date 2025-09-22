@@ -13,7 +13,7 @@
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -43,12 +43,17 @@ import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.*;
 import java.util.stream.Collectors;
@@ -118,10 +123,10 @@ public class EasyWorkflow {
      * @param result     The output result.
      */
     public static void logOutput(Class<?> agentClass, String outputName, Object result) {
-        logger.info("Agent '{}' output: '{}' -> {}", 
-                agentClass.getSimpleName(), 
-                outputName, 
-                result.toString().replaceAll("\\n", "\\\\n"));
+        logger.info("Agent '{}' output: '{}' -> {}",
+                agentClass.getSimpleName(),
+                outputName,
+                result.toString().replaceAll("\n", "\\n"));
     }
 
     /**
@@ -139,6 +144,8 @@ public class EasyWorkflow {
      */
     interface Expression {
         Object createAgent();
+
+        String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel);
     }
 
     /**
@@ -399,7 +406,7 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> setState(String stateKey, Object stateValue) {
-            agent(new SetStatesAgent(stateKey, stateValue));
+            agent(SetStatesAgents.agentOf(stateKey, stateValue));
             return this;
         }
 
@@ -411,7 +418,19 @@ public class EasyWorkflow {
          * @return This builder instance.
          */
         public AgentWorkflowBuilder<T> setStates(Map<String, Object> states) {
-            agent(new SetStatesAgent(states));
+            agent(SetStatesAgents.agentOf(states));
+            return this;
+        }
+
+        /**
+         * Sets multiple state variables in the workflow's {@link AgenticScope} using a supplier. This can be used to
+         * pass data between agents or to control conditional logic.
+         *
+         * @param stateSupplier A supplier that provides a map of state keys to state values.
+         * @return This builder instance.
+         */
+        public AgentWorkflowBuilder<T> setStates(Supplier<Map<String, Object>> stateSupplier) {
+            agent(SetStatesAgents.agentOf(stateSupplier));
             return this;
         }
 
@@ -507,6 +526,27 @@ public class EasyWorkflow {
         }
 
         /**
+         * Starts an "if-then" conditional block. The agents added after this call and before the matching {@code end()}
+         * will only execute if the provided condition is true.
+         *
+         * <p>Example usage:</p>
+         * <pre>{@code
+         * EasyWorkflow.builder(MyAgent.class)
+         * .ifThen(scope -> scope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
+         *   .agent(AnotherAgent.class)
+         * .end()
+         * }</pre>
+         *
+         * @param condition The condition to evaluate. Use state variables from {@code AgenticScope} com compose a
+         *                  condition.
+         * @return A new builder instance representing the "then" block. Call {@code end()} to return to the parent
+         * builder.
+         */
+        public AgentWorkflowBuilder<T> ifThen(Predicate<AgenticScope> condition) {
+            return ifThen(condition, null);
+        }
+
+        /**
         * Starts an "if-then" conditional block. The agents added after this call and before the matching {@code end()}
          * will only execute if the provided condition is true.
         *
@@ -523,9 +563,37 @@ public class EasyWorkflow {
          * @return A new builder instance representing the "then" block. Call {@code end()} to return to the parent
          * builder.
          */
-        public AgentWorkflowBuilder<T> ifThen(Predicate<AgenticScope> condition) {
+        public AgentWorkflowBuilder<T> ifThen(Predicate<AgenticScope> condition, String conditionExpression) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
-            IfThenStatement ifThenStatement = new IfThenStatement(result, condition);
+            IfThenStatement ifThenStatement = new IfThenStatement(result, condition, conditionExpression);
+            this.addExpression(ifThenStatement);
+            result.setBlock(ifThenStatement.getBlocks().get(0));
+            return result;
+        }
+
+        /**
+         * Starts an "else" block, which must follow an {@code ifThen} statement. The agents added after this call
+         * and before the matching {@code end()} will execute if the condition of the preceding {@code ifThen}
+         * statement is false.
+         *
+         * @return A new builder instance representing the "else" block. Call {@code end()} to return to the parent builder.
+         */
+        public AgentWorkflowBuilder<T> elseIf() {
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+
+            Predicate<AgenticScope> condition = null;
+            for (int i = block.getExpressions().size() - 1; i >= 0; i--) {
+                Expression expression = block.getExpressions().get(i);
+                if (expression instanceof IfThenStatement ifThenStatement) {
+                    condition = ifThenStatement.condition;
+                    break;
+                }
+            }
+
+            if (condition == null)
+                throw new IllegalStateException("Syntax error: misplaced 'elseIf' - no 'ifThen' statement found'");
+
+            ElseIfStatement ifThenStatement = new ElseIfStatement(result, condition.negate());
             this.addExpression(ifThenStatement);
             result.setBlock(ifThenStatement.getBlocks().get(0));
             return result;
@@ -708,11 +776,11 @@ public class EasyWorkflow {
                         if (isAgentMethod && workflowDebugger != null)
                             workflowDebugger.sessionStarted(agentClass, method, args);
 
-                        Object invocationReult = method.invoke(agent, args);
+                        Object invocationResult = method.invoke(agent, args);
 
                         if (isAgentMethod && workflowDebugger != null)
-                            workflowDebugger.sessionStopped(invocationReult);
-                        return invocationReult;
+                            workflowDebugger.sessionStopped(invocationResult);
+                        return invocationResult;
                     });
         }
 
@@ -739,6 +807,66 @@ public class EasyWorkflow {
                 return logOutput;
             return parentBuilder != null && parentBuilder.isLogOutput();
         }
+
+        /**
+         * Generates an HTML representation of the workflow diagram using Mermaid.js and writes it to the specified file.
+         *
+         * @param filePath The path to the file where the HTML should be written.
+         * @throws IOException If an I/O error occurs.
+         */
+        public void toHtmlFile(String filePath) throws IOException {
+            Files.write(Paths.get(filePath), toHtml().getBytes());
+        }
+
+        /**
+         * Generates an HTML representation of the workflow diagram using Mermaid.js.
+         *
+         * @return A string containing the HTML page with the diagram.
+         */
+        public String toHtml() {
+            String mermaidCode = toMermaid();
+            StringBuilder html = new StringBuilder();
+            html.append("<html>\n");
+            html.append("<head>\n");
+            html.append("<title>Workflow Diagram</title>\n");
+            html.append("<script src=\"https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js\"></script>\n");
+            html.append("<script>mermaid.initialize({startOnLoad:true});</script>\n");
+            html.append("    <style>\n" +
+                    "        .mermaid {\n" +
+                    "          width: 100%;\n" +
+                    "          min-width: 900px;       /* or your preferred minimum width */\n" +
+                    "          overflow-x: auto;\n" +
+                    "          display: block;\n" +
+                    "          /* Optionally: */\n" +
+                    "          max-width: 100vw;\n" +
+                    "        }\n" +
+                    "    </style>");
+            html.append("</head>\n");
+            html.append("<body>\n");
+            html.append("<h1>Workflow Diagram</h1>\n");
+            html.append("<div class=\"mermaid\">\n");
+            html.append(mermaidCode);
+            html.append("</div>\n");
+            html.append("</body>\n");
+            html.append("</html>\n");
+            return html.toString();
+        }
+
+        private String toMermaid() {
+            StringBuilder mermaid = new StringBuilder();
+            mermaid.append("graph TD\n");
+            AtomicInteger counter = new AtomicInteger(0);
+            String startId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s[\"Start\"]\n", startId));
+
+            String lastId = this.block.toMermaid(mermaid, counter, startId, null);
+
+            String endId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s[\"End\"]\n", endId));
+            mermaid.append(String.format("    %s --> %s\n", lastId, endId));
+
+            return mermaid.toString();
+        }
     }
 
     static class Block {
@@ -758,9 +886,55 @@ public class EasyWorkflow {
                     .filter(Objects::nonNull)
                     .collect(Collectors.toList());
         }
+
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String currentNodeId = entryNodeId;
+            boolean first = true;
+            for (int i = 0; i < expressions.size(); i++) {
+                Expression expr = expressions.get(i);
+                String currentEdgeLabel = first ? edgeLabel : null;
+
+                if (expr instanceof IfThenStatement && !(expr instanceof ElseIfStatement)) {
+                    IfThenStatement ifStmt = (IfThenStatement) expr;
+                    Expression nextExpr = (i + 1 < expressions.size()) ? expressions.get(i + 1) : null;
+
+                    if (nextExpr instanceof ElseIfStatement) {
+                        ElseIfStatement elseStmt = (ElseIfStatement) nextExpr;
+
+                        String ifNodeId = "node" + counter.getAndIncrement();
+                        mermaid.append(String.format("    %s{{\"If (%s)\"}}\n", ifNodeId, ifStmt.conditionExpression != null ? ifStmt.conditionExpression : "..."));
+
+                        String edge = currentEdgeLabel != null && !currentEdgeLabel.isEmpty() ?
+                                String.format("    %s-- %s -->%s\n", currentNodeId, currentEdgeLabel, ifNodeId) :
+                                String.format("    %s --> %s\n", currentNodeId, ifNodeId);
+                        mermaid.append(edge);
+
+                        String endIfNodeId = "node" + counter.getAndIncrement();
+                        mermaid.append(String.format("    %s((\"end if\"))\n", endIfNodeId));
+
+                        // then branch
+                        String thenExitNodeId = ifStmt.getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "then");
+                        mermaid.append(String.format("    %s --> %s\n", thenExitNodeId, endIfNodeId));
+
+                        // else branch
+                        String elseExitNodeId = elseStmt.getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "else");
+                        mermaid.append(String.format("    %s --> %s\n", elseExitNodeId, endIfNodeId));
+
+                        currentNodeId = endIfNodeId;
+                        i++; // Skip next expression
+                        first = false;
+                        continue;
+                    }
+                }
+
+                currentNodeId = expr.toMermaid(mermaid, counter, currentNodeId, currentEdgeLabel);
+                first = false;
+            }
+            return currentNodeId;
+        }
     }
 
-    static class Statement implements Expression {
+    static abstract class Statement implements Expression {
         final AgentWorkflowBuilder<?> agentWorkflowBuilder;
         private final List<Block> blocks;
 
@@ -789,10 +963,6 @@ public class EasyWorkflow {
         private final int maxIterations;
         private final Predicate<AgenticScope> condition;
 
-        public RepeatStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition) {
-            this(builder, 5, condition);
-        }
-
         public RepeatStatement(AgentWorkflowBuilder<?> builder, int maxIterations, Predicate<AgenticScope> condition) {
             super(builder);
 
@@ -814,17 +984,42 @@ public class EasyWorkflow {
                     .exitCondition(condition)
                     .build();
         }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String repeatNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s{\"Repeat (max: %d)\"}\n", repeatNodeId, maxIterations));
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, repeatNodeId) :
+                    String.format("    %s --> %s\n", entryNodeId, repeatNodeId);
+            mermaid.append(edge);
+
+            String loopBodyExitId = getBlocks().get(0).toMermaid(mermaid, counter, repeatNodeId, null);
+            mermaid.append(String.format("    %s -- loop --> %s\n", loopBodyExitId, repeatNodeId));
+
+            String exitNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s((\"end repeat\"))\n", exitNodeId));
+            mermaid.append(String.format("    %s -- exit --> %s\n", repeatNodeId, exitNodeId));
+
+            return exitNodeId;
+        }
     }
 
     static class IfThenStatement extends Statement {
         private final Predicate<AgenticScope> condition;
+        private final String conditionExpression;
 
         public IfThenStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition) {
+            this(builder, condition, null);
+        }
+
+        public IfThenStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition, String conditionExpression) {
             super(builder);
 
             Objects.requireNonNull(condition, "Condition can't be null");
 
             this.condition = condition;
+            this.conditionExpression = conditionExpression;
         }
 
         @Override
@@ -832,6 +1027,34 @@ public class EasyWorkflow {
             return AgenticServices.conditionalBuilder()
                     .subAgents(condition, getBlocks().get(0).createAgents().toArray())
                     .build();
+        }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String ifNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s{{\"If (%s)\"}}\n", ifNodeId, conditionExpression != null ? conditionExpression : "..."));
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, ifNodeId) :
+                    String.format("    %s --> %s\n", entryNodeId, ifNodeId);
+            mermaid.append(edge);
+
+            String endIfNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s((\"end if\"))\n", endIfNodeId));
+
+            // then branch
+            String thenExitNodeId = getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "then");
+            mermaid.append(String.format("    %s --> %s\n", thenExitNodeId, endIfNodeId));
+
+            // else branch
+            mermaid.append(String.format("    %s -- else --> %s\n", ifNodeId, endIfNodeId));
+
+            return endIfNodeId;
+        }
+    }
+
+    static class ElseIfStatement extends IfThenStatement {
+        public ElseIfStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition) {
+            super(builder, condition);
         }
     }
 
@@ -865,6 +1088,26 @@ public class EasyWorkflow {
                 }
             }
             return builder.build();
+        }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String switchNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s{\"Switch\"}\n", switchNodeId));
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, switchNodeId) :
+                    String.format("    %s --> %s\n", entryNodeId, switchNodeId);
+            mermaid.append(edge);
+
+            String endSwitchNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s((\"end switch\"))\n", endSwitchNodeId));
+
+            for (Expression expr : getBlocks().get(0).getExpressions()) {
+                String matchExitId = expr.toMermaid(mermaid, counter, switchNodeId, null);
+                mermaid.append(String.format("    %s --> %s\n", matchExitId, endSwitchNodeId));
+            }
+
+            return endSwitchNodeId;
         }
     }
 
@@ -901,6 +1144,13 @@ public class EasyWorkflow {
                     .subAgents(getBlocks().get(0).createAgents().toArray())
                     .build();
         }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            Object val = getValue();
+            String label = "match: " + (val != null ? val.toString() : "supplier");
+            return getBlocks().get(0).toMermaid(mermaid, counter, entryNodeId, label);
+        }
     }
 
     static class GroupStatement extends Statement {
@@ -916,6 +1166,26 @@ public class EasyWorkflow {
                     .subAgents(getBlocks().get(0).createAgents().toArray())
                     .responseStrategy(SupervisorResponseStrategy.SUMMARY)
                     .build();
+        }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String groupSubgraphId = "subgraph_group_" + counter.getAndIncrement();
+            mermaid.append(String.format("    subgraph %s [Group]\n", groupSubgraphId));
+
+            String groupEntryId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("        %s(\"start group\")\n", groupEntryId));
+
+            String groupExitId = getBlocks().get(0).toMermaid(mermaid, counter, groupEntryId, null);
+
+            mermaid.append("    end\n");
+
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, groupEntryId) :
+                    String.format("    %s --> %s\n", entryNodeId, groupEntryId);
+            mermaid.append(edge);
+
+            return groupExitId;
         }
     }
 
@@ -958,6 +1228,27 @@ public class EasyWorkflow {
             }
 
             return builder.build();
+        }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String parallelNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s{\"Parallel\"}\n", parallelNodeId));
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, parallelNodeId) :
+                    String.format("    %s --> %s\n", entryNodeId, parallelNodeId);
+            mermaid.append(edge);
+
+            String endParallelNodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s((\"end parallel\"))\n", endParallelNodeId));
+
+            Block parallelBlock = getBlocks().get(0);
+            for (Expression expr : parallelBlock.getExpressions()) {
+                String branchExitId = expr.toMermaid(mermaid, counter, parallelNodeId, null);
+                mermaid.append(String.format("    %s --> %s\n", branchExitId, endParallelNodeId));
+            }
+
+            return endParallelNodeId;
         }
     }
 
@@ -1007,6 +1298,7 @@ public class EasyWorkflow {
         @Override
         public Object createAgent() {
             Object result = agent;
+            WorkflowDebugger workflowDebugger = agentWorkflowBuilder.getWorkflowDebugger();
 
             if (result == null) {
                 String outName = getOutputName();
@@ -1018,7 +1310,7 @@ public class EasyWorkflow {
                 if (chatMemory != null)
                     agentBuilder.chatMemoryProvider(memoryId -> chatMemory);
 
-                WorkflowContextConfig workflowContextConfig = setupWorkflowDebugger(agentBuilder, agentWorkflowBuilder.getWorkflowDebugger(), outName);
+                WorkflowContextConfig workflowContextConfig = setupWorkflowDebugger(agentBuilder, workflowDebugger, outName);
                 setupLogging(agentBuilder, agentWorkflowBuilder.isLogInput(), agentWorkflowBuilder.isLogOutput(), outName);
 
                 invokeAnnotatedConfigurator(agentBuilder);
@@ -1032,9 +1324,28 @@ public class EasyWorkflow {
                     workflowContextConfig.input.setAgent(result);
                     workflowContextConfig.output.setAgent(result);
                 }
+            } else {
+                if (result instanceof WorkflowDebuggerSupport workflowDebuggerSupport)
+                    workflowDebuggerSupport.setWorkflowDebugger(workflowDebugger);
             }
 
             return result;
+        }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String nodeId = "node" + counter.getAndIncrement();
+            String agentName = getAgentClass() != null ? getAgentClass().getSimpleName() : getAgent().getClass().getSimpleName();
+            if (agentName.startsWith("SetStatesAgent")) {
+                agentName = "Set State";
+            }
+
+            mermaid.append(String.format("    %s[\"%s\"]\n", nodeId, agentName));
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, nodeId) :
+                    String.format("    %s --> %s\n", entryNodeId, nodeId);
+            mermaid.append(edge);
+            return nodeId;
         }
 
         record WorkflowContextConfig(WorkflowContext.Input input, WorkflowContext.Output output) {}
@@ -1087,24 +1398,26 @@ public class EasyWorkflow {
                 }
 
                 @Override
-                public AgentBuilder<?> inputGuardrails(InputGuardrail[] inputGuardrails) {
+                public AgentBuilder<?> inputGuardrails(InputGuardrail... inputGuardrails) {
                     inputGuardrailsLocal = inputGuardrailsLocal == null ?
                             inputGuardrails : mergeInputGuardrails(inputGuardrailsLocal, inputGuardrails);
 
                     return super.inputGuardrails(inputGuardrailsLocal);
                 }
 
-                private OutputGuardrail[] inputGuardrails(OutputGuardrail[] existing, OutputGuardrail[] newGuardrails) {
+                private OutputGuardrail[] mergeOutputGuardrails(OutputGuardrail[] existing, OutputGuardrail[] newGuardrails) {
                     return mergeGuardrails(existing, newGuardrails, OutputGuardrail.class);
                 }
 
                 @Override
-                public AgentBuilder<?> outputGuardrails(OutputGuardrail[] outputGuardrails) {
+                public AgentBuilder<?> outputGuardrails(OutputGuardrail... outputGuardrails) {
                     outputGuardrailsLocal = outputGuardrailsLocal == null ?
-                            outputGuardrails : inputGuardrails(outputGuardrailsLocal, outputGuardrails);
+                            outputGuardrails : mergeOutputGuardrails(outputGuardrailsLocal, outputGuardrails);
 
                     return super.outputGuardrails(outputGuardrailsLocal);
                 }
+
+
 
                 private Class[] mergeInputGuardrailClasses(Class[] existing, Class[] newGuardrailClasses) {
                     return mergeGuardrailClasses(existing, newGuardrailClasses);
@@ -1112,10 +1425,10 @@ public class EasyWorkflow {
 
 
                 @Override
-                public AgentBuilder<?> inputGuardrailClasses(Class[] inputGuardrailClasses) {
+                public AgentBuilder<?> inputGuardrailClasses(Class... inputGuardrailClasses) {
                     inputGuardrailClassesLocal = inputGuardrailClassesLocal == null ?
                             inputGuardrailClasses : mergeInputGuardrailClasses(inputGuardrailClassesLocal, inputGuardrailClasses);
-
+	
                     return super.inputGuardrailClasses(inputGuardrailClassesLocal);
                 }
 
@@ -1124,7 +1437,7 @@ public class EasyWorkflow {
                 }
 
                 @Override
-                public AgentBuilder<?> outputGuardrailClasses(Class[] outputGuardrailClasses) {
+                public AgentBuilder<?> outputGuardrailClasses(Class... outputGuardrailClasses) {
                     outputGuardrailClassesLocal = outputGuardrailClassesLocal == null ?
                             outputGuardrailClasses : mergeOutputGuardrailClasses(outputGuardrailClassesLocal, outputGuardrailClasses);
                     return super.outputGuardrailClasses(outputGuardrailClassesLocal);
@@ -1154,7 +1467,7 @@ public class EasyWorkflow {
                         }
                     }
                     mergedList.addAll(trailingGuardrails);
-                    return mergedList.toArray((G[]) java.lang.reflect.Array.newInstance(guardrailClass, 0));
+                    return mergedList.toArray((G[]) Array.newInstance(guardrailClass, 0));
                 }
 
                 private Class[] mergeGuardrailClasses(Class[] existing, Class[] newGuardrailClasses) {
@@ -1212,6 +1525,20 @@ public class EasyWorkflow {
 
             return result;
         }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String nodeId = "node" + counter.getAndIncrement();
+            String remoteAgentName = getAgentClass() != null ? getAgentClass().getSimpleName() : "UntypedAgent";
+            String agentName = String.format("Remote Agent: %s at %s", remoteAgentName, url);
+
+            mermaid.append(String.format("    %s[\"%s\"]\n", nodeId, agentName));
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, nodeId) :
+                    String.format("    %s --> %s\n", entryNodeId, nodeId);
+            mermaid.append(edge);
+            return nodeId;
+        }
     }
 
     static class BreakpointExpression implements Expression {
@@ -1238,6 +1565,18 @@ public class EasyWorkflow {
                     .build();
             workflowDebugger.addBreakpoint(breakpoint);
             return breakpoint.createAgent(workflowDebugger);
+        }
+
+        @Override
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel) {
+            String nodeId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("    %s@{ shape: dbl-circ, label: \"Break\" }\n", nodeId));
+            mermaid.append(String.format("    style %s stroke:#f66\n", nodeId));
+            String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
+                    String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, nodeId) :
+                    String.format("    %s --> %s\n", entryNodeId, nodeId);
+            mermaid.append(edge);
+            return nodeId;
         }
     }
 }

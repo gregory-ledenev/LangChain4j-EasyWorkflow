@@ -1,0 +1,305 @@
+/*
+ *
+ * Copyright 2025 Gregory Ledenev (gregory.ledenev37@gmail.com)
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the “Software”), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ * /
+ */
+
+package com.gl.langchain4j.easyworkflow;
+
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.OutputComposers;
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
+import com.gl.langchain4j.easyworkflow.WorkflowDebuggerSupport;
+import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.agentic.internal.AgenticScopeOwner;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.guardrail.OutputGuardrail;
+import dev.langchain4j.guardrail.OutputGuardrailResult;
+import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
+import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.prefs.Preferences;
+
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class TestSequentialAndRepeatableAgents {
+    static final String GROQ_API_KEY = "groqApiKey";
+
+    @Test
+    public void test() {
+        OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
+                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
+                .build();
+
+        List<String> breakpointOutput = new ArrayList<>();
+
+        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+        workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
+                breakpointOutput.add(expandTemplate("Args: {{topic}}, {{audience}}, {{style}}", workflowDebugger.getWorkflowInput())),
+                Breakpoint.Type.SESSION_STARTED, null, true));
+        workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
+                breakpointOutput.add(expandTemplate("Result: {{story}}", ctx)),
+                Breakpoint.Type.SESSION_STOPPED, null, true));
+        workflowDebugger.addBreakpoint(new AgentBreakpoint((aBreakpoint, ctx) ->
+                breakpointOutput.add("Score: " + ctx.readState("score", 0.0)),
+                Breakpoint.Type.AGENT_OUTPUT, null, new String[]{"score"}, null, true));
+
+        Breakpoint scoreBreakpoint = Breakpoint.
+                builder(Breakpoint.Type.AGENT_OUTPUT, "SCORE for '{{$agentClass}}': {{score}}")
+                .outputNames("score")
+                .condition(ctx -> ctx.readState("score", 0.0) >= 0.0)
+                .agentClasses(StyleScorer.class)
+                .enabled(false)
+                .build();
+        workflowDebugger.addBreakpoint(scoreBreakpoint);
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.SESSION_STARTED, "SESSION STARTED")
+                .build());
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.SESSION_STARTED, breakpointsActionToggle(true, scoreBreakpoint))
+                .build());
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.SESSION_STOPPED, "SESSION STOPPED")
+                .build());
+
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.AGENT_INPUT, "INPUT for '{{$agentClass}}': {{$input}}")
+                .build());
+        workflowDebugger.addBreakpoint(Breakpoint.
+                builder(Breakpoint.Type.AGENT_OUTPUT, "OUTPUT for '{{$agentClass}}': {{$output}}")
+                .build());
+
+        EasyWorkflow.AgentWorkflowBuilder<NovelCreator> builder = EasyWorkflow.builder(NovelCreator.class)
+                .chatModel(BASE_MODEL)
+                .workflowDebugger(workflowDebugger)
+                .agent(new CreativeWriter())
+                .agent(new AudienceEditor())
+                .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
+                .agent(new StyleScorer())
+                .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
+                .agent(new StyleEditor())
+                .end()
+                .output(OutputComposers.asBean(Novel.class))
+                .agent(new QualityScorer());
+
+        System.out.println(builder.toHtml());
+        NovelCreator novelCreator = builder.build();
+
+        Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+        System.out.println(novel);
+        System.out.println(breakpointOutput);
+        System.out.println(workflowDebugger.toString(true));
+        assertEquals("[Args: dragons and wizards, infants, fantasy, Score: 0.6000000000000001, Score: 0.8, Result: Novel[story=0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!, score=0.8]]", breakpointOutput.toString());
+        assertEquals("""
+                     ↓ IN > "audience": infants
+                     ↓ IN > "topic": dragons and wizards
+                     ↓ IN > "style": fantasy
+                     -----------------------
+                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a creative writer. Generate a draft of a story no more than 3 sentences long around the\\ngiven topic.\\nReturn only the story and nothing else.\\nThe topic is dragons and wizards.\\n" }] }
+                     1. ▷︎ CreativeWriter
+                           ↓ OUT > "story": In the mystical realm of Aethoria, ancient dragons forged an unlikely alliance with powerful wizards, uniting against a dark sorcerer who threatened to destroy their world. The dragons, with their fiery breath and scales as black as coal, soared through the skies alongside the wizards, who wielded magical staffs that crackled with electric energy. Together, they clashed in a spectacular battle against the dark sorcerer's legion of shadow creatures, their combined might shaking the foundations of Aethoria.
+                     -----------------------
+                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a professional editor. Analyze and rewrite the following story to better align with the\\ntarget audience of infants.\\nReturn only the story and nothing else.\\nThe story is "In the mystical realm of Aethoria, ancient dragons forged an unlikely alliance with powerful wizards, uniting against a dark sorcerer who threatened to destroy their world. The dragons, with their fiery breath and scales as black as coal, soared through the skies alongside the wizards, who wielded magical staffs that crackled with electric energy. Together, they clashed in a spectacular battle against the dark sorcerer's legion of shadow creatures, their combined might shaking the foundations of Aethoria.".\\n" }] }
+                     2. ▷︎ AudienceEditor
+                           ↓ OUT > "story": In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!
+                     -----------------------
+                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based\\non how well it aligns with the style 'fantasy'.\\nReturn only the score and nothing else.\\nThe story is: "In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!"\\n" }] }
+                     3. ▷︎ StyleScorer
+                           ↓ OUT > "score": 0.6000000000000001
+                     -----------------------
+                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a professional editor. Analyze and rewrite the following story to better fit and be more\\ncoherent with the fantasy style.\\nReturn only the story and nothing else.\\nThe story is "In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!".\\n" }] }
+                     4. ▷︎ StyleEditor
+                           ↓ OUT > "story": 0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!
+                     -----------------------
+                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based\\non how well it aligns with the style 'fantasy'.\\nReturn only the score and nothing else.\\nThe story is: "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!"\\n" }] }
+                     5. ▷︎ StyleScorer
+                           ↓ OUT > "score": 0.8
+                     -----------------------
+                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!" }] }
+                     6. ▷︎ QualityScorer
+                           ↓ OUT > "quality": 0.74
+                     -----------------------
+                     ◼ RESULT: Novel[story=0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!, score=0.8]""",  workflowDebugger.toString(true));
+    }
+
+    public static class CreativeWriter extends WorkflowDebuggerSupport.Impl {
+        @UserMessage("""
+                     You are a creative writer. Generate a draft of a story no more than 3 sentences long around the
+                     given topic.
+                     Return only the story and nothing else.
+                     The topic is {{topic}}.
+                     """)
+        @Agent(value = "Generates a story based on the given topic", outputName = "story")
+        public String generateStory(@V("topic") String topic) {
+            inputReceived(expandUserMessage(Map.of("topic", topic)));
+            String result = """
+                            In the mystical realm of Aethoria, ancient dragons forged an unlikely alliance with powerful wizards, uniting against a dark sorcerer who threatened to destroy their world. The dragons, with their fiery breath and scales as black as coal, soared through the skies alongside the wizards, who wielded magical staffs that crackled with electric energy. Together, they clashed in a spectacular battle against the dark sorcerer's legion of shadow creatures, their combined might shaking the foundations of Aethoria.""";
+            outputProduced(result);
+            return result;
+        }
+    }
+
+    public static class AudienceEditor extends WorkflowDebuggerSupport.Impl {
+        @UserMessage("""
+                     You are a professional editor. Analyze and rewrite the following story to better align with the
+                     target audience of {{audience}}.
+                     Return only the story and nothing else.
+                     The story is "{{story}}".
+                     """)
+        @Agent(value = "Edits a story to better fit a given audience", outputName = "story")
+        public String editStory(@V("story") String story, @V("audience") String audience) {
+            inputReceived(expandUserMessage(Map.of(
+                    "story", story,
+                    "audience", audience)));
+            String result = """
+                            In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!""";
+            outputProduced(result);
+            return result;
+        }
+    }
+
+    public static class StyleEditor extends WorkflowDebuggerSupport.Impl {
+        @UserMessage("""
+                     You are a professional editor. Analyze and rewrite the following story to better fit and be more
+                     coherent with the {{style}} style.
+                     Return only the story and nothing else.
+                     The story is "{{story}}".
+                     """)
+        @Agent(value = "Edits a story to better fit a given style", outputName = "story")
+        public String editStory(@V("story") String story, @V("style") String style) {
+            inputReceived(expandUserMessage(Map.of(
+                    "story", story,
+                    "style", style)));
+            String result = passCounter + story;
+            outputProduced(result);
+            return result;
+        }
+    }
+
+    public interface NovelCreator {
+        @Agent(outputName = "story")
+        Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
+    }
+
+    static double score = 0.4;
+    static int passCounter = 0;
+
+    public static class StyleScorer extends WorkflowDebuggerSupport.Impl {
+        @UserMessage("""
+                     You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based
+                     on how well it aligns with the style '{{style}}'.
+                     Return only the score and nothing else.
+                     The story is: "{{story}}"
+                     """)
+        @Agent(value = "Scores a story based on how well it aligns with a given style", outputName = "score")
+        public double scoreStyle(@V("story") String story, @V("style") String style) {
+            inputReceived(expandUserMessage(Map.of(
+                            "story", story,
+                            "style", style)));
+            score += 0.2;
+            double result = score;
+            outputProduced(result);
+            return result;
+        }
+    }
+
+    public static class QualityScorer implements WorkflowDebuggerSupport {
+        private WorkflowDebugger workflowDebugger;
+
+        @Agent(outputName = "quality")
+        public double scoreStyle(@V("story") String story) {
+            double result = 0.74;
+            if (workflowDebugger != null) {
+                inputReceived(story);
+                outputProduced(result);
+            }
+            return result;
+        }
+
+        @Override
+        public WorkflowDebugger getWorkflowDebugger() {
+            return workflowDebugger;
+        }
+
+        @Override
+        public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
+            this.workflowDebugger = workflowDebugger;
+        }
+    }
+
+    public static final class Novel {
+        private String story;
+        private double score;
+
+        public void setStory(String aStory) {
+            story = aStory;
+        }
+
+        public void setScore(double aScore) {
+            score = aScore;
+        }
+
+        public String story() {
+            return story;
+        }
+
+        public double score() {
+            return score;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == this) return true;
+            if (obj == null || obj.getClass() != this.getClass()) return false;
+            var that = (Novel) obj;
+            return Objects.equals(this.story, that.story) &&
+                    Double.doubleToLongBits(this.score) == Double.doubleToLongBits(that.score);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(story, score);
+        }
+
+        @Override
+        public String toString() {
+            return "Novel[" +
+                    "story=" + story + ", " +
+                    "score=" + score + ']';
+        }
+
+    }
+}

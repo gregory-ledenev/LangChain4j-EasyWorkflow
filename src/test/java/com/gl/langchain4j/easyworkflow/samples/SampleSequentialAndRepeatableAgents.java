@@ -30,6 +30,7 @@ import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
+import com.gl.langchain4j.easyworkflow.WorkflowDebuggerSupport;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
 import dev.langchain4j.data.message.AiMessage;
@@ -48,7 +49,7 @@ import java.util.prefs.Preferences;
  * <a href="https://docs.langchain4j.dev/tutorials/agents#loop-workflow">Loop Workflow</a> using EasyWorkflow DSL-style
  * workflow initialization.
  */
-public class TestSequentialAndRepeatableAgents {
+public class SampleSequentialAndRepeatableAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 
     public static void main(String[] args) {
@@ -99,6 +100,7 @@ public class TestSequentialAndRepeatableAgents {
                     .agent(StyleEditor.class)
                 .end()
                 .output(OutputComposers.asBean(Novel.class))
+                .agent(new QualityScorer())
                 .build();
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
@@ -154,6 +156,30 @@ public class TestSequentialAndRepeatableAgents {
                      """)
         @Agent(value = "Scores a story based on how well it aligns with a given style", outputName = "score")
         double scoreStyle(@V("story") String story, @V("style") String style);
+    }
+
+    public static class QualityScorer implements WorkflowDebuggerSupport {
+        private WorkflowDebugger workflowDebugger;
+
+        @Agent(outputName = "quality")
+        public double scoreStyle(@V("story") String story) {
+            double result = 0.74;
+            if (workflowDebugger != null) {
+                inputReceived(story);
+                outputProduced(result);
+            }
+            return result;
+        }
+
+        @Override
+        public WorkflowDebugger getWorkflowDebugger() {
+            return workflowDebugger;
+        }
+
+        @Override
+        public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
+            this.workflowDebugger = workflowDebugger;
+        }
     }
 
     public static final class Novel {
