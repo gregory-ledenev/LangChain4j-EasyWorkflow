@@ -1216,7 +1216,30 @@ public class EasyWorkflow {
             String groupEntryId = "node" + counter.getAndIncrement();
             mermaid.append(String.format("        %s(\"start group\")\n", groupEntryId));
 
-            String groupExitId = getBlocks().get(0).toMermaid(mermaid, counter, groupEntryId, null);
+            Block groupBlock = getBlocks().get(0);
+            List<String> agentNodeIds = new ArrayList<>();
+            List<AgentExpression> agentExpressions = new ArrayList<>();
+
+            for (Expression expr : groupBlock.getExpressions()) {
+                if (expr instanceof AgentExpression) {
+                    agentExpressions.add((AgentExpression) expr);
+                }
+            }
+
+            for (AgentExpression agentExpr : agentExpressions) {
+                String nodeId = "node" + counter.getAndIncrement();
+                String agentName = agentExpr.getMermaidNodeLabel();
+                mermaid.append(String.format("        %s[\"%s\"]\n", nodeId, agentName));
+                mermaid.append(String.format("        style %s fill:%s\n", nodeId, agentExpr.getMermaidNodeColor()));
+                agentNodeIds.add(nodeId);
+            }
+
+            String groupExitId = "node" + counter.getAndIncrement();
+            mermaid.append(String.format("        %s(\"end group\")\n", groupExitId));
+
+            for (String agentNodeId : agentNodeIds) {
+                mermaid.append(String.format("        %s <--> %s <--> %s\n", groupEntryId, agentNodeId, groupExitId));
+            }
 
             mermaid.append("    end\n");
 

@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.7</version>
+    <version>0.9.8</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.7</version>
+    <version>0.9.8</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -311,7 +311,7 @@ serve as valuable tools for debugging as well as for illustration and documentat
 created using the `AgentWorkflowBuilder.toHtmlFile(...)` method to save directly to a file, or the
 `AgentWorkflowBuilder.toHtml()` method to get the HTML content as a string.
 
-<img src="diagram.png" style="display: block; margin-left: auto; margin-right: auto; width: 806px;"/>
+<img src="diagram.png" alt="" style="display: block; margin-left: auto; margin-right: auto; width: 806px;"/>
 
 ## Sample for Sequential and Repeatable Agents
 

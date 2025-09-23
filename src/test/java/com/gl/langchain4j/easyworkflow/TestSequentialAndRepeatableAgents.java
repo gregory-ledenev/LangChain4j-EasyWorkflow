@@ -107,7 +107,6 @@ public class TestSequentialAndRepeatableAgents {
                 .output(OutputComposers.asBean(Novel.class))
                 .agent(new QualityScorer());
 
-        System.out.println(builder.toHtml());
         NovelCreator novelCreator = builder.build();
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
