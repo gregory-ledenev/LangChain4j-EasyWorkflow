@@ -26,8 +26,6 @@ Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantas
 System.out.println(novel);
 ```
 
-You may explore [Building AI Workflows with EasyWorkflow for LangChain4j](tutorial.md) tutorial for a quick start.
-
 ## Features
 
 *   **Fluent API:** A simple and intuitive DSL-style API for defining complex agentic workflows.
@@ -68,6 +66,8 @@ The `EasyWorkflow` is the main entry point for creating workflows. Here’s how 
 can use `EasyWorkflow.builder(Class<?> agentClass)` method to get a builder object and provide the main agentic
 interface. Then you can configure it, add agents and finally use the `build` as a terminal operation to create a
 configured workflow.
+
+You may explore [Building AI Workflows with EasyWorkflow for LangChain4j](tutorial.md) tutorial for a quick start.
 
 ### 1. Basic Configuration
 
