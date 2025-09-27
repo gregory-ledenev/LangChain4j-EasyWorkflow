@@ -31,20 +31,13 @@ import java.lang.reflect.Method;
 import java.util.Map;
 
 /**
- * This interface provides support for debugging workflows. Non-AI agents should implement it and call
- * its {@code inputReceived()} and {@code outputProduced()} methods to notify the debugger about agent's invocation.
+ * This interface provides support for debugging workflows. Non-AI agents should implement it and call its
+ * {@code inputReceived()} and {@code outputProduced()} methods to notify the debugger about agent's invocation.
  * <p>
- * It allows setting and getting a {@link WorkflowDebugger} instance,
- * and provides default methods to notify the debugger about various workflow events.
+ * It allows setting and getting a {@link WorkflowDebugger} instance, and provides default methods to notify the
+ * debugger about various workflow events.
  */
 public interface WorkflowDebuggerSupport {
-
-    /**
-     * Sets the {@link WorkflowDebugger} instance to be used for debugging.
-     *
-     * @param workflowDebugger The {@link WorkflowDebugger} instance.
-     */
-    void setWorkflowDebugger(WorkflowDebugger workflowDebugger);
 
     /**
      * Returns the current {@link WorkflowDebugger} instance.
@@ -52,6 +45,13 @@ public interface WorkflowDebuggerSupport {
      * @return The {@link WorkflowDebugger} instance.
      */
     WorkflowDebugger getWorkflowDebugger();
+
+    /**
+     * Sets the {@link WorkflowDebugger} instance to be used for debugging.
+     *
+     * @param workflowDebugger The {@link WorkflowDebugger} instance.
+     */
+    void setWorkflowDebugger(WorkflowDebugger workflowDebugger);
 
     /**
      * Notifies the debugger that a {@link UserMessage} has been received as input.
@@ -63,8 +63,8 @@ public interface WorkflowDebuggerSupport {
     }
 
     /**
-     * Notifies the debugger that a text input has been received.
-     * This method converts the text into a {@link UserMessage}.
+     * Notifies the debugger that a text input has been received. This method converts the text into a
+     * {@link UserMessage}.
      *
      * @param text The received text input.
      */
@@ -73,9 +73,8 @@ public interface WorkflowDebuggerSupport {
     }
 
     /**
-     * Notifies the debugger that an output has been produced.
-     * It attempts to find an {@link Agent} annotation with an {@code outputName}
-     * to identify the state change.
+     * Notifies the debugger that an output has been produced. It attempts to find an {@link Agent} annotation with an
+     * {@code outputName} to identify the state change.
      *
      * @param output The produced output object.
      */
@@ -91,21 +90,30 @@ public interface WorkflowDebuggerSupport {
     }
 
     /**
-     * An abstract implementation of {@link WorkflowDebuggerSupport} that provides basic
-     * functionality for setting and getting a {@link WorkflowDebugger} instance.
-     * Non-AI agents can extend this class to easily integrate with the workflow debugger.
+     * Notifies the debugger that an output has been produced within an agentic scope.
+     *
+     * @param output The produced output object.
+     */
+    default void agenticScopeOutputProduced(Object output) {
+        getWorkflowDebugger().stateChanged(this, getClass(), "agenticScope", output);
+    }
+
+    /**
+     * An abstract implementation of {@link WorkflowDebuggerSupport} that provides basic functionality for setting and
+     * getting a {@link WorkflowDebugger} instance. Non-AI agents can extend this class to easily integrate with the
+     * workflow debugger.
      */
     public static abstract class Impl implements WorkflowDebuggerSupport {
         private WorkflowDebugger workflowDebugger;
 
         @Override
-        public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
-            this.workflowDebugger = workflowDebugger;
+        public WorkflowDebugger getWorkflowDebugger() {
+            return workflowDebugger;
         }
 
         @Override
-        public WorkflowDebugger getWorkflowDebugger() {
-            return workflowDebugger;
+        public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
+            this.workflowDebugger = workflowDebugger;
         }
 
         public String expandUserMessage(Map<String, Object> states) {
@@ -115,7 +123,7 @@ public interface WorkflowDebuggerSupport {
                 if (annotation != null) {
                     String[] value = annotation.value();
 
-                    return WorkflowDebugger.expandTemplate(String.join(annotation.delimiter(), value), states);
+                    return EasyWorkflow.expandTemplate(String.join(annotation.delimiter(), value), states);
                 }
             }
             return null;

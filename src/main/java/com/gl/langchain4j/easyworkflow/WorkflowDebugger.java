@@ -24,19 +24,30 @@
 
 package com.gl.langchain4j.easyworkflow;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.scope.AgenticScope;
+import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.text.MessageFormat;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
+
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_END;
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_START;
 
 /**
  * A debugger for the EasyWorkflow framework, allowing users to set breakpoints and inspect the workflow's flow and
@@ -57,10 +68,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());
     private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>());
     private final Map<String, Object> workflowInput = new HashMap<>();
+    private final ConcurrentHashMap<Object, EasyWorkflow.Expression> agentMetadata = new ConcurrentHashMap<>();
     private boolean breakpointsEnabled = true;
     private AgenticScope agenticScope;
     private Object workflowResult;
     private boolean started = false;
+    private EasyWorkflow.AgentWorkflowBuilder<?> agentWorkflowBuilder;
 
     /**
      * Constructs a new {@code WorkflowDebugger}. Initializes a new {@link WorkflowContext} and registers itself as the
@@ -94,18 +107,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @return An expanded text
      */
     public static String expandTemplate(String template, AgenticScope ctx) {
-        return expandTemplate(template, ctx.state());
-    }
-
-    /**
-     * Expands a prompt template using the provided map of states.
-     *
-     * @param template The template string to expand.
-     * @param states   The map containing the state variables.
-     * @return An expanded text.
-     */
-    public static String expandTemplate(String template, Map<String, Object> states) {
-        return PromptTemplate.from(template).apply(states).text();
+        return EasyWorkflow.expandTemplate(template, ctx.state());
     }
 
     /**
@@ -308,6 +310,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         this.breakpoints.clear();
     }
 
+    void registerAgentMetadata(Object agent, EasyWorkflow.Expression metadata) {
+        agentMetadata.put(agent, metadata);
+    }
+
     /**
      * Handles state change events from the {@link WorkflowContext}. This method is called when an agent's output state
      * changes. It then checks for and executes any matching {@link Breakpoint}s of type
@@ -402,6 +408,14 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
     }
 
+    public EasyWorkflow.AgentWorkflowBuilder<?> getAgentWorkflowBuilder() {
+        return agentWorkflowBuilder;
+    }
+
+    public void setAgentWorkflowBuilder(EasyWorkflow.AgentWorkflowBuilder<?> agentWorkflowBuilder) {
+        this.agentWorkflowBuilder = agentWorkflowBuilder;
+    }
+
     /**
      * Returns a string representation of the workflow debugger's state, optionally including detailed information about
      * workflow input, agent invocations, and the final result.
@@ -434,6 +448,78 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         result.append("◼ RESULT: ").append(replaceNewLineCharacters(getWorkflowResult().toString()));
 
         return result.toString();
+
+    }
+
+    public abstract static class UserMessageMixIn {
+        @JsonProperty("name")
+        abstract String name();
+
+        @JsonProperty("contents")
+        abstract int contents();
+    }
+
+    public abstract static class TextContentMixIn {
+        @JsonProperty("text")
+        abstract String text();
+
+        @JsonProperty("contents")
+        abstract String type();
+    }
+
+    private Object convertValueToJson(ObjectMapper objectMapper, Object value) {
+        if (value == null)
+            return null;
+        if (value instanceof String || value instanceof Number || value.getClass().isPrimitive() || value.getClass().isEnum())
+            return value;
+
+        try {
+            if (value.getClass().isArray() || value instanceof Collection) {
+                return objectMapper.convertValue(value, List.class);
+            } else {
+                return objectMapper.convertValue(value, Map.class);
+            }
+        } catch (Exception e) {
+            logger.warn("Unable to convert a value to JSON. Defaulting to toString()", e);
+            return value.toString();
+        }
+    }
+
+    public String toHtml() {
+        Map<String, Object> workflowResult = new HashMap<>();
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
+        objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
+
+        Map<String, Object> in = new HashMap<>();
+        workflowResult.put(FLOW_CHART_NODE_START, in);
+        in.putAll(workflowInput);
+
+        if (getWorkflowResult() != null) {
+            Map<String, Object> result = new HashMap<>();
+            workflowResult.put(FLOW_CHART_NODE_END, result);
+            result.put("result", convertValueToJson(objectMapper, getWorkflowResult()));
+        }
+
+        List<AgentInvocationTraceEntry> entries = getAgentInvocationTraceEntries();
+        for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : entries) {
+            Map<String, Object> agentResult = new HashMap<>();
+            workflowResult.put(agentMetadata.get(traceEntry.getAgent()).getId(), agentResult);
+            agentResult.put("in", convertValueToJson(objectMapper, traceEntry.input));
+            agentResult.put("out", convertValueToJson(objectMapper, traceEntry.output));
+        }
+        return agentWorkflowBuilder.toHtml(null, "A visual representation of the workflow execution (" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")", workflowResult);
+    }
+
+    /**
+     * Generates an HTML representation of the workflow diagram using Mermaid.js and writes it to the specified file.
+     *
+     * @param filePath The path to the file where the HTML should be written.
+     * @throws IOException If an I/O error occurs.
+     */
+    public void toHtmlFile(String filePath) throws IOException {
+        Files.write(Paths.get(filePath), toHtml().getBytes());
     }
 
     /**
@@ -987,7 +1073,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                                               ↓ IN: {0}
                                         {4}▷︎ {1}
                                               ↓ OUT > "{2}": {3}""",
-                    replaceNewLineCharacters(input.toString()),
+                    replaceNewLineCharacters(input != null ? input.toString() : "") ,
                     agentClass.getSimpleName(),
                     outputName != null ? outputName : "N/A",
                     output != null ? replaceNewLineCharacters(output.toString()) : "N/A",

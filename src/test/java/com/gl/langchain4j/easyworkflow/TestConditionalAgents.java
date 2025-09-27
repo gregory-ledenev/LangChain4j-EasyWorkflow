@@ -6,6 +6,7 @@ import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.V;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.Preferences;
@@ -27,9 +28,11 @@ public class TestConditionalAgents {
                 .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
                 .build();
 
+        WorkflowDebugger debugger = new WorkflowDebugger();
         EasyWorkflow.AgentWorkflowBuilder<ExpertRouterAgent> builder = EasyWorkflow.builder(ExpertRouterAgent.class);
         ExpertRouterAgent expertRouterAgent = builder
                 .chatModel(BASE_MODEL)
+                .workflowDebugger(debugger)
                 .setState("response", "")
                 .agent(new CategoryRouter())
                 .doWhen("category", RequestCategory.UNKNOWN)
@@ -49,6 +52,14 @@ public class TestConditionalAgents {
 
         assertEquals("{summary=Summary: Some medical response, response=Some medical response}", expertRouterAgent.ask("I broke my leg, what should I do?").toString());
         assertEquals("{summary=Summary: Some legal response, response=Some legal response}", expertRouterAgent.ask("Should I sue my neighbor who caused this damage?").toString());
+
+        try {
+            debugger.toHtmlFile("workflow.html");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        System.out.println(debugger.toString(true));
+
         assertEquals("{summary=Summary: Some technical response, response=Some technical response}", expertRouterAgent.ask("How to configure a VPN on Windows 10?").toString());
         assertEquals("{summary=Summary: , response=}", expertRouterAgent.ask("What is the meaning of life?").toString());
     }
@@ -97,6 +108,11 @@ public class TestConditionalAgents {
         assertEquals("{summary=Summary: Some technical response, response=Some technical response}", expertRouterAgent.ask("How to configure a VPN on Windows 10?").toString());
         assertTrue(breakpointHit.get());
         breakpointHit.set(false);
+        try {
+            workflowDebugger.toHtmlFile("workflow.html");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
 
         assertEquals("{summary=Summary: , response=}", expertRouterAgent.ask("What is the meaning of life?").toString());
         assertTrue(breakpointHit.get());
@@ -107,10 +123,13 @@ public class TestConditionalAgents {
         LEGAL, MEDICAL, TECHNICAL, UNKNOWN
     }
 
-    public static class SummaryAgent {
+    public static class SummaryAgent extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "Categorizes a user request", outputName = "summary")
         public String summary(@V("response") String response) {
-            return "Summary: " + response;
+            inputReceived(response != null && !response.isEmpty() ? response : "None");
+            String result = "Summary: " + response;
+            outputProduced(result);
+            return result;
         }
     }
 
@@ -120,9 +139,11 @@ public class TestConditionalAgents {
         Map<String, String> ask(@V("request") String request);
     }
 
-    public static class CategoryRouter {
+    public static class CategoryRouter extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "Categorizes a user request", outputName = "category")
         public RequestCategory classify(@V("request") String request) {
+            inputReceived(request);
+
             RequestCategory result = RequestCategory.UNKNOWN;
 
             if (request.contains("broke my leg"))
@@ -132,27 +153,35 @@ public class TestConditionalAgents {
             else if (request.contains("configure a VPN"))
                 result = RequestCategory.TECHNICAL;
 
+            outputProduced(result);
+
             return result;
         }
     }
 
-    public static class MedicalExpert {
+    public static class MedicalExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "A medical expert", outputName = "response")
         public String medical(@MemoryId String memoryId, @V("request") String request) {
+            inputReceived(request);
+            outputProduced(RESPONSE_MEDICAL);
             return RESPONSE_MEDICAL;
         }
     }
 
-    public static class LegalExpert {
+    public static class LegalExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "A legal expert", outputName = "response")
         public String legal(@MemoryId String memoryId, @V("request") String request) {
+            inputReceived(request);
+            outputProduced(RESPONSE_LEGAL);
             return RESPONSE_LEGAL;
         }
     }
 
-    public static class TechnicalExpert {
+    public static class TechnicalExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "A technical expert", outputName = "response")
         public String technical(@MemoryId String memoryId, @V("request") String request) {
+            inputReceived(request);
+            outputProduced(RESPONSE_TECHNICAL);
             return RESPONSE_TECHNICAL;
         }
     }

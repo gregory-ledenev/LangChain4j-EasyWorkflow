@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow;
 
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.scope.AgenticScope;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.service.V;
 
 import java.util.List;
@@ -74,7 +75,7 @@ public class SetStateAgents {
     /**
      * An agent that takes a map and uses it sets states within an {@link AgenticScope}.
      */
-    public static class MapAgent implements SetStateAgent {
+    public static class MapAgent extends WorkflowDebuggerSupport.Impl implements SetStateAgent {
         private final Map<String, Object> states;
 
         /**
@@ -98,7 +99,9 @@ public class SetStateAgents {
          */
         @Agent
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
+            inputReceived("-");
             agenticScope.writeStates(states);
+            agenticScopeOutputProduced(states);
             return null;
         }
 
@@ -111,7 +114,7 @@ public class SetStateAgents {
     /**
      * An agent that takes a {@link Supplier} of a map and uses it to set states within an {@link AgenticScope}.
      */
-    public static class SupplierAgent implements SetStateAgent {
+    public static class SupplierAgent extends WorkflowDebuggerSupport.Impl implements SetStateAgent {
         private final Supplier<Map<String, Object>> stateSupplier;
 
         public SupplierAgent(Supplier<Map<String, Object>> aStateSupplier) {
@@ -126,7 +129,10 @@ public class SetStateAgents {
          */
         @Agent
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
-            agenticScope.writeStates(stateSupplier.get());
+            inputReceived("-");
+            Map<String, Object> states = stateSupplier.get();
+            agenticScope.writeStates(states);
+            agenticScopeOutputProduced(states);
             return null;
         }
 

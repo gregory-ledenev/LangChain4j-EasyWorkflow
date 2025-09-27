@@ -33,6 +33,7 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +58,7 @@ public class TestSequentialAndRepeatableAgents {
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
         workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
-                breakpointOutput.add(expandTemplate("Args: {{topic}}, {{audience}}, {{style}}", workflowDebugger.getWorkflowInput())),
+                breakpointOutput.add(EasyWorkflow.expandTemplate("Args: {{topic}}, {{audience}}, {{style}}", workflowDebugger.getWorkflowInput())),
                 Breakpoint.Type.SESSION_STARTED, null, true));
         workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
                 breakpointOutput.add(expandTemplate("Result: {{story}}", ctx)),
@@ -99,10 +100,10 @@ public class TestSequentialAndRepeatableAgents {
                 .workflowDebugger(workflowDebugger)
                 .agent(new CreativeWriter())
                 .agent(new AudienceEditor())
-                .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
-                .agent(new StyleScorer())
-                .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
-                .agent(new StyleEditor())
+                    .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
+                    .agent(new StyleScorer())
+                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
+                    .agent(new StyleEditor())
                 .end()
                 .output(OutputComposers.asBean(Novel.class))
                 .agent(new QualityScorer());
@@ -110,6 +111,13 @@ public class TestSequentialAndRepeatableAgents {
         NovelCreator novelCreator = builder.build();
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+
+        try {
+            workflowDebugger.toHtmlFile("workflow.html");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
         System.out.println(novel);
         System.out.println(breakpointOutput);
         System.out.println(workflowDebugger.toString(true));
@@ -263,11 +271,11 @@ public class TestSequentialAndRepeatableAgents {
             score = aScore;
         }
 
-        public String story() {
+        public String getStory() {
             return story;
         }
 
-        public double score() {
+        public double getScore() {
             return score;
         }
 
