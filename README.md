@@ -320,6 +320,8 @@ views, so opening the diagram in such a view lets you monitor progress and data 
 
 <img src="diagram.png" alt="" style="display: block; margin-left: auto; margin-right: auto; width: 806px;"/>
 
+You may check a sample [Expert Agentic Workflow Diagram](workflow-sample-diagram.html) by opening it in the browser.
+
 ## Sample for Sequential and Repeatable Agents
 
 The following example shows how to create a sequential workflow with a repeatable block of agents. You may check
