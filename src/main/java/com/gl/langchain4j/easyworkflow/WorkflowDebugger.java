@@ -92,7 +92,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @param template The template string for the log message.
      * @return A {@link BiConsumer} that logs the formatted message when executed.
      */
-    public static BiConsumer<Breakpoint, AgenticScope> breakpointActionLog(String template) {
+    public static BiConsumer<Breakpoint, Map<String, Object>> breakpointActionLog(String template) {
         return (b, ctx) -> {
             String text = ctx != null ? expandTemplate(template, ctx) : template;
             logger.info(text.replaceAll("\\n", "\\\\n"));
@@ -103,11 +103,11 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Expands a prompt template using the provided {@link AgenticScope}'s state.
      *
      * @param template The template string to expand.
-     * @param ctx      The {@link AgenticScope} containing the state variables.
+     * @param ctx      The {@link Map} containing the state variables.
      * @return An expanded text
      */
-    public static String expandTemplate(String template, AgenticScope ctx) {
-        return EasyWorkflow.expandTemplate(template, ctx.state());
+    public static String expandTemplate(String template, Map<String, Object> ctx) {
+        return EasyWorkflow.expandTemplate(template, ctx);
     }
 
     /**
@@ -118,7 +118,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @param breakpoints The breakpoints to toggle.
      * @return A {@link BiConsumer} that toggles the enabled state of the specified breakpoints when executed.
      */
-    public static BiConsumer<Breakpoint, AgenticScope> breakpointsActionToggle(boolean enabled, Breakpoint... breakpoints) {
+    public static BiConsumer<Breakpoint, Map<String, Object>> breakpointsActionToggle(boolean enabled, Breakpoint... breakpoints) {
         return (b, ctx) -> Arrays.
                 stream(breakpoints).forEach(toToggle -> toToggle.setEnabled(enabled));
     }
@@ -174,7 +174,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         saveWorkflowInput(method, args);
 
         saveBreakpointsState();
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STARTED, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STARTED, null, null, null);
     }
 
     private void saveWorkflowInput(Method method, Object[] args) {
@@ -195,7 +195,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public void sessionStopped(Object result) {
         workflowResult = result;
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STOPPED, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STOPPED, null, null, null);
         resetBreakpoints();
         started = false;
     }
@@ -252,7 +252,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
     }
 
-    protected void findAndExecuteBreakpoints(Breakpoint.Type type, Class<?> agentClass, String outputName) {
+    protected void findAndExecuteBreakpoints(Breakpoint.Type type, Class<?> agentClass, String outputName, Object outputValue) {
         if (!breakpointsEnabled)
             return;
 
@@ -261,25 +261,22 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             breakpointsCopy = new ArrayList<>(breakpoints);
         }
 
+        Map<String, Object> agenticScopeState = agenticScope != null ? new HashMap<>(agenticScope.state()) : new HashMap<>();
+        if (outputValue != null) {
+            agenticScopeState.put(outputName, outputValue);
+            agenticScopeState.put(KEY_OUTPUT, outputValue);
+        }
+
         for (Breakpoint breakpoint : breakpointsCopy) {
             if (breakpoint.matches(type, agentClass, outputName)) {
-                if (breakpoint.isEnabled() && (breakpoint.getCondition() == null || breakpoint.getCondition().test(getAgenticScope()))) {
-                    if (agenticScope != null) {
-                        if (agentClass != null) {
-                            agenticScope.writeState(KEY_AGENT_CLASS, agentClass);
-                            agenticScope.writeState(KEY_AGENT_CLASS_SIMPLE_NAME, agentClass.getSimpleName());
-                        }
-                        agenticScope.writeState(KEY_OUTPUT_NAME, outputName);
+                if (breakpoint.isEnabled() && (breakpoint.getCondition() == null || breakpoint.getCondition().test(agenticScopeState))) {
+                    if (agentClass != null) {
+                        agenticScopeState.put(KEY_AGENT_CLASS, agentClass);
+                        agenticScopeState.put(KEY_AGENT_CLASS_SIMPLE_NAME, agentClass.getSimpleName());
                     }
-                    try {
-                        breakpoint.executeAction(agenticScope);
-                    } finally {
-                        if (agenticScope != null) {
-                            agenticScope.writeState(KEY_AGENT_CLASS, null);
-                            agenticScope.writeState(KEY_AGENT_CLASS_SIMPLE_NAME, null);
-                            agenticScope.writeState(KEY_OUTPUT_NAME, null);
-                        }
-                    }
+                    if (outputName != null)
+                        agenticScopeState.put(KEY_OUTPUT_NAME, outputName);
+                    breakpoint.executeAction(agenticScopeState);
                 }
             }
         }
@@ -326,16 +323,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     @Override
     public void stateChanged(Object agent, Class<?> agentClass, String stateName, Object stateValue) {
-        // hack to store state early to allow using it in debug actions
-        agenticScope.writeState(stateName, stateValue);
-        agenticScope.writeState(KEY_OUTPUT, stateValue);
-        try {
-            updateAgentInvocationTraceEntry(agent, stateName, stateValue);
-            findAndExecuteBreakpoints(Breakpoint.Type.AGENT_OUTPUT, agentClass, stateName);
-        } finally {
-            agenticScope.writeState(stateName, null);
-            agenticScope.writeState(KEY_OUTPUT, null);
-        }
+        updateAgentInvocationTraceEntry(agent, stateName, stateValue);
+        findAndExecuteBreakpoints(Breakpoint.Type.AGENT_OUTPUT, agentClass, stateName, stateValue);
     }
 
     /**
@@ -352,7 +341,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         agenticScope.writeState(KEY_INPUT, userMessage);
         try {
             addAgentInvocationTraceEntry(agent, agentClass, userMessage);
-            findAndExecuteBreakpoints(Breakpoint.Type.AGENT_INPUT, agentClass, null);
+            findAndExecuteBreakpoints(Breakpoint.Type.AGENT_INPUT, agentClass, null, null);
         } finally {
             agenticScope.writeState(KEY_INPUT, null);
         }
@@ -365,6 +354,15 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public AgenticScope getAgenticScope() {
         return agenticScope;
+    }
+
+    /**
+     * Returns a copy of the current state of the {@link AgenticScope}.
+     *
+     * @return A {@link Map} containing the state variables, or an empty map if the scope is not initialized.
+     */
+    public Map<String, Object> getAgenticScopeState() {
+        return agenticScope != null ? new HashMap<>(agenticScope.state()) : new HashMap<>();
     }
 
     Object serviceAgent() {
@@ -451,20 +449,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
     }
 
-    public abstract static class UserMessageMixIn {
-        @JsonProperty("name")
-        abstract String name();
-
-        @JsonProperty("contents")
-        abstract int contents();
-    }
-
-    public abstract static class TextContentMixIn {
-        @JsonProperty("text")
-        abstract String text();
-
-        @JsonProperty("contents")
-        abstract String type();
+    private Object convertInValueToJson(ObjectMapper objectMapper, Object value) {
+        if (value instanceof UserMessage userMessage) {
+            return userMessage.hasSingleText() ? userMessage.singleText() : convertValueToJson(objectMapper, value);
+        } else {
+            return convertValueToJson(objectMapper, value);
+        }
     }
 
     private Object convertValueToJson(ObjectMapper objectMapper, Object value) {
@@ -485,7 +475,15 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
     }
 
-    public String toHtml() {
+    /**
+     * Generates an HTML string with a visual representation of the workflow execution. It includes a flow chart diagram
+     * and an inspector that allows checking results of agent invocations.
+     *
+     * @param title    The title for the HTML page.
+     * @param subTitle The subtitle for the HTML page.
+     * @return An HTML string representing the workflow execution.
+     */
+    public String toHtml(String title, String subTitle) {
         Map<String, Object> workflowResult = new HashMap<>();
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -502,18 +500,34 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             result.put("result", convertValueToJson(objectMapper, getWorkflowResult()));
         }
 
+        Map<String, String> agentNames = new HashMap<>(); // uid -> name
         List<AgentInvocationTraceEntry> entries = getAgentInvocationTraceEntries();
         for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : entries) {
             Map<String, Object> agentResult = new HashMap<>();
-            workflowResult.put(agentMetadata.get(traceEntry.getAgent()).getId(), agentResult);
-            agentResult.put("in", convertValueToJson(objectMapper, traceEntry.input));
+            String id = agentMetadata.get(traceEntry.getAgent()).getId();
+            workflowResult.put(id, agentResult);
+            agentResult.put("in", convertInValueToJson(objectMapper, traceEntry.input));
             agentResult.put("out", convertValueToJson(objectMapper, traceEntry.output));
+            agentNames.put(id, traceEntry.getAgentName());
         }
-        return agentWorkflowBuilder.toHtml(null, "A visual representation of the workflow execution (" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")", workflowResult);
+
+        return agentWorkflowBuilder.toHtml(title, subTitle, workflowResult, agentNames);
     }
 
     /**
-     * Generates an HTML representation of the workflow diagram using Mermaid.js and writes it to the specified file.
+     * Generates an HTML string with a visual representation of the workflow execution. The title is "Workflow Diagram"
+     * and the subtitle includes the current timestamp.
+     *
+     * @return An HTML string representing the workflow execution.
+     */
+    public String toHtml() {
+        return toHtml("Workflow Diagram",
+                "A visual representation of the workflow execution (" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")");
+    }
+
+    /**
+     * Generates an HTML with a visual representation of the workflow execution. It contains a flow chart diagram and an
+     * inspector that allows checking results of agent invocations.
      *
      * @param filePath The path to the file where the HTML should be written.
      * @throws IOException If an I/O error occurs.
@@ -522,13 +536,29 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         Files.write(Paths.get(filePath), toHtml().getBytes());
     }
 
+    public abstract static class UserMessageMixIn {
+        @JsonProperty("name")
+        abstract String name();
+
+        @JsonProperty("contents")
+        abstract int contents();
+    }
+
+    public abstract static class TextContentMixIn {
+        @JsonProperty("text")
+        abstract String text();
+
+        @JsonProperty("contents")
+        abstract String type();
+    }
+
     /**
      * Represents a breakpoint that can be set in the workflow.
      */
     public static class Breakpoint {
-        private final BiConsumer<Breakpoint, AgenticScope> action;
+        private final BiConsumer<Breakpoint, Map<String, Object>> action;
         private final Breakpoint.Type type;
-        private final Predicate<AgenticScope> condition;
+        private final Predicate<Map<String, Object>> condition;
         private volatile boolean enabled;
         private volatile boolean savedEnabled;
 
@@ -540,7 +570,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param condition The condition that must be met for the breakpoint to be triggered.
          * @param enabled   {@code true} if the breakpoint is enabled, {@code false} otherwise.
          */
-        public Breakpoint(BiConsumer<Breakpoint, AgenticScope> action, Breakpoint.Type type, Predicate<AgenticScope> condition, boolean enabled) {
+        public Breakpoint(BiConsumer<Breakpoint, Map<String, Object>> action, Breakpoint.Type type, Predicate<Map<String, Object>> condition, boolean enabled) {
 
             this.action = action;
             this.type = type;
@@ -555,7 +585,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param action the action to perform when the breakpoint is hit
          * @return a new {@link BreakpointBuilder}
          */
-        public static BreakpointBuilder builder(Breakpoint.Type type, BiConsumer<Breakpoint, AgenticScope> action) {
+        public static BreakpointBuilder builder(Breakpoint.Type type, BiConsumer<Breakpoint, Map<String, Object>> action) {
             return new BreakpointBuilder(type, action);
         }
 
@@ -591,7 +621,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          *
          * @return the action to perform when the breakpoint is hit
          */
-        public BiConsumer<Breakpoint, AgenticScope> getAction() {
+        public BiConsumer<Breakpoint, Map<String, Object>> getAction() {
             return action;
         }
 
@@ -627,7 +657,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          *
          * @return the predicate condition
          */
-        public Predicate<AgenticScope> getCondition() {
+        public Predicate<Map<String, Object>> getCondition() {
             return condition;
         }
 
@@ -648,7 +678,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          *
          * @param agenticScope The {@link AgenticScope} at the time the breakpoint is hit.
          */
-        public void executeAction(AgenticScope agenticScope) {
+        public void executeAction(Map<String, Object> agenticScope) {
             action.accept(this, agenticScope);
         }
 
@@ -692,7 +722,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param condition the condition that must be met for the breakpoint to be triggered
          * @param enabled   {@code true} if the breakpoint is enabled, {@code false} otherwise
          */
-        public LineBreakpoint(BiConsumer<Breakpoint, AgenticScope> action, Predicate<AgenticScope> condition, boolean enabled) {
+        public LineBreakpoint(BiConsumer<Breakpoint, Map<String, Object>> action,
+                              Predicate<Map<String, Object>> condition,
+                              boolean enabled) {
             super(action, Type.LINE, condition, enabled);
         }
 
@@ -728,8 +760,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
         @Agent
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
-            if (lineBreakpoint.getCondition() == null || lineBreakpoint.getCondition().test(workflowDebugger.getAgenticScope()))
-                lineBreakpoint.executeAction(workflowDebugger.getAgenticScope());
+            Map<String, Object> agenticScopeState = workflowDebugger.getAgenticScopeState();
+            if (lineBreakpoint.getCondition() == null || lineBreakpoint.getCondition().test(agenticScopeState))
+                lineBreakpoint.executeAction(agenticScopeState);
             return null;
         }
     }
@@ -755,8 +788,14 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param condition    the condition that must be met for the breakpoint to be triggered
          * @param enabled      {@code true} if the breakpoint is enabled, {@code false} otherwise
          */
-        public AgentBreakpoint(BiConsumer<Breakpoint, AgenticScope> action, Type type, Class<?>[] agentClasses, String[] outputNames, Predicate<AgenticScope> condition, boolean enabled) {
+        public AgentBreakpoint(BiConsumer<Breakpoint, Map<String, Object>> action,
+                               Type type,
+                               Class<?>[] agentClasses,
+                               String[] outputNames,
+                               Predicate<Map<String, Object>> condition,
+                               boolean enabled) {
             super(action, type, condition, enabled);
+
             this.agentClasses = agentClasses;
             this.outputNames = outputNames;
             this.outputNamePatterns = outputNames != null ?
@@ -882,11 +921,11 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * A builder class for creating {@link AgentBreakpoint} instances.
      */
     public static class BreakpointBuilder {
-        private final BiConsumer<Breakpoint, AgenticScope> action;
+        private final BiConsumer<Breakpoint, Map<String, Object>> action;
         private Breakpoint.Type type = Breakpoint.Type.AGENT_OUTPUT;
         private Class<?>[] agentClasses;
         private String[] outputNames = {"*"};
-        private Predicate<AgenticScope> condition;
+        private Predicate<Map<String, Object>> condition;
         private boolean enabled = true;
 
         /**
@@ -894,7 +933,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          *
          * @param action the action to perform when the breakpoint is hit
          */
-        public BreakpointBuilder(Breakpoint.Type type, BiConsumer<Breakpoint, AgenticScope> action) {
+        public BreakpointBuilder(Breakpoint.Type type, BiConsumer<Breakpoint, Map<String, Object>> action) {
             this.type = type;
             this.action = action;
         }
@@ -931,7 +970,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param condition the predicate condition
          * @return this builder instance
          */
-        public BreakpointBuilder condition(Predicate<AgenticScope> condition) {
+        public BreakpointBuilder condition(Predicate<Map<String, Object>> condition) {
             this.condition = condition;
             return this;
         }
@@ -986,6 +1025,18 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             this.agent = agent;
             this.agentClass = agentClass;
             this.input = input;
+        }
+
+        /**
+         * Returns the name of the agent. If the agent implements {@link AgentNameProvider}, its provided name is used.
+         * Otherwise, the name provided by {@code EasyWorkflow.getAgentName(agentClass)} is returned.
+         *
+         * @return The name of the agent.
+         */
+        public String getAgentName() {
+            return agent instanceof AgentNameProvider agentNameProvider ?
+                    agentNameProvider.getAgentName() :
+                    EasyWorkflow.getAgentName(agentClass);
         }
 
         /**
@@ -1073,7 +1124,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                                               ↓ IN: {0}
                                         {4}▷︎ {1}
                                               ↓ OUT > "{2}": {3}""",
-                    replaceNewLineCharacters(input != null ? input.toString() : "") ,
+                    replaceNewLineCharacters(input != null ? input.toString() : ""),
                     agentClass.getSimpleName(),
                     outputName != null ? outputName : "N/A",
                     output != null ? replaceNewLineCharacters(output.toString()) : "N/A",

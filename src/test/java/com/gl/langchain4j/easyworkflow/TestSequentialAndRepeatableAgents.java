@@ -64,13 +64,13 @@ public class TestSequentialAndRepeatableAgents {
                 breakpointOutput.add(expandTemplate("Result: {{story}}", ctx)),
                 Breakpoint.Type.SESSION_STOPPED, null, true));
         workflowDebugger.addBreakpoint(new AgentBreakpoint((aBreakpoint, ctx) ->
-                breakpointOutput.add("Score: " + ctx.readState("score", 0.0)),
+                breakpointOutput.add("Score: " + ctx.getOrDefault("score", 0.0)),
                 Breakpoint.Type.AGENT_OUTPUT, null, new String[]{"score"}, null, true));
 
         Breakpoint scoreBreakpoint = Breakpoint.
                 builder(Breakpoint.Type.AGENT_OUTPUT, "SCORE for '{{$agentClass}}': {{score}}")
                 .outputNames("score")
-                .condition(ctx -> ctx.readState("score", 0.0) >= 0.0)
+                .condition(ctx -> ((double) ctx.getOrDefault("score", 0.0)) >= 0.0)
                 .agentClasses(StyleScorer.class)
                 .enabled(false)
                 .build();
@@ -102,7 +102,7 @@ public class TestSequentialAndRepeatableAgents {
                 .agent(new AudienceEditor())
                     .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
                     .agent(new StyleScorer())
-                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
+                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> (double)ctx.getOrDefault("score", 0.0) >= 0.0)
                     .agent(new StyleEditor())
                 .end()
                 .output(OutputComposers.asBean(Novel.class))

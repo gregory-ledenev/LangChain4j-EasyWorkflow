@@ -2,10 +2,10 @@
 
 EasyWorkflow for LangChain4j provides a fluent DSL for building complex agentic workflows on top of the LangChain4j Agentic framework. It removes boilerplate and makes it simple to express AI workflows in a clear, readable way.
 
-On top of clean workflow design, EasyWorkflow gives you powerful tools:
+On top of clean workflow design, EasyWorkflow gives you other powerful tools:
 
 * Workflow Debugger – Step inside your workflows with full visibility into context and agent execution results. Set breakpoints on key events, like agent input or output, to watch your workflow come alive in real time.
-* Visual Flow Diagrams – Instantly generate flowcharts for your workflows, making it easy to debug, document, and illustrate agent logic at a glance.
+* Visual Flow Diagrams – Instantly generate flowcharts for your workflows, making it easy to debug, inspect invocation results and progress, document, and illustrate agent logic at a glance.
 
 With EasyWorkflow, you can define workflows that include sequences of agents, conditional branches, parallel execution, agent groups, and loops, combining flexibility with elegance.
 
@@ -25,6 +25,8 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
 Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
 System.out.println(novel);
 ```
+
+> This project is currently an incubator and is expected to be merged into the core LangChain4j framework in the future. It is evolving rapidly and may take new directions. We encourage you to explore it, try it out, and share your ideas, feedback, and suggestions with us.
 
 ## Features
 
@@ -46,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.8</version>
+    <version>0.9.9</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -55,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.8</version>
+    <version>0.9.9</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -243,17 +245,17 @@ output when it's greater than or equal to 0.2:
 WorkflowDebugger debugger = new WorkflowDebugger();
 
 debugger.addBreakpoint(Breakpoint.builder((b, ctx) -> {
-            System.out.println("INPUT: " + ctx.readState(WorkflowDebugger.KEY_INPUT, null)");" +
+            System.out.println("INPUT: " + ctx.getOrDefault(WorkflowDebugger.KEY_INPUT, null)");" +
         "})
         .agentClasses(StyleScorer.class)
         .type(WorkflowDebugger.Breakpoint.Type.INPUT)
         .build());
             
 debugger.addBreakpoint(Breakpoint.builder((b, ctx) -> {
-            System.out.println("SCORE: " + ctx.getState("score", 0.0)");
+            System.out.println("SCORE: " + ctx.getOrDefault("score", 0.0)");
         })
         .outputNames("score")
-        .condition(ctx -> ctx.getState("score", 0.0) >= 0.2)
+        .condition(ctx -> (double) ctx.getOrDefault("score", 0.0) >= 0.2)
         .build());
 ```
 
@@ -267,7 +269,7 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
         .agent(AudienceEditor.class)
         .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
             .agent(StyleScorer.class)
-            .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
+            .breakpoint("SCORE (INLINE): {{score}}", ctx -> (double) ctx.getOrDefault("score", 0.0) >= 0.0)
             .agent(StyleEditor.class)
         .end()
         .output(OutputComposers.asBean(Novel.class))
@@ -304,12 +306,17 @@ public static class QualityScorer implements WorkflowDebuggerSupport {
 }
 ```
  
-#### 4.4 Getting Diagrams
+#### 4.4 Interactive Flow Chart Diagrams
 
-EasyWorkflow offers functionality to generate visual flow chart diagrams of the agentic workflow as HTML files. These diagrams
-serve as valuable tools for debugging as well as for illustration and documentation purposes. The diagrams can be
-created using the `AgentWorkflowBuilder.toHtmlFile(...)` method to save directly to a file, or the
-`AgentWorkflowBuilder.toHtml()` method to get the HTML content as a string.
+EasyWorkflow provides functionality to generate visual flowchart diagrams of agentic workflows, accompanied by the
+workflow results, as HTML files. These diagrams are invaluable for debugging, illustration, and documentation purposes.
+All agent nodes that have been invoked are highlighted with bold borders and are clickable. Clicking a node opens the
+Inspector, allowing you to preview the agent’s input and output.
+
+You can create these diagrams using the `WorkflowDebugger.toHtmlFile(...)` method to save the diagram directly to an
+HTML file, or the `WorkflowDebugger.toHtml()` method to obtain the HTML content as a string. Generating the HTML file at
+breakpoints enables visualization of workflow progress. Some IDEs, such as IntelliJ IDEA, offer auto-refreshable HTML
+views, so opening the diagram in such a view lets you monitor progress and data in real time.
 
 <img src="diagram.png" alt="" style="display: block; margin-left: auto; margin-right: auto; width: 806px;"/>
 

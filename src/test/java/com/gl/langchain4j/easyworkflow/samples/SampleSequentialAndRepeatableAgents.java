@@ -64,7 +64,7 @@ public class SampleSequentialAndRepeatableAgents {
         Breakpoint scoreBreakpoint = Breakpoint.
                 builder(Breakpoint.Type.AGENT_OUTPUT, "SCORE for '{{$agentClass}}': {{score}}")
                 .outputNames("score")
-                .condition(ctx -> ctx.readState("score", 0.0) >= 0.0)
+                .condition(ctx -> (double) ctx.getOrDefault("score", 0.0) >= 0.0)
                 .agentClasses(StyleScorer.class)
                 .enabled(false)
                 .build();
@@ -96,7 +96,7 @@ public class SampleSequentialAndRepeatableAgents {
                 .agent(AudienceEditor.class)
                 .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
                     .agent(StyleScorer.class)
-                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> ctx.readState("score", 0.0) >= 0.0)
+                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> (double)ctx.getOrDefault("score", 0.0) >= 0.0)
                     .agent(StyleEditor.class)
                 .end()
                 .output(OutputComposers.asBean(Novel.class))

@@ -30,6 +30,9 @@ import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.guardrail.OutputGuardrail;
+import dev.langchain4j.guardrail.OutputGuardrailResult;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -62,12 +65,16 @@ public class SampleSwitchAgents {
 
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10);
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+        workflowDebugger.addBreakpoint(new WorkflowDebugger.AgentBreakpoint((aBreakpoint, aAgenticScope) -> {
+            out.println("");
+        }, WorkflowDebugger.Breakpoint.Type.AGENT_OUTPUT, null, null, null, true));
 
         EasyWorkflow.AgentWorkflowBuilder<ExpertRouterAgent> builder = EasyWorkflow.builder(ExpertRouterAgent.class);
         ExpertRouterAgent expertRouterAgent = builder
                 .chatModel(BASE_MODEL)
                 .chatMemory(chatMemory)
                 .workflowDebugger(workflowDebugger)
+                .setState("response", "")
                 .agent(CategoryRouter.class)
                 .doWhen("category", RequestCategory.UNKNOWN)
                     .match(RequestCategory.MEDICAL)
@@ -85,14 +92,18 @@ public class SampleSwitchAgents {
                 .build();
 
         try {
-            builder.toHtmlFile("workflow.html");
+            out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
+        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
+        try {
+            workflowDebugger.toHtmlFile("workflow.html");
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-
-        out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
-        out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
-        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
         out.println(expertRouterAgent.ask("What is the meaning of life?"));
         out.println(workflowDebugger.toString(true));
     }

@@ -203,7 +203,7 @@ public class WorkflowContext {
     /**
      * An implementation of {@link OutputGuardrail} specific to this workflow context.
      */
-    class Output implements OutputGuardrail {
+    class Output implements OutputGuardrail, TrailingGuardrail {
         private final Class<?> agentClass;
         private Object agent;
         private final String outputName;
@@ -258,7 +258,7 @@ public class WorkflowContext {
     /**
      * An implementation of {@link InputGuardrail} specific to this workflow context.
      */
-    class Input implements InputGuardrail {
+    class Input implements InputGuardrail, TrailingGuardrail {
         private final Class<?> agentClass;
         private Object agent;
 

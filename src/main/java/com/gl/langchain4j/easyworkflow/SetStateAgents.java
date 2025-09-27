@@ -26,7 +26,6 @@ package com.gl.langchain4j.easyworkflow;
 
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.scope.AgenticScope;
-import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.service.V;
 
 import java.util.List;
@@ -37,10 +36,6 @@ import java.util.function.Supplier;
  * An agent that sets states within an {@link AgenticScope}.
  */
 public class SetStateAgents {
-
-    public interface SetStateAgent {
-        List<String> listStates();
-    }
 
     /**
      * Creates an agent that sets states within an {@link AgenticScope} using the provided map.
@@ -54,7 +49,8 @@ public class SetStateAgents {
 
     /**
      * Creates an agent that sets a single state within an {@link AgenticScope}.
-     * @param stateKey The key (name) of the state to set.
+     *
+     * @param stateKey   The key (name) of the state to set.
      * @param stateValue The value of the state to set.
      * @return An agent object that can be used to set a single state.
      */
@@ -65,11 +61,20 @@ public class SetStateAgents {
     /**
      * Creates an agent that sets states within an {@link AgenticScope} using the provided supplier.
      *
-     * @param aStateSupplier A supplier that provides a map where keys are state names and values are the state objects.
+     * @param aStateSupplier A supplier that provides a map where keys are state names and values are the state
+     *                       objects.
      * @return An agent object that can be used to set states.
      */
     public static Object agentOf(Supplier<Map<String, Object>> aStateSupplier) {
         return new SupplierAgent(aStateSupplier);
+    }
+
+    public interface SetStateAgent extends AgentNameProvider {
+        List<String> listStates();
+
+        default String getAgentName() {
+            return String.format("%s (%s)", getDefaultAgentName(), String.join(", ", listStates()));
+        }
     }
 
     /**
@@ -97,7 +102,7 @@ public class SetStateAgents {
          * @param agenticScope The AgenticScope to which the states will be written.
          * @return Always returns null.
          */
-        @Agent
+        @Agent(name = "Set State")
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
             inputReceived("-");
             agenticScope.writeStates(states);
@@ -127,7 +132,7 @@ public class SetStateAgents {
          * @param agenticScope The AgenticScope to which the states will be written.
          * @return Always returns null.
          */
-        @Agent
+        @Agent(name = "Set State")
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
             inputReceived("-");
             Map<String, Object> states = stateSupplier.get();

@@ -153,6 +153,38 @@ public class EasyWorkflow {
     }
 
     /**
+     * Retrieves the name of an agent.
+     *
+     * @param agent The agent instance.
+     * @return The name of the agent.
+     */
+    public static String getAgentName(Object agent) {
+        return getAgentName(agent.getClass());
+    }
+
+    /**
+     * Retrieves the name of an agent by its class. If the agent class has a method annotated with {@link Agent} and
+     * its {@code name} attribute is not blank, that name is returned. Otherwise, the simple name of the
+     * agent's class is returned.
+     * @param agentClass The class of the agent.
+     * @return The name of the agent.
+     */
+    public static String getAgentName(Class<?> agentClass) {
+        String result = agentClass.getSimpleName().replaceAll("(?<=[a-z])(?=[A-Z])", " ");
+
+        for (Method method : agentClass.getDeclaredMethods()) {
+            Agent annotation = method.getAnnotation(Agent.class);
+            if (annotation != null) {
+                if (!annotation.name().isBlank())
+                    result = annotation.name();
+                break;
+            }
+        }
+
+        return result;
+    }
+
+    /**
      * Represents an expression within the workflow, which can create an agent.
      */
     interface Expression {
@@ -525,7 +557,7 @@ public class EasyWorkflow {
          * @param condition The condition that must be true for the breakpoint to trigger.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> breakpoint(String template, Predicate<AgenticScope> condition) {
+        public AgentWorkflowBuilder<T> breakpoint(String template, Predicate<Map<String, Object>> condition) {
             return breakpoint(breakpointActionLog(template), condition);
         }
 
@@ -535,7 +567,7 @@ public class EasyWorkflow {
          * @param action The action to execute when the breakpoint is hit.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> breakpoint(BiConsumer<Breakpoint, AgenticScope> action) {
+        public AgentWorkflowBuilder<T> breakpoint(BiConsumer<Breakpoint, Map<String, Object>> action) {
             return breakpoint(action, null);
         }
 
@@ -546,8 +578,8 @@ public class EasyWorkflow {
          * @param condition The condition that must be true for the breakpoint to trigger.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> breakpoint(BiConsumer<Breakpoint, AgenticScope> action,
-                                                  Predicate<AgenticScope> condition) {
+        public AgentWorkflowBuilder<T> breakpoint(BiConsumer<Breakpoint, Map<String, Object>> action,
+                                                  Predicate<Map<String, Object>> condition) {
             addExpression(new BreakpointExpression(this, action, condition));
             return this;
         }
@@ -875,22 +907,24 @@ public class EasyWorkflow {
         }
 
         /**
-         * Generates an HTML representation of the workflow diagram using Mermaid.js.
+         * Generates an HTML representation of the workflow diagram using Mermaid.js
          *
-         * @return A string containing the HTML page with the diagram.
+         * @return A string containing the HTML page with a visual representation of the workflow executions.
          */
         public String toHtml() {
-            return toHtml(null, null, Map.of());
+            return toHtml(null, null, Map.of(), Map.of());
         }
 
-        String toHtml(String title, String subTitle, Map<String, Object> workflowResults) {
+        String toHtml(String title, String subTitle, Map<String, Object> workflowResults, Map<String, String> agentNames) {
             String mermaidCode = toMermaid(workflowResults.keySet());
 
             try (java.io.InputStream is = getClass().getResourceAsStream("flow-chart.html")) {
                 String htmlTemplate = new String(is.readAllBytes());
+                ObjectMapper objectMapper = new ObjectMapper();
                 return expandTemplate(htmlTemplate, Map.of(
                         FLOW_CHART_GRAPH_DEFINITION, mermaidCode,
-                        FLOW_CHART_NODE_DATA, new ObjectMapper().writeValueAsString(workflowResults),
+                        FLOW_CHART_NODE_DATA, objectMapper.writeValueAsString(workflowResults),
+                        FLOW_CHART_NODE_NAMES,objectMapper.writeValueAsString(agentNames),
                         FLOW_CHART_TITLE, title != null ? title : "Workflow Diagram",
                         FLOW_CHART_SUB_TITLE, subTitle != null ? subTitle : ""
                         ));
@@ -903,6 +937,7 @@ public class EasyWorkflow {
         public static final String FLOW_CHART_NODE_END = "endNode";
         public static final String FLOW_CHART_GRAPH_DEFINITION = "graphDefinition";
         public static final String FLOW_CHART_NODE_DATA = "nodeData";
+        public static final String FLOW_CHART_NODE_NAMES = "nodeNames";
         public static final String FLOW_CHART_TITLE = "title";
         public static final String FLOW_CHART_SUB_TITLE = "subTitle";
 
@@ -927,7 +962,7 @@ public class EasyWorkflow {
             mermaid.append(String.format("    %s([\"End\"])\n", endId));
             mermaid.append(String.format("    style %s stroke-width:%spx\n",
                     endId,
-                    completedNodes.contains(startId) ? 3 : 1));
+                    completedNodes.contains(endId) ? 3 : 1));
             mermaid.append(mermaidInspectorLink(endId));
             mermaid.append(String.format("    %s --> %s\n", lastId, endId));
 
@@ -1059,7 +1094,7 @@ public class EasyWorkflow {
         @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
             String repeatNodeId = getId();
-            mermaid.append(String.format("    %s{\"Repeat (max: %d)\"}\n", repeatNodeId, maxIterations));
+            mermaid.append(String.format("    %s{{\"Repeat (max: %d)\"}}\n", repeatNodeId, maxIterations));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, repeatNodeId) :
                     String.format("    %s --> %s\n", entryNodeId, repeatNodeId);
@@ -1095,8 +1130,9 @@ public class EasyWorkflow {
 
         @Override
         public Object createAgent() {
+            Object[] subAgents = getBlocks().get(0).createAgents().toArray();
             return AgenticServices.conditionalBuilder()
-                    .subAgents(condition, getBlocks().get(0).createAgents().toArray())
+                    .subAgents(condition, subAgents)
                     .build();
         }
 
@@ -1166,7 +1202,7 @@ public class EasyWorkflow {
         @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
             String switchNodeId = getId();
-            mermaid.append(String.format("    %s{{\"Switch (%s)\"}}\n",
+            mermaid.append(String.format("    %s{{\"doWhen (%s)\"}}\n",
                     switchNodeId,
                     whenExpression != null && ! whenExpression.isEmpty() ? whenExpression : "..."));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
@@ -1175,7 +1211,7 @@ public class EasyWorkflow {
             mermaid.append(edge);
 
             String endSwitchNodeId = "node" + counter.getAndIncrement();
-            mermaid.append(String.format("    %s((\"end switch\"))\n", endSwitchNodeId));
+            mermaid.append(String.format("    %s((\"end\"))\n", endSwitchNodeId));
 
             for (Expression expr : getBlocks().get(0).getExpressions()) {
                 String matchExitId = expr.toMermaid(mermaid, counter, switchNodeId, null, completedNodes);
@@ -1458,7 +1494,10 @@ public class EasyWorkflow {
         }
 
         protected String getMermaidNodeLabel() {
-            return getAgentClass() != null ? getAgentClass().getSimpleName() : getAgent().getClass().getSimpleName();
+            if (getAgentClass() != null)
+                return getAgentName(getAgentClass());
+            else
+                return getAgentName(getAgent());
         }
 
         protected String getMermaidNodeColor() {
@@ -1534,12 +1573,9 @@ public class EasyWorkflow {
                     return super.outputGuardrails(outputGuardrailsLocal);
                 }
 
-
-
                 private Class[] mergeInputGuardrailClasses(Class[] existing, Class[] newGuardrailClasses) {
                     return mergeGuardrailClasses(existing, newGuardrailClasses);
                 }
-
 
                 @Override
                 public AgentBuilder<?> inputGuardrailClasses(Class... inputGuardrailClasses) {
@@ -1635,7 +1671,7 @@ public class EasyWorkflow {
     static class SetStateAgentExpression extends NonAIAgentExpression {
         @Override
         protected String getMermaidNodeLabel() {
-            return String.format("SetStates (%s)", String.join(", ", ((SetStateAgents.SetStateAgent) getAgent()).listStates()));
+            return ((SetStateAgents.SetStateAgent) getAgent()).getAgentName();
         }
 
         public SetStateAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent) {
@@ -1682,13 +1718,13 @@ public class EasyWorkflow {
 
     static class BreakpointExpression implements Expression {
         private final String id = UUID.randomUUID().toString();
-        private final BiConsumer<Breakpoint, AgenticScope> action;
-        private final Predicate<AgenticScope> condition;
+        private final BiConsumer<Breakpoint, Map<String, Object>> action;
+        private final Predicate<Map<String, Object>> condition;
         private final AgentWorkflowBuilder<?> builder;
 
         public BreakpointExpression(AgentWorkflowBuilder<?> builder,
-                                    BiConsumer<Breakpoint, AgenticScope> action,
-                                    Predicate<AgenticScope> condition) {
+                                    BiConsumer<Breakpoint, Map<String, Object>> action,
+                                    Predicate<Map<String, Object>> condition) {
             this.builder = builder;
             this.action = action;
             this.condition = condition;
