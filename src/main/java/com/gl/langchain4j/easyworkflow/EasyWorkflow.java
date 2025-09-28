@@ -46,10 +46,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Proxy;
+import java.lang.reflect.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -192,7 +189,7 @@ public class EasyWorkflow {
 
         String getId();
 
-        String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes);
+        String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes);
     }
 
     /**
@@ -864,11 +861,18 @@ public class EasyWorkflow {
                         if (isAgentMethod && workflowDebugger != null)
                             workflowDebugger.sessionStarted(agentClass, method, args);
 
-                        Object invocationResult = method.invoke(agent, args);
+                        try {
+                            Object invocationResult = isAgentMethod ? method.invoke(agent, args) : null;
 
-                        if (isAgentMethod && workflowDebugger != null)
-                            workflowDebugger.sessionStopped(invocationResult);
-                        return invocationResult;
+                            if (isAgentMethod && workflowDebugger != null)
+                                workflowDebugger.sessionStopped(invocationResult);
+
+                            return invocationResult;
+                        } catch (Throwable failure) {
+                            if (isAgentMethod && workflowDebugger != null)
+                                workflowDebugger.sessionFailed(failure);
+                            throw failure;
+                        }
                     });
         }
 
@@ -912,11 +916,14 @@ public class EasyWorkflow {
          * @return A string containing the HTML page with a visual representation of the workflow executions.
          */
         public String toHtml() {
-            return toHtml(null, null, Map.of(), Map.of());
+            return toHtml(null, null, Map.of(), Set.of(), Map.of());
         }
 
-        String toHtml(String title, String subTitle, Map<String, Object> workflowResults, Map<String, String> agentNames) {
-            String mermaidCode = toMermaid(workflowResults.keySet());
+        String toHtml(String title, String subTitle,
+                      Map<String, Object> workflowResults,
+                      Set<String> failedAgents,
+                      Map<String, String> agentNames) {
+            String mermaidCode = toMermaid(workflowResults.keySet(), failedAgents);
 
             try (java.io.InputStream is = getClass().getResourceAsStream("flow-chart.html")) {
                 String htmlTemplate = new String(is.readAllBytes());
@@ -945,7 +952,7 @@ public class EasyWorkflow {
             return "click %s call showInspector(\"%s\")\n".formatted(node, node);
         }
 
-        private String toMermaid(Set<String> completedNodes) {
+        private String toMermaid(Set<String> completedNodes, Set<String> failedNodes) {
             StringBuilder mermaid = new StringBuilder();
             mermaid.append("graph TD\n");
             AtomicInteger counter = new AtomicInteger(0);
@@ -956,13 +963,14 @@ public class EasyWorkflow {
                     completedNodes.contains(startId) ? 3 : 1));
             mermaid.append(mermaidInspectorLink(startId));
 
-            String lastId = this.block.toMermaid(mermaid, counter, startId, null, completedNodes);
+            String lastId = this.block.toMermaid(mermaid, counter, startId, null, completedNodes, failedNodes);
 
             String endId = FLOW_CHART_NODE_END;
             mermaid.append(String.format("    %s([\"End\"])\n", endId));
-            mermaid.append(String.format("    style %s stroke-width:%spx\n",
+            mermaid.append(String.format("    style %s stroke-width:%spx%s\n",
                     endId,
-                    completedNodes.contains(endId) ? 3 : 1));
+                    completedNodes.contains(endId) ? 3 : 1,
+                    failedNodes.isEmpty() ? "" : ",stroke:#ff0000"));
             mermaid.append(mermaidInspectorLink(endId));
             mermaid.append(String.format("    %s --> %s\n", lastId, endId));
 
@@ -988,7 +996,10 @@ public class EasyWorkflow {
                     .collect(Collectors.toList());
         }
 
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter,
+                                String entryNodeId, String edgeLabel,
+                                Set<String> completedNodes,
+                                Set<String> failedNodes) {
             String currentNodeId = entryNodeId;
             boolean first = true;
             for (int i = 0; i < expressions.size(); i++) {
@@ -1014,11 +1025,11 @@ public class EasyWorkflow {
                         mermaid.append(String.format("    %s((\"end if\"))\n", endIfNodeId));
 
                         // then branch
-                        String thenExitNodeId = ifStmt.getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "then", completedNodes);
+                        String thenExitNodeId = ifStmt.getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "then", completedNodes, failedNodes);
                         mermaid.append(String.format("    %s --> %s\n", thenExitNodeId, endIfNodeId));
 
                         // else branch
-                        String elseExitNodeId = elseStmt.getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "else", completedNodes);
+                        String elseExitNodeId = elseStmt.getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "else", completedNodes, failedNodes);
                         mermaid.append(String.format("    %s --> %s\n", elseExitNodeId, endIfNodeId));
 
                         currentNodeId = endIfNodeId;
@@ -1028,7 +1039,7 @@ public class EasyWorkflow {
                     }
                 }
 
-                currentNodeId = expr.toMermaid(mermaid, counter, currentNodeId, currentEdgeLabel, completedNodes);
+                currentNodeId = expr.toMermaid(mermaid, counter, currentNodeId, currentEdgeLabel, completedNodes, failedNodes);
                 first = false;
             }
             return currentNodeId;
@@ -1092,7 +1103,7 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String repeatNodeId = getId();
             mermaid.append(String.format("    %s{{\"Repeat (max: %d)\"}}\n", repeatNodeId, maxIterations));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
@@ -1100,7 +1111,7 @@ public class EasyWorkflow {
                     String.format("    %s --> %s\n", entryNodeId, repeatNodeId);
             mermaid.append(edge);
 
-            String loopBodyExitId = getBlocks().get(0).toMermaid(mermaid, counter, repeatNodeId, null, completedNodes);
+            String loopBodyExitId = getBlocks().get(0).toMermaid(mermaid, counter, repeatNodeId, null, completedNodes, failedNodes);
             mermaid.append(String.format("    %s -- loop --> %s\n", loopBodyExitId, repeatNodeId));
 
             String exitNodeId = "node" + counter.getAndIncrement();
@@ -1137,7 +1148,7 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String ifNodeId = getId();
             mermaid.append(String.format("    %s{{\"If (%s)\"}}\n", ifNodeId, conditionExpression != null ? conditionExpression : "..."));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
@@ -1149,7 +1160,7 @@ public class EasyWorkflow {
             mermaid.append(String.format("    %s((\"end if\"))\n", endIfNodeId));
 
             // then branch
-            String thenExitNodeId = getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "then", completedNodes);
+            String thenExitNodeId = getBlocks().get(0).toMermaid(mermaid, counter, ifNodeId, "then", completedNodes, failedNodes);
             mermaid.append(String.format("    %s --> %s\n", thenExitNodeId, endIfNodeId));
 
             // else branch
@@ -1200,7 +1211,7 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String switchNodeId = getId();
             mermaid.append(String.format("    %s{{\"doWhen (%s)\"}}\n",
                     switchNodeId,
@@ -1214,7 +1225,7 @@ public class EasyWorkflow {
             mermaid.append(String.format("    %s((\"end\"))\n", endSwitchNodeId));
 
             for (Expression expr : getBlocks().get(0).getExpressions()) {
-                String matchExitId = expr.toMermaid(mermaid, counter, switchNodeId, null, completedNodes);
+                String matchExitId = expr.toMermaid(mermaid, counter, switchNodeId, null, completedNodes, failedNodes);
                 mermaid.append(String.format("    %s --> %s\n", matchExitId, endSwitchNodeId));
             }
 
@@ -1257,10 +1268,10 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             Object val = getValue();
             String label = "match: " + (val != null ? val.toString() : "supplier");
-            return getBlocks().get(0).toMermaid(mermaid, counter, entryNodeId, label, completedNodes);
+            return getBlocks().get(0).toMermaid(mermaid, counter, entryNodeId, label, completedNodes, failedNodes);
         }
     }
 
@@ -1280,7 +1291,7 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String groupSubgraphId = "subgraph_group_" + counter.getAndIncrement();
             mermaid.append(String.format("    subgraph %s [Group]\n", groupSubgraphId));
 
@@ -1365,7 +1376,7 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String parallelNodeId = getId();
             mermaid.append(String.format("    %s{\"Parallel\"}\n", parallelNodeId));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
@@ -1378,7 +1389,7 @@ public class EasyWorkflow {
 
             Block parallelBlock = getBlocks().get(0);
             for (Expression expr : parallelBlock.getExpressions()) {
-                String branchExitId = expr.toMermaid(mermaid, counter, parallelNodeId, null, completedNodes);
+                String branchExitId = expr.toMermaid(mermaid, counter, parallelNodeId, null, completedNodes, failedNodes);
                 mermaid.append(String.format("    %s --> %s\n", branchExitId, endParallelNodeId));
             }
 
@@ -1475,17 +1486,18 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String nodeId = getId();
             String agentName = getMermaidNodeLabel();
 
             mermaid.append(String.format("    %s[\"%s\"]\n", nodeId, agentName));
             mermaid.append(AgentWorkflowBuilder.mermaidInspectorLink(nodeId));
 
-            mermaid.append(String.format("    style %s fill:%s,stroke-width:%spx\n",
+            mermaid.append(String.format("    style %s fill:%s,stroke-width:%spx%s\n",
                     nodeId,
                     getMermaidNodeColor(),
-                    completedNodes.contains(nodeId) ? 3 : 1));
+                    completedNodes.contains(nodeId) ? 3 : 1,
+                    ! failedNodes.contains(nodeId) ? "" : ",stroke:#ff0000"));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, nodeId) :
                     String.format("    %s --> %s\n", entryNodeId, nodeId);
@@ -1702,7 +1714,7 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String nodeId = getId();
             String remoteAgentName = getAgentClass() != null ? getAgentClass().getSimpleName() : "UntypedAgent";
             String agentName = String.format("Remote Agent: %s at %s", remoteAgentName, url);
@@ -1748,7 +1760,7 @@ public class EasyWorkflow {
         }
 
         @Override
-        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes) {
+        public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, Set<String> completedNodes, Set<String> failedNodes) {
             String nodeId = getId();
             mermaid.append(String.format("    %s@{ shape: dbl-circ, label: \" \" }\n", nodeId));
             mermaid.append(String.format("    style %s stroke:#f66\n", nodeId));

@@ -52,14 +52,6 @@ public class TestConditionalAgents {
 
         assertEquals("{summary=Summary: Some medical response, response=Some medical response}", expertRouterAgent.ask("I broke my leg, what should I do?").toString());
         assertEquals("{summary=Summary: Some legal response, response=Some legal response}", expertRouterAgent.ask("Should I sue my neighbor who caused this damage?").toString());
-
-        try {
-            debugger.toHtmlFile("workflow.html");
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        System.out.println(debugger.toString(true));
-
         assertEquals("{summary=Summary: Some technical response, response=Some technical response}", expertRouterAgent.ask("How to configure a VPN on Windows 10?").toString());
         assertEquals("{summary=Summary: , response=}", expertRouterAgent.ask("What is the meaning of life?").toString());
     }

@@ -27,6 +27,7 @@ package com.gl.langchain4j.easyworkflow;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.agentic.agent.AgentInvocationException;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
@@ -66,7 +67,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * A thread-safe list to store registered breakpoints.
      */
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());
-    private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>());
+    private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>() {
+        @Override
+        public boolean add(AgentInvocationTraceEntry aAgentInvocationTraceEntry) {
+            return super.add(aAgentInvocationTraceEntry);
+        }
+    });
     private final Map<String, Object> workflowInput = new HashMap<>();
     private final ConcurrentHashMap<Object, EasyWorkflow.Expression> agentMetadata = new ConcurrentHashMap<>();
     private boolean breakpointsEnabled = true;
@@ -74,6 +80,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     private Object workflowResult;
     private boolean started = false;
     private EasyWorkflow.AgentWorkflowBuilder<?> agentWorkflowBuilder;
+    private Throwable workflowFailure;
 
     /**
      * Constructs a new {@code WorkflowDebugger}. Initializes a new {@link WorkflowContext} and registers itself as the
@@ -198,6 +205,28 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STOPPED, null, null, null);
         resetBreakpoints();
         started = false;
+    }
+
+    /**
+     * Called when a workflow session fails due to an exception.
+     *
+     * @param failure The {@link Throwable} that caused the workflow to fail.
+     */
+    public void sessionFailed(Throwable failure) {
+        this.workflowFailure = failure;
+        updateAgentInvocationTraceEntry(failure);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_FAILED, null, null, null);
+        resetBreakpoints();
+        started = false;
+    }
+
+    /**
+     * Returns the {@link Throwable} that caused the workflow to fail, if any.
+     *
+     * @return The {@link Throwable} representing the workflow failure, or {@code null} if the workflow completed successfully.
+     */
+    public Throwable getWorkflowFailure() {
+        return workflowFailure;
     }
 
     /**
@@ -374,6 +403,23 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         agentInvocationTraceEntries.add(traceEntry);
     }
 
+    private void updateAgentInvocationTraceEntry(Throwable failure) {
+        ArrayList<AgentInvocationTraceEntry> entries;
+        synchronized (agentInvocationTraceEntries) {
+            entries = new ArrayList<>(agentInvocationTraceEntries);
+        }
+        AgentInvocationTraceEntry traceEntry = null;
+
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            if (traceEntry == null || entries.get(i).getLastAccessTime() > traceEntry.getLastAccessTime()) {
+                traceEntry = entries.get(i);
+            }
+        }
+
+        if (traceEntry != null)
+            traceEntry.setFailure(failure);
+    }
+
     private void updateAgentInvocationTraceEntry(Object agent, String outputName, Object output) {
         ArrayList<AgentInvocationTraceEntry> entries;
         synchronized (agentInvocationTraceEntries) {
@@ -443,10 +489,25 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             index++;
         }
 
-        result.append("◼ RESULT: ").append(replaceNewLineCharacters(getWorkflowResult().toString()));
+        if (isStarted())
+            result.append("▶ RUNNING...\n");
+        else if (getWorkflowFailure() == null)
+            result.append("◼ RESULT: ").append(replaceNewLineCharacters(getWorkflowResult() != null ? getWorkflowResult().toString() : "N/A"));
+        else
+            result.append("✘ ERROR: ").append(replaceNewLineCharacters(getFailureCauseException(getWorkflowFailure()).toString()));
+
+        result.append("\n");
 
         return result.toString();
 
+    }
+
+    private static Throwable getFailureCauseException(Throwable failure) {
+        Throwable cause = failure;
+        while ((cause instanceof java.lang.reflect.InvocationTargetException || cause instanceof AgentInvocationException)) {
+            cause = cause.getCause();
+        }
+        return cause != null ? cause : failure;
     }
 
     private Object convertInValueToJson(ObjectMapper objectMapper, Object value) {
@@ -494,13 +555,19 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         workflowResult.put(FLOW_CHART_NODE_START, in);
         in.putAll(workflowInput);
 
-        if (getWorkflowResult() != null) {
+        if (getWorkflowFailure() != null) {
+            Map<String, Object> result = new HashMap<>();
+            workflowResult.put(FLOW_CHART_NODE_END, result);
+            result.put("failure", convertValueToJson(objectMapper, getFailureCauseException(getWorkflowFailure())));
+        } else if (getWorkflowResult() != null) {
             Map<String, Object> result = new HashMap<>();
             workflowResult.put(FLOW_CHART_NODE_END, result);
             result.put("result", convertValueToJson(objectMapper, getWorkflowResult()));
         }
 
+        Set<String> failedAgents = new HashSet<>();
         Map<String, String> agentNames = new HashMap<>(); // uid -> name
+
         List<AgentInvocationTraceEntry> entries = getAgentInvocationTraceEntries();
         for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : entries) {
             Map<String, Object> agentResult = new HashMap<>();
@@ -508,10 +575,14 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             workflowResult.put(id, agentResult);
             agentResult.put("in", convertInValueToJson(objectMapper, traceEntry.input));
             agentResult.put("out", convertValueToJson(objectMapper, traceEntry.output));
+            if (traceEntry.getFailure() != null) {
+                agentResult.put("failure", convertValueToJson(objectMapper, traceEntry.getFailure()));
+                failedAgents.add(id);
+            }
             agentNames.put(id, traceEntry.getAgentName());
         }
 
-        return agentWorkflowBuilder.toHtml(title, subTitle, workflowResult, agentNames);
+        return agentWorkflowBuilder.toHtml(title, subTitle, workflowResult, failedAgents, agentNames);
     }
 
     /**
@@ -702,6 +773,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
              * Breakpoint triggers when a workflow session stops.
              */
             SESSION_STOPPED,
+            /**
+             * Breakpoint triggers when a workflow session fails.
+             */
+            SESSION_FAILED,
             /**
              * Breakpoint triggers when reached
              */
@@ -984,8 +1059,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             return switch (type) {
                 case AGENT_INPUT, AGENT_OUTPUT ->
                         new AgentBreakpoint(action, type, this.agentClasses, this.outputNames, this.condition, this.enabled);
-                case SESSION_STARTED, SESSION_STOPPED -> new Breakpoint(action, type, this.condition, this.enabled);
-                case LINE -> new LineBreakpoint(action, this.condition, this.enabled);
+                case SESSION_STARTED, SESSION_STOPPED, SESSION_FAILED ->
+                        new Breakpoint(action, type, this.condition, this.enabled);
+                case LINE ->
+                        new LineBreakpoint(action, this.condition, this.enabled);
             };
         }
 
@@ -1010,6 +1087,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         private final Object input;
         private String outputName;
         private Object output;
+        private Throwable failure;
+        private long lastAccessTime;
 
         /**
          * Constructs a new {@code AgentInvocationTraceEntry}.
@@ -1025,6 +1104,21 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             this.agent = agent;
             this.agentClass = agentClass;
             this.input = input;
+
+            updateLastAccessTime();
+        }
+
+        /**
+         * Returns the last access time of this trace entry in milliseconds since the epoch.
+         *
+         * @return The last access time.
+         */
+        public long getLastAccessTime() {
+            return lastAccessTime;
+        }
+
+        private void updateLastAccessTime() {
+            this.lastAccessTime = System.currentTimeMillis();
         }
 
         /**
@@ -1048,6 +1142,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         public void addOutput(String outputName, Object output) {
             this.outputName = outputName;
             this.output = output;
+            updateLastAccessTime();
         }
 
         /**
@@ -1095,6 +1190,24 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             return output;
         }
 
+        /**
+         * Returns the {@link Throwable} that caused the agent invocation to fail, if any.
+         *
+         * @return The {@link Throwable} representing the agent invocation failure, or {@code null} if the invocation completed successfully.
+         */
+        public Throwable getFailure() {
+            return failure;
+        }
+
+        /**
+         * Sets the {@link Throwable} that caused the agent invocation to fail.
+         *
+         * @param aFailure The {@link Throwable} representing the agent invocation failure.
+         */
+        public void setFailure(Throwable aFailure) {
+            failure = aFailure;
+        }
+
         @Override
         public boolean equals(Object aO) {
             if (aO == null || getClass() != aO.getClass()) return false;
@@ -1120,15 +1233,21 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @return a string representation of the object.
          */
         public String toString(int index) {
-            return MessageFormat.format("""
-                                              ↓ IN: {0}
-                                        {4}▷︎ {1}
-                                              ↓ OUT > "{2}": {3}""",
+            String result = MessageFormat.format("""
+                                                       ↓ IN: {0}
+                                                 {4}▷︎ {1}
+                                                       ↓ OUT > "{2}": {3}""",
                     replaceNewLineCharacters(input != null ? input.toString() : ""),
                     agentClass.getSimpleName(),
                     outputName != null ? outputName : "N/A",
                     output != null ? replaceNewLineCharacters(output.toString()) : "N/A",
                     index > 0 ? MessageFormat.format("{0}. ", index) : "");
+
+            if (failure != null)
+                result = MessageFormat.format("{0}\n      ↯ FAIL: {1}",
+                        result,
+                        replaceNewLineCharacters(getFailureCauseException(failure).toString()));
+            return result;
         }
     }
 

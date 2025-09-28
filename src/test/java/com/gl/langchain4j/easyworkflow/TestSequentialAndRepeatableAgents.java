@@ -112,11 +112,11 @@ public class TestSequentialAndRepeatableAgents {
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
 
-        try {
-            workflowDebugger.toHtmlFile("workflow.html");
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
+//        try {
+//            workflowDebugger.toHtmlFile("workflow.html");
+//        } catch (IOException ex) {
+//            ex.printStackTrace();
+//        }
 
         System.out.println(novel);
         System.out.println(breakpointOutput);
@@ -151,7 +151,8 @@ public class TestSequentialAndRepeatableAgents {
                      6. ▷︎ QualityScorer
                            ↓ OUT > "quality": 0.74
                      -----------------------
-                     ◼ RESULT: Novel[story=0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!, score=0.8]""",  workflowDebugger.toString(true));
+                     ◼ RESULT: Novel[story=0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!, score=0.8]
+                     """,  workflowDebugger.toString(true));
     }
 
     public static class CreativeWriter extends WorkflowDebuggerSupport.Impl {
