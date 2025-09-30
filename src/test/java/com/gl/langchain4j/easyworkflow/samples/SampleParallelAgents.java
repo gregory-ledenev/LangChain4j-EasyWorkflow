@@ -50,6 +50,7 @@ import static com.gl.langchain4j.easyworkflow.OutputComposers.*;
  * using EasyWorkflow DSL-style
  * workflow initialization.
  */
+@SuppressWarnings("unused")
 public class SampleParallelAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 

@@ -49,6 +49,7 @@ import static java.lang.System.out;
  * using EasyWorkflow DSL-style
  * workflow initialization.
  */
+@SuppressWarnings("unused")
 public class SampleConditionalAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 

@@ -37,6 +37,7 @@ import java.util.prefs.Preferences;
  * using EasyWorkflow DSL-style
  * workflow initialization.
  */
+@SuppressWarnings("unused")
 public class SampleRemoteAgent {
     static final String GROQ_API_KEY = "groqApiKey";
 

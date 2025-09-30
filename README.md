@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.10</version>
+    <version>0.9.11</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.10</version>
+    <version>0.9.11</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -233,6 +233,7 @@ The available breakpoint types are defined in `Breakpoint.Type`:
 * **AGENT_OUTPUT**: Triggers when an agent produces output.
 * **SESSION_STARTED**: Triggers when a workflow session starts.
 * **SESSION_STOPPED**: Triggers when a workflow session stops.
+* **SESSION_FAILED**: Triggers when a workflow session fails.
 * **LINE**: A procedural breakpoint that triggers when reached in the workflow definition.
 
 For most breakpoint types, you can define them using `Breakpoint.builder()` and add them with
@@ -275,6 +276,10 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
         .output(OutputComposers.asBean(Novel.class))
         .build();
 ```
+The `BreakpointActions` class provides several methods that allow creation of common utility breakpoint actions:
+* `log(...)` - action that logs a message using a prompt template.
+* `toggleBreakpoints(...)` - action that toggles the enabled state of other specified breakpoints.
+* `toHtmlFile(...)` - action that generates an HTML file representing the workflow execution. 
 
 #### 4.3 Debugging Support for Non-AI Agents
 

@@ -40,6 +40,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.BreakpointActions.toHtmlFile;
+import static com.gl.langchain4j.easyworkflow.BreakpointActions.toggleBreakpoints;
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.expandTemplate;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -58,14 +61,16 @@ public class TestSequentialAndRepeatableAgents {
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
         workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
-                breakpointOutput.add(EasyWorkflow.expandTemplate("Args: {{topic}}, {{audience}}, {{style}}", workflowDebugger.getWorkflowInput())),
+                breakpointOutput.add(expandTemplate("Args: {{topic}}, {{audience}}, {{style}}", workflowDebugger.getWorkflowInput())),
                 Breakpoint.Type.SESSION_STARTED, null, true));
         workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
                 breakpointOutput.add(expandTemplate("Result: {{story}}", ctx)),
                 Breakpoint.Type.SESSION_STOPPED, null, true));
         workflowDebugger.addBreakpoint(new AgentBreakpoint((aBreakpoint, ctx) ->
-                breakpointOutput.add("Score: " + ctx.getOrDefault("score", 0.0)),
+            breakpointOutput.add("Score: " + ctx.getOrDefault("score", 0.0)),
                 Breakpoint.Type.AGENT_OUTPUT, null, new String[]{"score"}, null, true));
+
+        workflowDebugger.addBreakpoint(Breakpoint.builder(Breakpoint.Type.AGENT_INPUT, toHtmlFile("workflow.html")). build());
 
         Breakpoint scoreBreakpoint = Breakpoint.
                 builder(Breakpoint.Type.AGENT_OUTPUT, "SCORE for '{{$agentClass}}': {{score}}")
@@ -81,7 +86,7 @@ public class TestSequentialAndRepeatableAgents {
                 .build());
 
         workflowDebugger.addBreakpoint(Breakpoint.
-                builder(Breakpoint.Type.SESSION_STARTED, breakpointsActionToggle(true, scoreBreakpoint))
+                builder(Breakpoint.Type.SESSION_STARTED, toggleBreakpoints(true, scoreBreakpoint))
                 .build());
 
         workflowDebugger.addBreakpoint(Breakpoint.
@@ -112,11 +117,11 @@ public class TestSequentialAndRepeatableAgents {
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
 
-//        try {
-//            workflowDebugger.toHtmlFile("workflow.html");
-//        } catch (IOException ex) {
-//            ex.printStackTrace();
-//        }
+        try {
+            workflowDebugger.toHtmlFile("workflow.html");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
 
         System.out.println(novel);
         System.out.println(breakpointOutput);

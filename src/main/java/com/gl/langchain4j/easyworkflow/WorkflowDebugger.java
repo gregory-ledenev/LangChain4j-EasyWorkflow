@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.HtmlConfiguration;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.agent.AgentInvocationException;
 import dev.langchain4j.agentic.scope.AgenticScope;
@@ -47,6 +48,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Predicate;
 
+import static com.gl.langchain4j.easyworkflow.BreakpointActions.log;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_END;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_START;
 
@@ -63,9 +65,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
     private static final Logger logger = LoggerFactory.getLogger(WorkflowDebugger.class);
     private final WorkflowContext workflowContext;
-    /**
-     * A thread-safe list to store registered breakpoints.
-     */
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());
     private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>() {
         @Override
@@ -93,41 +92,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     /**
-     * Creates a {@link BiConsumer} action for a breakpoint that logs a message using a prompt template. The template
-     * can use workflow context variables with the `{{variable}}` notation.
+     * Returns the logger instance for this class.
      *
-     * @param template The template string for the log message.
-     * @return A {@link BiConsumer} that logs the formatted message when executed.
+     * @return The logger instance.
      */
-    public static BiConsumer<Breakpoint, Map<String, Object>> breakpointActionLog(String template) {
-        return (b, ctx) -> {
-            String text = ctx != null ? expandTemplate(template, ctx) : template;
-            logger.info(text.replaceAll("\\n", "\\\\n"));
-        };
-    }
-
-    /**
-     * Expands a prompt template using the provided {@link AgenticScope}'s state.
-     *
-     * @param template The template string to expand.
-     * @param ctx      The {@link Map} containing the state variables.
-     * @return An expanded text
-     */
-    public static String expandTemplate(String template, Map<String, Object> ctx) {
-        return EasyWorkflow.expandTemplate(template, ctx);
-    }
-
-    /**
-     * Creates a {@link BiConsumer} action for a breakpoint that toggles the enabled state of other specified
-     * breakpoints.
-     *
-     * @param enabled     {@code true} to enable the breakpoints, {@code false} to disable them.
-     * @param breakpoints The breakpoints to toggle.
-     * @return A {@link BiConsumer} that toggles the enabled state of the specified breakpoints when executed.
-     */
-    public static BiConsumer<Breakpoint, Map<String, Object>> breakpointsActionToggle(boolean enabled, Breakpoint... breakpoints) {
-        return (b, ctx) -> Arrays.
-                stream(breakpoints).forEach(toToggle -> toToggle.setEnabled(enabled));
+    public static Logger getLogger() {
+        return logger;
     }
 
     /**
@@ -318,6 +288,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public void addBreakpoint(Breakpoint breakpoint) {
         this.breakpoints.add(breakpoint);
+        breakpoint.setWorkflowDebugger(this);
     }
 
     /**
@@ -327,13 +298,22 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public void removeBreakpoint(Breakpoint breakpoint) {
         this.breakpoints.remove(breakpoint);
+        breakpoint.setWorkflowDebugger(null);
     }
 
     /**
      * Clears all registered breakpoints from the debugger.
      */
     public void clearBreakpoints() {
+        List<Breakpoint> breakpointsCopy;
+        synchronized (breakpoints) {
+            breakpointsCopy = new ArrayList<>(breakpoints);
+        }
+
         this.breakpoints.clear();
+
+        for (Breakpoint breakpoint : breakpointsCopy)
+            breakpoint.setWorkflowDebugger(null);
     }
 
     void registerAgentMetadata(Object agent, EasyWorkflow.Expression metadata) {
@@ -551,22 +531,18 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
         objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
 
+        Set<String> runningAgents = new HashSet<>();
+        List<String> completedAgents = new ArrayList<>();
+        completedAgents.add(FLOW_CHART_NODE_START);
+
         Map<String, Object> in = new HashMap<>();
         workflowResult.put(FLOW_CHART_NODE_START, in);
         in.putAll(workflowInput);
 
-        if (getWorkflowFailure() != null) {
-            Map<String, Object> result = new HashMap<>();
-            workflowResult.put(FLOW_CHART_NODE_END, result);
-            result.put("failure", convertValueToJson(objectMapper, getFailureCauseException(getWorkflowFailure())));
-        } else if (getWorkflowResult() != null) {
-            Map<String, Object> result = new HashMap<>();
-            workflowResult.put(FLOW_CHART_NODE_END, result);
-            result.put("result", convertValueToJson(objectMapper, getWorkflowResult()));
-        }
-
         Set<String> failedAgents = new HashSet<>();
         Map<String, String> agentNames = new HashMap<>(); // uid -> name
+        agentNames.put(FLOW_CHART_NODE_START, "Start");
+        agentNames.put(FLOW_CHART_NODE_END, "End");
 
         List<AgentInvocationTraceEntry> entries = getAgentInvocationTraceEntries();
         for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : entries) {
@@ -574,15 +550,37 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             String id = agentMetadata.get(traceEntry.getAgent()).getId();
             workflowResult.put(id, agentResult);
             agentResult.put("in", convertInValueToJson(objectMapper, traceEntry.input));
-            agentResult.put("out", convertValueToJson(objectMapper, traceEntry.output));
+            if (traceEntry.output != null)
+                agentResult.put("out", convertValueToJson(objectMapper, traceEntry.output));
+            else
+                runningAgents.add(id);
             if (traceEntry.getFailure() != null) {
                 agentResult.put("failure", convertValueToJson(objectMapper, traceEntry.getFailure()));
                 failedAgents.add(id);
             }
             agentNames.put(id, traceEntry.getAgentName());
+            if (! completedAgents.contains(id))
+                completedAgents.add(id);
         }
 
-        return agentWorkflowBuilder.toHtml(title, subTitle, workflowResult, failedAgents, agentNames);
+        if (getWorkflowFailure() != null) {
+            Map<String, Object> result = new HashMap<>();
+            workflowResult.put(FLOW_CHART_NODE_END, result);
+            result.put("failure", convertValueToJson(objectMapper, getFailureCauseException(getWorkflowFailure())));
+            completedAgents.add(FLOW_CHART_NODE_END);
+        } else if (getWorkflowResult() != null) {
+            Map<String, Object> result = new HashMap<>();
+            workflowResult.put(FLOW_CHART_NODE_END, result);
+            result.put("result", convertValueToJson(objectMapper, getWorkflowResult()));
+            completedAgents.add(FLOW_CHART_NODE_END);
+        }
+
+        return agentWorkflowBuilder.toHtml(new HtmlConfiguration(title, subTitle,
+                workflowResult,
+                completedAgents,
+                failedAgents,
+                runningAgents,
+                agentNames));
     }
 
     /**
@@ -632,6 +630,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         private final Predicate<Map<String, Object>> condition;
         private volatile boolean enabled;
         private volatile boolean savedEnabled;
+        private WorkflowDebugger workflowDebugger;
 
         /**
          * Constructs a new {@code Breakpoint}.
@@ -647,6 +646,19 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             this.type = type;
             this.condition = condition;
             this.enabled = enabled;
+        }
+
+        /**
+         * Returns the {@link WorkflowDebugger} instance associated with this breakpoint.
+         *
+         * @return The associated {@link WorkflowDebugger}.
+         */
+        public WorkflowDebugger getWorkflowDebugger() {
+            return workflowDebugger;
+        }
+
+        void setWorkflowDebugger(WorkflowDebugger aWorkflowDebugger) {
+            workflowDebugger = aWorkflowDebugger;
         }
 
         /**
@@ -669,7 +681,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @return a new {@link BreakpointBuilder}
          */
         public static BreakpointBuilder builder(Breakpoint.Type type, String template) {
-            return new BreakpointBuilder(type, breakpointActionLog(template));
+            return new BreakpointBuilder(type, log(template));
         }
 
         /**

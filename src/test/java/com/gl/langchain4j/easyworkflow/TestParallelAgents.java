@@ -8,6 +8,7 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,7 @@ public class TestParallelAgents {
             return moviesAndMeals;
         };
 
+        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
         ExecutorService executor = Executors.newFixedThreadPool(2);
         EasyWorkflow.AgentWorkflowBuilder<EveningPlannerAgent> builder;
         try {
@@ -54,6 +56,7 @@ public class TestParallelAgents {
             builder = EasyWorkflow.builder(EveningPlannerAgent.class);
             EveningPlannerAgent eveningPlannerAgent = builder
                     .chatModel(BASE_MODEL)
+                    .workflowDebugger(workflowDebugger)
                     .doParallel(resultFunction)
                     .outputName("plan")
                         .agent(new FoodExpert())
@@ -63,6 +66,12 @@ public class TestParallelAgents {
                     .build();
 
             assertEquals("[EveningPlan[meal=Chicken Fajitas, movie=The Princess Briden], EveningPlan[meal=Grilled Cheeseburgers, movie=Elf], EveningPlan[meal=Seafood Paella, movie=Amélie]]", eveningPlannerAgent.plan("happy").toString());
+
+            try {
+                workflowDebugger.toHtmlFile("workflow.html");
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
 
             // getting results in parallel and mapping function to combine them
             GenericEveningPlannerAgent genericEveningPlannerAgent = EasyWorkflow.builder(GenericEveningPlannerAgent.class)
@@ -94,17 +103,25 @@ public class TestParallelAgents {
         }
     }
 
-    public static class FoodExpert {
+    public static class FoodExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(outputName = "meals")
         public List<String> findMeal(@V("mood") String mood) {
-            return List.of("Chicken Fajitas", "Grilled Cheeseburgers", "Seafood Paella");
+            inputReceived(mood);
+            List<String> result = List.of("Chicken Fajitas", "Grilled Cheeseburgers", "Seafood Paella");
+            outputProduced(result);
+
+            return result;
         }
     }
 
-    public static class MovieExpert {
+    public static class MovieExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(outputName = "movies")
         public List<String> findMovie(@V("mood") String mood) {
-            return List.of("The Princess Briden", "Elf", "Amélie");
+            inputReceived(mood);
+            List<String> result = List.of("The Princess Briden", "Elf", "Amélie");
+            outputProduced(result);
+
+            return result;
         }
     }
 

@@ -43,12 +43,15 @@ import dev.langchain4j.service.V;
 import java.util.Objects;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.BreakpointActions.toggleBreakpoints;
+
 /**
  * This class provides a sample for
  * <a href="https://docs.langchain4j.dev/tutorials/agents#sequential-workflow">Sequential Workflow</a> and
  * <a href="https://docs.langchain4j.dev/tutorials/agents#loop-workflow">Loop Workflow</a> using EasyWorkflow DSL-style
  * workflow initialization.
  */
+@SuppressWarnings("unused")
 public class SampleSequentialAndRepeatableAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 
@@ -75,7 +78,7 @@ public class SampleSequentialAndRepeatableAgents {
                 .build());
 
         workflowDebugger.addBreakpoint(Breakpoint.
-                builder(Breakpoint.Type.SESSION_STARTED, WorkflowDebugger.breakpointsActionToggle(true, scoreBreakpoint))
+                builder(Breakpoint.Type.SESSION_STARTED, toggleBreakpoints(true, scoreBreakpoint))
                 .build());
 
         workflowDebugger.addBreakpoint(Breakpoint.

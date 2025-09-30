@@ -59,7 +59,8 @@ public interface WorkflowDebuggerSupport {
      * @param userMessage The received {@link UserMessage}.
      */
     default void inputReceived(UserMessage userMessage) {
-        getWorkflowDebugger().inputReceived(this, getClass(), userMessage);
+        if (getWorkflowDebugger() != null)
+            getWorkflowDebugger().inputReceived(this, getClass(), userMessage);
     }
 
     /**
@@ -69,7 +70,8 @@ public interface WorkflowDebuggerSupport {
      * @param text The received text input.
      */
     default void inputReceived(String text) {
-        getWorkflowDebugger().inputReceived(this, getClass(), UserMessage.userMessage(text));
+        if (getWorkflowDebugger() != null)
+            getWorkflowDebugger().inputReceived(this, getClass(), UserMessage.userMessage(text));
     }
 
     /**
@@ -79,6 +81,9 @@ public interface WorkflowDebuggerSupport {
      * @param output The produced output object.
      */
     default void outputProduced(Object output) {
+        if (getWorkflowDebugger() == null)
+            return;
+
         for (Method method : getClass().getDeclaredMethods()) {
             Agent annotation = method.getAnnotation(Agent.class);
             if (annotation != null) {
@@ -95,7 +100,8 @@ public interface WorkflowDebuggerSupport {
      * @param output The produced output object.
      */
     default void agenticScopeOutputProduced(Object output) {
-        getWorkflowDebugger().stateChanged(this, getClass(), "agenticScope", output);
+        if (getWorkflowDebugger() != null)
+            getWorkflowDebugger().stateChanged(this, getClass(), "agenticScope", output);
     }
 
     /**
