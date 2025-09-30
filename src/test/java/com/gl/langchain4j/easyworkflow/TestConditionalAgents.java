@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class TestConditionalAgents {
@@ -36,19 +37,27 @@ public class TestConditionalAgents {
                 .setState("response", "")
                 .agent(new CategoryRouter())
                 .doWhen("category", RequestCategory.UNKNOWN)
-                    .match(RequestCategory.MEDICAL)
-                        .agent(new MedicalExpert())
-                    .end()
-                    .match(RequestCategory.LEGAL)
-                        .agent(new LegalExpert())
-                    .end()
-                    .match(RequestCategory.TECHNICAL)
-                        .agent(new TechnicalExpert())
-                    .end()
+                .match(RequestCategory.MEDICAL)
+                .agent(new MedicalExpert())
+                .end()
+                .match(RequestCategory.LEGAL)
+                .agent(new LegalExpert())
+                .end()
+                .match(RequestCategory.TECHNICAL)
+                .agent(new TechnicalExpert())
+                .end()
                 .end()
                 .agent(new SummaryAgent())
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
+
+        System.out.println(builder.toJson());
+
+        try {
+            debugger.toHtmlFile("workflow.html");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
 
         assertEquals("{summary=Summary: Some medical response, response=Some medical response}", expertRouterAgent.ask("I broke my leg, what should I do?").toString());
         assertEquals("{summary=Summary: Some legal response, response=Some legal response}", expertRouterAgent.ask("Should I sue my neighbor who caused this damage?").toString());
@@ -67,24 +76,24 @@ public class TestConditionalAgents {
 
         final AtomicBoolean breakpointHit = new AtomicBoolean(false);
 
-        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+        WorkflowDebugger debugger = new WorkflowDebugger();
 
         EasyWorkflow.AgentWorkflowBuilder<ExpertRouterAgent> builder = EasyWorkflow.builder(ExpertRouterAgent.class);
         ExpertRouterAgent expertRouterAgent = builder
                 .chatModel(BASE_MODEL)
-                .workflowDebugger(workflowDebugger)
+                .workflowDebugger(debugger)
                 .setState("response", "")
                 .agent(new CategoryRouter())
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
-                    .agent(new MedicalExpert())
+                .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL, "category == MEDICAL"))
+                .agent(new MedicalExpert())
                 .end().elseIf()
-                    .breakpoint((aBreakpoint, aAgenticScope) -> breakpointHit.set(true))
+                .breakpoint((aBreakpoint, aAgenticScope) -> breakpointHit.set(true))
                 .end()
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL)
-                    .agent(new LegalExpert())
+                .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL, "category == LEGAL"))
+                .agent(new LegalExpert())
                 .end()
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.TECHNICAL)
-                    .agent(new TechnicalExpert())
+                .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.TECHNICAL, "category == TECHNICAL"))
+                .agent(new TechnicalExpert())
                 .end()
                 .agent(new SummaryAgent())
                 .output(OutputComposers.asMap("response", "summary"))
@@ -92,6 +101,14 @@ public class TestConditionalAgents {
 
         assertEquals("{summary=Summary: Some medical response, response=Some medical response}", expertRouterAgent.ask("I broke my leg, what should I do?").toString());
         assertFalse(breakpointHit.get());
+
+        System.out.println(builder.toJson());
+
+        try {
+            debugger.toHtmlFile("workflow.html");
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
 
         assertEquals("{summary=Summary: Some legal response, response=Some legal response}", expertRouterAgent.ask("Should I sue my neighbor who caused this damage?").toString());
         assertTrue(breakpointHit.get());
@@ -101,7 +118,7 @@ public class TestConditionalAgents {
         assertTrue(breakpointHit.get());
         breakpointHit.set(false);
         try {
-            workflowDebugger.toHtmlFile("workflow.html");
+            debugger.toHtmlFile("workflow.html");
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -115,8 +132,15 @@ public class TestConditionalAgents {
         LEGAL, MEDICAL, TECHNICAL, UNKNOWN
     }
 
+    public interface ExpertRouterAgent {
+
+        @Agent(outputName = "response")
+        Map<String, String> ask(@V("request") String request);
+    }
+
+    @SuppressWarnings("unused")
     public static class SummaryAgent extends WorkflowDebuggerSupport.Impl {
-        @Agent(value = "Categorizes a user request", outputName = "summary")
+        @Agent(value = "Summarises a user request", outputName = "summary")
         public String summary(@V("response") String response) {
             inputReceived(response != null && !response.isEmpty() ? response : "None");
             String result = "Summary: " + response;
@@ -125,12 +149,7 @@ public class TestConditionalAgents {
         }
     }
 
-    public interface ExpertRouterAgent {
-
-        @Agent(outputName = "response")
-        Map<String, String> ask(@V("request") String request);
-    }
-
+    @SuppressWarnings("unused")
     public static class CategoryRouter extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "Categorizes a user request", outputName = "category")
         public RequestCategory classify(@V("request") String request) {
@@ -151,6 +170,7 @@ public class TestConditionalAgents {
         }
     }
 
+    @SuppressWarnings("unused")
     public static class MedicalExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "A medical expert", outputName = "response")
         public String medical(@MemoryId String memoryId, @V("request") String request) {
@@ -160,6 +180,7 @@ public class TestConditionalAgents {
         }
     }
 
+    @SuppressWarnings("unused")
     public static class LegalExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "A legal expert", outputName = "response")
         public String legal(@MemoryId String memoryId, @V("request") String request) {
@@ -169,6 +190,7 @@ public class TestConditionalAgents {
         }
     }
 
+    @SuppressWarnings("unused")
     public static class TechnicalExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(value = "A technical expert", outputName = "response")
         public String technical(@MemoryId String memoryId, @V("request") String request) {

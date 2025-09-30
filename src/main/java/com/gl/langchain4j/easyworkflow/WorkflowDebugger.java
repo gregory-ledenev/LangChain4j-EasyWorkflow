@@ -1009,7 +1009,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public static class BreakpointBuilder {
         private final BiConsumer<Breakpoint, Map<String, Object>> action;
-        private Breakpoint.Type type = Breakpoint.Type.AGENT_OUTPUT;
+        private Breakpoint.Type type;
         private Class<?>[] agentClasses;
         private String[] outputNames = {"*"};
         private Predicate<Map<String, Object>> condition;

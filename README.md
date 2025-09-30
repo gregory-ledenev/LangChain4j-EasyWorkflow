@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.11</version>
+    <version>0.9.12</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.11</version>
+    <version>0.9.12</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -70,6 +70,10 @@ interface. Then you can configure it, add agents and finally use the `build` as 
 configured workflow.
 
 You may explore [Building AI Workflows with EasyWorkflow for LangChain4j](tutorial.md) tutorial for a quick start.
+
+EasyWorkflow allows you to export a workflow to JSON format for documentation or illustration purposes using the
+`AgentWorkflowBuilder.toJson()` method. In addition, you can generate an AI-powered summary of your workflow by calling
+`AgentWorkflowBuilder.generateAISummary()`.
 
 ### 1. Basic Configuration
 
@@ -166,6 +170,11 @@ ExpertRouterAgent expertRouterAgent = EasyWorkflow.builder(ExpertRouterAgent.cla
 ```
 
 You can find more detailed examples in the following sections.
+
+Note: it is not possible to extract conditions and expressions from corresponding lambda functions for illustration or 
+diagramming purposes. So to associate textual representation of conditions and expression with lanbda functions use
+* `EasyWorkflow.condition(lambda, String)` - for conditions used in `ifThen` and `repeat`
+* `EasyWorkflow.expression(lambda, String))` - for expressions used in `doWhen`
 
 ### 4. Workflow Debugging
 
@@ -310,8 +319,8 @@ public static class QualityScorer implements WorkflowDebuggerSupport {
     public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) { this.workflowDebugger = workflowDebugger; }
 }
 ```
- 
-#### 4.4 Interactive Flow Chart Diagrams
+
+### 4.4 Interactive Flow Chart Diagrams
 
 EasyWorkflow provides functionality to generate visual flowchart diagrams of agentic workflows, accompanied by the
 workflow results, as HTML files. These diagrams are invaluable for debugging, illustration, and documentation purposes.

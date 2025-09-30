@@ -4,7 +4,6 @@ import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import org.junit.jupiter.api.Test;
 
@@ -59,13 +58,15 @@ public class TestParallelAgents {
                     .workflowDebugger(workflowDebugger)
                     .doParallel(resultFunction)
                     .outputName("plan")
-                        .agent(new FoodExpert())
-                        .agent(new MovieExpert())
+                    .agent(new FoodExpert())
+                    .agent(new MovieExpert())
                     .end()
                     .outputName("plan")
                     .build();
 
             assertEquals("[EveningPlan[meal=Chicken Fajitas, movie=The Princess Briden], EveningPlan[meal=Grilled Cheeseburgers, movie=Elf], EveningPlan[meal=Seafood Paella, movie=Amélie]]", eveningPlannerAgent.plan("happy").toString());
+
+            System.out.println(builder.toJson());
 
             try {
                 workflowDebugger.toHtmlFile("workflow.html");
@@ -77,8 +78,8 @@ public class TestParallelAgents {
             GenericEveningPlannerAgent genericEveningPlannerAgent = EasyWorkflow.builder(GenericEveningPlannerAgent.class)
                     .chatModel(BASE_MODEL)
                     .doParallel(asMap("movies", "meals"))
-                        .agent(new FoodExpert())
-                        .agent(new MovieExpert())
+                    .agent(new FoodExpert())
+                    .agent(new MovieExpert())
                     .end()
                     .build();
 
@@ -103,6 +104,25 @@ public class TestParallelAgents {
         }
     }
 
+    @SuppressWarnings("unused")
+    public interface EveningPlannerAgent {
+        @Agent
+        List<EveningPlan> plan(@P("mood") String mood);
+    }
+
+    @SuppressWarnings("unused")
+    public interface GenericEveningPlannerAgent {
+        @Agent
+        Map<String, List<String>> plan(@P("mood") String mood);
+    }
+
+    @SuppressWarnings("unused")
+    public interface BeanListEveningPlannerAgent {
+        @Agent
+        List<EveningPlan> plan(@P("mood") String mood);
+    }
+
+    @SuppressWarnings("unused")
     public static class FoodExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(outputName = "meals")
         public List<String> findMeal(@V("mood") String mood) {
@@ -114,6 +134,7 @@ public class TestParallelAgents {
         }
     }
 
+    @SuppressWarnings("unused")
     public static class MovieExpert extends WorkflowDebuggerSupport.Impl {
         @Agent(outputName = "movies")
         public List<String> findMovie(@V("mood") String mood) {
@@ -125,21 +146,7 @@ public class TestParallelAgents {
         }
     }
 
-    public interface EveningPlannerAgent {
-        @Agent
-        List<EveningPlan> plan(@P("mood") String mood);
-    }
-
-    public interface GenericEveningPlannerAgent {
-        @Agent
-        Map<String, List<String>> plan(@P("mood") String mood);
-    }
-
-    public interface BeanListEveningPlannerAgent {
-        @Agent
-        List<EveningPlan> plan(@P("mood") String mood);
-    }
-
+    @SuppressWarnings("unused")
     public static final class EveningPlan {
         private String meal;
         private String movie;

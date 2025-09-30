@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.UntypedAgent;
@@ -43,6 +44,7 @@ import dev.langchain4j.guardrail.OutputGuardrail;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.input.PromptTemplate;
+import dev.langchain4j.service.UserMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,6 +79,60 @@ public class EasyWorkflow {
     private static final Logger logger = LoggerFactory.getLogger(EasyWorkflow.class);
 
     private EasyWorkflow() {
+    }
+
+    /**
+     * Creates a {@link Predicate} that can be used in conditional workflow statements (e.g., {@code ifThen})
+     * and provides a textual representation for visualization in diagrams.
+     * @param condition The actual predicate logic.
+     * @param conditionString A string representation of the condition, used for debugging and diagrams.
+     * @return A {@link Predicate} with an overridden {@code toString()} method.
+     */
+    public static Predicate<AgenticScope> condition(Predicate<AgenticScope> condition, String conditionString) {
+        return new Predicate<AgenticScope>() {
+            @Override
+            public String toString() {
+                return conditionString;
+            }
+
+            @Override
+            public boolean test(AgenticScope agenticScope) {
+                return condition.test(agenticScope);
+            }
+        };
+    }
+
+    /**
+     * Creates a {@link Function} that can be used in workflow statements (e.g., {@code doWhen})
+     * and provides a textual representation for visualization in diagrams.
+     * @param expression The actual function logic.
+     * @param expressionString A string representation of the expression, used for debugging and diagrams.
+     * @return A {@link Function} with an overridden {@code toString()} method.
+     */
+    public static Function<AgenticScope, Object> expression(Function<AgenticScope, Object> expression, String expressionString) {
+        return new Function<AgenticScope, Object>() {
+            @Override
+            public String toString() {
+                return expressionString;
+            }
+
+            @Override
+            public Object apply(AgenticScope agenticScope) {
+                return expression.apply(agenticScope);
+            }
+        };
+    }
+
+    /**
+     * Retrieves the textual representation of a lambda, if available.
+     *
+     * @param lambda The lambda.
+     * @return The string representation of the lambda, or {@code null} if it's a lambda expression without a custom
+     * {@code toString()}.
+     */
+    public static String getDescription(Object lambda) {
+        String result = lambda.toString();
+        return result.contains("$$Lambda/") ? null : result;
     }
 
     /**
@@ -189,6 +245,8 @@ public class EasyWorkflow {
         Object createAgent();
 
         String getId();
+
+        Map<String, Object> toJson();
 
         String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, List<String> completedNodes, Set<String> failedNodes, Set<String> runningNodes);
     }
@@ -584,15 +642,9 @@ public class EasyWorkflow {
 
         /**
          * Starts an "if-then" conditional block. The agents added after this call and before the matching {@code end()}
-         * will only execute if the provided condition is true.
-         *
-         * <p>Example usage:</p>
-         * <pre>{@code
-         * EasyWorkflow.builder(MyAgent.class)
-         * .ifThen(scope -> scope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
-         *   .agent(AnotherAgent.class)
-         * .end()
-         * }</pre>
+         * will only execute if the provided condition is true. It is not possible to extract a condition expression
+         * from a lambda function so to see conditions in documentation or diagrams use the {@code condition(...)}
+         * method to associate a predicate with a condition expression.
          *
          * @param condition The condition to evaluate. Use state variables from {@code AgenticScope} com compose a
          *                  condition.
@@ -600,30 +652,8 @@ public class EasyWorkflow {
          * builder.
          */
         public AgentWorkflowBuilder<T> ifThen(Predicate<AgenticScope> condition) {
-            return ifThen(condition, null);
-        }
-
-        /**
-        * Starts an "if-then" conditional block. The agents added after this call and before the matching {@code end()}
-         * will only execute if the provided condition is true.
-        *
-        * <p>Example usage:</p>
-        * <pre>{@code
-        * EasyWorkflow.builder(MyAgent.class)
-        * .ifThen(scope -> scope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
-        *   .agent(AnotherAgent.class)
-        * .end()
-        * }</pre>
-         *
-         * @param condition The condition to evaluate. Use state variables from {@code AgenticScope} com compose a
-         *                  condition.
-         * @param conditionExpression textual representation of the condition should be shown in the diagram node
-         * @return A new builder instance representing the "then" block. Call {@code end()} to return to the parent
-         * builder.
-         */
-        public AgentWorkflowBuilder<T> ifThen(Predicate<AgenticScope> condition, String conditionExpression) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
-            IfThenStatement ifThenStatement = new IfThenStatement(result, condition, conditionExpression);
+            IfThenStatement ifThenStatement = new IfThenStatement(result, condition, getDescription(condition));
             this.addExpression(ifThenStatement);
             result.setBlock(ifThenStatement.getBlocks().get(0));
             return result;
@@ -658,34 +688,19 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements, where
-         * each match statement's agents will execute if its condition (based on the function's result) is met.
-         *
-         * @param function A function that provides a value to be matched against in subsequent {@code match}
-         *                 statements.
-         * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen"
-         * return to the parent builder.
-         * @see #match(Object)
-         */
-        public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function) {
-            return doWhen(function, null);
-        }
-
-        /**
          * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements,
          * where each match statement's agents will execute if its condition (based on the function's
          * result) is met.
          *
          * @param function A function that provides a value to be matched against in subsequent
          *                 {@code match} statements.
-         * @param whenExpression textual representation of the function expression should be shown in the diagram node
          * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen"
          *         return to the parent builder.
          * @see #match(Object)
          */
-        public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function, String whenExpression) {
+        public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
-            DoWhenStatement doWhenStatement = new DoWhenStatement(result, function, whenExpression);
+            DoWhenStatement doWhenStatement = new DoWhenStatement(result, function, getDescription(function));
             this.addExpression(doWhenStatement);
             result.setBlock(doWhenStatement.getBlocks().get(0));
             return result;
@@ -701,7 +716,7 @@ public class EasyWorkflow {
          * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen" return to the parent builder.
          */
         public AgentWorkflowBuilder<T> doWhen(String stateName, Object defaultValue) {
-            return doWhen(agenticScope -> agenticScope.readState(stateName, defaultValue), stateName);
+            return doWhen(expression(agenticScope -> agenticScope.readState(stateName, defaultValue), stateName));
         }
 
         /**
@@ -796,7 +811,9 @@ public class EasyWorkflow {
 
         /**
          * Starts a "repeat" block with a specified maximum number of iterations. Agents within this block will execute
-         * repeatedly until the condition is met or the maximum iterations are reached.
+         * repeatedly until the condition is met or the maximum iterations are reached.  It is not possible to extract a
+         * condition expression from a lambda function so to see conditions in documentation or diagrams use the
+         * {@code condition(...)} method to associate a predicate with a condition expression.
          *
          * @param maxIterations The maximum number of times to repeat the block.
          * @param condition     The condition that, when true, will cause the loop to exit.
@@ -805,7 +822,8 @@ public class EasyWorkflow {
          */
         public AgentWorkflowBuilder<T> repeat(int maxIterations, Predicate<AgenticScope> condition) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
-            RepeatStatement repeatStatement = new RepeatStatement(result, maxIterations, condition.negate());
+            RepeatStatement repeatStatement = new RepeatStatement(result, maxIterations, condition.negate(),
+                    getDescription(condition));
             this.addExpression(repeatStatement);
             result.setBlock(repeatStatement.getBlocks().get(0));
 
@@ -850,6 +868,63 @@ public class EasyWorkflow {
             return proxy(builder.build());
         }
 
+        /**
+         * Generates a JSON representation of the workflow for documentation and illustration purposes.
+         *
+         * @return A pretty-printed JSON string representing the workflow structure.
+         */
+        public String toJson() {
+            if (parentBuilder != null || agentClass == null)
+                throw new IllegalStateException("toJson() can only be called on the root builder after the workflow is defined.");
+
+            List<Map<String, Object>> workflowData = this.block.toJson();
+            try {
+                return new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(workflowData);
+            } catch (JsonProcessingException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
+        /**
+         * Generates a summary of the workflow using an AI agent. First, it obtains a Json representation of a workflow
+         * using {@code toJson()} method then it builds an {@code WorkflowSummaryProvider} AI agent, and finally it uses
+         * its {@code getSummary(...)} to get a summary.
+         * <p>
+         * Note: a properly configured {@code chatModel} must be specified for a workflow, and it may require local
+         * network or the Internet connection, active subscription and/or available credits.
+         *
+         * @return A string containing the AI-generated summary of the workflow.
+         */
+        public String generateAISummary() {
+            Objects.requireNonNull(getChatModel());
+            String json = toJson();
+
+            WorkflowSummaryProvider summaryProvider = AgenticServices.agentBuilder(WorkflowSummaryProvider.class)
+                    .chatModel(getChatModel())
+                    .build();
+
+            return summaryProvider.getSummary(json);
+        }
+
+        /**
+         * An AI agent interface for generating a summary of a workflow based on its JSON representation.
+         */
+        public interface WorkflowSummaryProvider {
+
+            /**
+             * Generates a summary of the workflow based on its JSON representation.
+             * @param jsonRepresentation The JSON string representing the workflow.
+             * @return A string containing the summary of the workflow.
+             */
+            @UserMessage("""
+                         Prepare a summary for a workflow according to its JSON representation.
+                         The JSON representation is: '{{jsonRepresentation}}'.
+                         """)
+            @Agent(value = "prepares summary for a workflow", outputName = "summary")
+            public String getSummary(String jsonRepresentation);
+
+        }
+
         @SuppressWarnings("unchecked")
         private T proxy(T agent) {
             assert agentClass != null;
@@ -870,6 +945,7 @@ public class EasyWorkflow {
 
                             return invocationResult;
                         } catch (Throwable failure) {
+                            //noinspection ConstantValue
                             if (isAgentMethod && workflowDebugger != null)
                                 workflowDebugger.sessionFailed(failure);
                             throw failure;
@@ -941,10 +1017,13 @@ public class EasyWorkflow {
             String mermaidCode = toMermaid(htmlConfiguration.completedAgents(), htmlConfiguration.failedAgents(), htmlConfiguration.runningAgents());
 
             String htmlTemplate;
+            final String errorMessage = "Could not load 'flow-chart.html' resource";
             try (java.io.InputStream is = getClass().getResourceAsStream("flow-chart.html")) {
+                if (is == null)
+                    throw new IllegalStateException(errorMessage);
                 htmlTemplate = new String(is.readAllBytes());
-            } catch (Exception e) {
-                throw new IllegalStateException("Could not load 'flow-chart.html' resource", e);
+            } catch (IOException e) {
+                throw new IllegalStateException(errorMessage, e);
             }
 
             try {
@@ -1019,6 +1098,31 @@ public class EasyWorkflow {
                     .collect(Collectors.toList());
         }
 
+        public List<Map<String, Object>> toJson() {
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (int i = 0; i < expressions.size(); i++) {
+                Expression expr = expressions.get(i);
+
+                if (expr instanceof IfThenStatement ifStmt && !(expr instanceof ElseIfStatement)) {
+                    Expression nextExpr = (i + 1 < expressions.size()) ? expressions.get(i + 1) : null;
+
+                    if (nextExpr instanceof ElseIfStatement elseStmt) {
+                        Map<String, Object> ifJson = ifStmt.toJson();
+                        ifJson.put("elseBlock", elseStmt.getBlocks().get(0).toJson());
+                        result.add(ifJson);
+                        i++; // Skip next expression (the else part)
+                        continue;
+                    }
+                }
+
+                Map<String, Object> exprJson = expr.toJson();
+                if (exprJson != null) {
+                    result.add(exprJson);
+                }
+            }
+            return result;
+        }
+
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter,
                                 String entryNodeId, String edgeLabel,
                                 List<String> completedNodes,
@@ -1071,11 +1175,6 @@ public class EasyWorkflow {
         final AgentWorkflowBuilder<?> agentWorkflowBuilder;
         private final List<Block> blocks;
 
-        public Statement(AgentWorkflowBuilder<?> agentWorkflowBuilder, List<Block> aBlocks) {
-            this.agentWorkflowBuilder = agentWorkflowBuilder;
-            this.blocks = aBlocks;
-        }
-
         public Statement(AgentWorkflowBuilder<?> agentWorkflowBuilder) {
             this.agentWorkflowBuilder = agentWorkflowBuilder;
             this.blocks = new ArrayList<>();
@@ -1094,13 +1193,25 @@ public class EasyWorkflow {
         public Object createAgent() {
             return null;
         }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = new LinkedHashMap<>();
+            json.put("type", "unknown");
+            json.put("uid", getId());
+            List<Map<String, Object>> blockJson = getBlocks().get(0).toJson();
+            if (!blockJson.isEmpty()) json.put("block", blockJson);
+            return json;
+        }
     }
 
     static class RepeatStatement extends Statement {
         private final int maxIterations;
         private final Predicate<AgenticScope> condition;
+        private final String conditionExpression;
 
-        public RepeatStatement(AgentWorkflowBuilder<?> builder, int maxIterations, Predicate<AgenticScope> condition) {
+        public RepeatStatement(AgentWorkflowBuilder<?> builder, int maxIterations, Predicate<AgenticScope> condition,
+                               String conditionExpression) {
             super(builder);
 
             if (maxIterations < 1 || maxIterations > 100)
@@ -1109,6 +1220,7 @@ public class EasyWorkflow {
 
             this.maxIterations = maxIterations;
             this.condition = condition;
+            this.conditionExpression = conditionExpression;
         }
 
         @Override
@@ -1123,9 +1235,23 @@ public class EasyWorkflow {
         }
 
         @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "repeat");
+            json.put("maxIterations", maxIterations);
+            if (conditionExpression != null) {
+                json.put("condition", conditionExpression);
+            }
+            return json;
+        }
+
+        @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, List<String> completedNodes, Set<String> failedNodes, Set<String> runningNodes) {
             String repeatNodeId = getId();
-            mermaid.append(String.format("    %s{{\"Repeat (max: %d)\"}}\n", repeatNodeId, maxIterations));
+            mermaid.append(String.format("    %s{{\"Repeat (%s, max: %d)\"}}\n",
+                    repeatNodeId,
+                    conditionExpression != null ? conditionExpression : "...",
+                    maxIterations));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, repeatNodeId) :
                     String.format("    %s --> %s\n", entryNodeId, repeatNodeId);
@@ -1144,6 +1270,11 @@ public class EasyWorkflow {
 
     static class IfThenStatement extends Statement {
         private final Predicate<AgenticScope> condition;
+
+        public String getConditionExpression() {
+            return conditionExpression;
+        }
+
         private final String conditionExpression;
 
         public IfThenStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition) {
@@ -1168,9 +1299,19 @@ public class EasyWorkflow {
         }
 
         @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "ifThen");
+            if (conditionExpression != null) {
+                json.put("condition", conditionExpression);
+            }
+            return json;
+        }
+
+        @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, List<String> completedNodes, Set<String> failedNodes, Set<String> runningNodes) {
             String ifNodeId = getId();
-            mermaid.append(String.format("    %s{{\"If (%s)\"}}\n", ifNodeId, conditionExpression != null ? conditionExpression : "..."));
+            mermaid.append(String.format("    %s{{\"If (%s)\"}}\n", ifNodeId, getConditionExpression() != null ? getConditionExpression() : "..."));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, ifNodeId) :
                     String.format("    %s --> %s\n", entryNodeId, ifNodeId);
@@ -1231,6 +1372,16 @@ public class EasyWorkflow {
         }
 
         @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "doWhen");
+            if (whenExpression != null) {
+                json.put("expression", whenExpression);
+            }
+            return json;
+        }
+
+        @Override
         public String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, List<String> completedNodes, Set<String> failedNodes, Set<String> runningNodes) {
             String switchNodeId = getId();
             mermaid.append(String.format("    %s{{\"doWhen (%s)\"}}\n",
@@ -1281,6 +1432,17 @@ public class EasyWorkflow {
         }
 
         @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "match");
+            Object val = getValue();
+            if (val != null) {
+                json.put("value", val.toString());
+            }
+            return json;
+        }
+
+        @Override
         public Object createAgent() {
             return AgenticServices.sequenceBuilder()
                     .subAgents(getBlocks().get(0).createAgents().toArray())
@@ -1308,6 +1470,13 @@ public class EasyWorkflow {
                     .subAgents(getBlocks().get(0).createAgents().toArray())
                     .responseStrategy(SupervisorResponseStrategy.SUMMARY)
                     .build();
+        }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "group");
+            return json;
         }
 
         @Override
@@ -1393,6 +1562,13 @@ public class EasyWorkflow {
             }
 
             return builder.build();
+        }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "doParallel");
+            return json;
         }
 
         @Override
@@ -1503,6 +1679,42 @@ public class EasyWorkflow {
                 workflowDebugger.registerAgentMetadata(result, this);
 
             return result;
+        }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = new LinkedHashMap<>();
+            json.put("type", "agent");
+            json.put("uid", getId());
+
+            Class<?> clazz = (agentClass != null) ? agentClass : agent.getClass();
+            json.put("className", clazz.getSimpleName());
+
+            final String outputNameKey = "outputName";
+
+            for (Method method : clazz.getDeclaredMethods()) {
+                Agent agentAnnotation = method.getAnnotation(Agent.class);
+                if (agentAnnotation != null) {
+                    if (!agentAnnotation.value().isBlank())
+                        json.put("description", agentAnnotation.value());
+                    if (!agentAnnotation.outputName().isBlank())
+                        json.put(outputNameKey, agentAnnotation.outputName());
+
+                    UserMessage userMessageAnnotation = method.getAnnotation(UserMessage.class);
+                    if (userMessageAnnotation != null) {
+                        //// TODO: 9/30/25 handle loading from resource
+                        if (userMessageAnnotation.value().length > 0)
+                            json.put("userMessage", String.join(userMessageAnnotation.delimiter(), userMessageAnnotation.value()));
+                    }
+                    break;
+                }
+            }
+
+            if (outputName != null) {
+                json.put(outputNameKey, outputName);
+            }
+
+            return json;
         }
 
         @Override
@@ -1697,12 +1909,28 @@ public class EasyWorkflow {
         }
 
         @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "nonAiAgent");
+            json.put("className", getAgent().getClass().getSimpleName());
+            return json;
+        }
+
+        @Override
         protected String getMermaidNodeColor() {
             return "#f5f5f5";
         }
     }
 
     static class SetStateAgentExpression extends NonAIAgentExpression {
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "setState");
+            json.put("details", ((SetStateAgents.SetStateAgent) getAgent()).getAgentName());
+            return json;
+        }
+
         @Override
         protected String getMermaidNodeLabel() {
             return ((SetStateAgents.SetStateAgent) getAgent()).getAgentName();
@@ -1733,6 +1961,17 @@ public class EasyWorkflow {
             }
 
             return result;
+        }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put("type", "remoteAgent");
+            json.put("url", url);
+            if (getAgentClass() != null) {
+                json.put("className", getAgentClass().getSimpleName());
+            }
+            return json;
         }
 
         @Override
@@ -1779,6 +2018,14 @@ public class EasyWorkflow {
                     .build();
             workflowDebugger.addBreakpoint(breakpoint);
             return breakpoint.createAgent(workflowDebugger);
+        }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = new LinkedHashMap<>();
+            json.put("type", "breakpoint");
+            json.put("uid", getId());
+            return json;
         }
 
         @Override

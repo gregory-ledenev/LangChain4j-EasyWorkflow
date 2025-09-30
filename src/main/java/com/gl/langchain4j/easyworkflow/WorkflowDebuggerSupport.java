@@ -70,8 +70,7 @@ public interface WorkflowDebuggerSupport {
      * @param text The received text input.
      */
     default void inputReceived(String text) {
-        if (getWorkflowDebugger() != null)
-            getWorkflowDebugger().inputReceived(this, getClass(), UserMessage.userMessage(text));
+        inputReceived(UserMessage.userMessage(text));
     }
 
     /**

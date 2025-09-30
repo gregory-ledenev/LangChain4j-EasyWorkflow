@@ -102,7 +102,8 @@ public class SetStateAgents {
          * @param agenticScope The AgenticScope to which the states will be written.
          * @return Always returns null.
          */
-        @Agent(name = "Set State")
+        @SuppressWarnings("unused")
+        @Agent(name = "Set State", description = "Sets the given states in agentic scope")
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
             inputReceived("-");
             agenticScope.writeStates(states);
@@ -132,7 +133,8 @@ public class SetStateAgents {
          * @param agenticScope The AgenticScope to which the states will be written.
          * @return Always returns null.
          */
-        @Agent(name = "Set State")
+        @SuppressWarnings("unused")
+        @Agent(name = "Set State", description = "Sets the given states in agentic scope")
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
             inputReceived("-");
             Map<String, Object> states = stateSupplier.get();

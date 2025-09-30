@@ -86,12 +86,13 @@ public class SampleSupervisedAgents {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-//        System.out.println(supervisorAgent1.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
-//        System.out.println(bankTool.getBalance("Mario"));
-//        System.out.println(bankTool.getBalance("Georgios"));
-//        System.out.println(workflowDebugger.toString(true));
+        System.out.println(supervisorAgent1.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
+        System.out.println(bankTool.getBalance("Mario"));
+        System.out.println(bankTool.getBalance("Georgios"));
+        System.out.println(workflowDebugger.toString(true));
     }
 
+    @SuppressWarnings("unused")
     public interface WithdrawAgent {
 
         @SystemMessage("""
@@ -104,6 +105,7 @@ public class SampleSupervisedAgents {
         String withdraw(@V("user") String user, @V("amount") Double amount);
     }
 
+    @SuppressWarnings("unused")
     public interface CreditAgent {
         @SystemMessage("""
                        You are a banker that can only credit US dollars (USD) to a user account,
@@ -115,6 +117,7 @@ public class SampleSupervisedAgents {
         String credit(@V("user") String user, @V("amount") Double amount);
     }
 
+    @SuppressWarnings("unused")
     public interface ExchangeAgent {
         @AgentBuilderConfigurator
         static AgentBuilder<?> configure(AgentBuilder<?> builder) {
@@ -132,11 +135,13 @@ public class SampleSupervisedAgents {
         Double exchange(@V("originalCurrency") String originalCurrency, @V("amount") Double amount, @V("targetCurrency") String targetCurrency);
     }
 
+    @SuppressWarnings("unused")
     public interface SupervisorAgent {
         @Agent(outputName = "response")
         String makeTransaction(@V("request") String request);
     }
 
+    @SuppressWarnings("unused")
     static class BankTool {
 
         private final Map<String, Double> accounts = new HashMap<>();
@@ -181,6 +186,7 @@ public class SampleSupervisedAgents {
         }
     }
 
+    @SuppressWarnings("unused")
     public static class ExchangeTool {
         public ExchangeTool() {
             System.out.println("ExchangeTool created");

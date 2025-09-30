@@ -46,8 +46,7 @@ import static java.lang.System.out;
 /**
  * This class provides a sample for
  * <a href="https://docs.langchain4j.dev/tutorials/agents#conditional-workflow">Conditional Workflow</a>
- * using EasyWorkflow DSL-style
- * workflow initialization.
+ * using EasyWorkflow DSL-style workflow initialization.
  */
 @SuppressWarnings("unused")
 public class SampleConditionalAgents {
@@ -71,20 +70,22 @@ public class SampleConditionalAgents {
                 .workflowDebugger(workflowDebugger)
                 .setState("response", "")
                 .agent(CategoryRouter.class)
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL, "category == RequestCategory.MEDICAL")
-                    .agent(MedicalExpert.class)
+                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
+                .agent(MedicalExpert.class)
                 .end().elseIf()
-                    .breakpoint("ELSEIF")
+                .breakpoint("ELSEIF")
                 .end()
                 .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL)
-                    .agent(LegalExpert.class)
+                .agent(LegalExpert.class)
                 .end()
                 .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.TECHNICAL)
-                    .agent(TechnicalExpert.class)
+                .agent(TechnicalExpert.class)
                 .end()
                 .agent(SummaryAgent.class)
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
+
+        System.out.println(builder.generateAISummary());
 
         try {
             builder.toHtmlFile("workflow.html");

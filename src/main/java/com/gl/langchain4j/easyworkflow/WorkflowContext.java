@@ -138,6 +138,7 @@ public class WorkflowContext {
      *
      * @return The {@link StateChangeHandler} instance, or {@code null} if none is set.
      */
+    @SuppressWarnings("unused")
     public StateChangeHandler getOutputStateChangeHandler() {
         return stateChangeHandler;
     }
@@ -156,6 +157,7 @@ public class WorkflowContext {
      *
      * @return The {@link InputHandler} instance, or {@code null} if none is set.
      */
+    @SuppressWarnings("unused")
     public InputHandler getInputHandler() {
         return inputHandler;
     }

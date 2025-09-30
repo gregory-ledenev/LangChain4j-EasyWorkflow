@@ -42,12 +42,16 @@ import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.BreakpointActions.toHtmlFile;
 import static com.gl.langchain4j.easyworkflow.BreakpointActions.toggleBreakpoints;
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.expandTemplate;
-import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.AgentBreakpoint;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@SuppressWarnings("unused")
 public class TestSequentialAndRepeatableAgents {
     static final String GROQ_API_KEY = "groqApiKey";
+    static double score = 0.4;
+    static int passCounter = 0;
 
     @Test
     public void test() {
@@ -67,10 +71,10 @@ public class TestSequentialAndRepeatableAgents {
                 breakpointOutput.add(expandTemplate("Result: {{story}}", ctx)),
                 Breakpoint.Type.SESSION_STOPPED, null, true));
         workflowDebugger.addBreakpoint(new AgentBreakpoint((aBreakpoint, ctx) ->
-            breakpointOutput.add("Score: " + ctx.getOrDefault("score", 0.0)),
+                breakpointOutput.add("Score: " + ctx.getOrDefault("score", 0.0)),
                 Breakpoint.Type.AGENT_OUTPUT, null, new String[]{"score"}, null, true));
 
-        workflowDebugger.addBreakpoint(Breakpoint.builder(Breakpoint.Type.AGENT_INPUT, toHtmlFile("workflow.html")). build());
+        workflowDebugger.addBreakpoint(Breakpoint.builder(Breakpoint.Type.AGENT_INPUT, toHtmlFile("workflow.html")).build());
 
         Breakpoint scoreBreakpoint = Breakpoint.
                 builder(Breakpoint.Type.AGENT_OUTPUT, "SCORE for '{{$agentClass}}': {{score}}")
@@ -105,10 +109,10 @@ public class TestSequentialAndRepeatableAgents {
                 .workflowDebugger(workflowDebugger)
                 .agent(new CreativeWriter())
                 .agent(new AudienceEditor())
-                    .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
-                    .agent(new StyleScorer())
-                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> (double)ctx.getOrDefault("score", 0.0) >= 0.0)
-                    .agent(new StyleEditor())
+                .repeat(condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))
+                .agent(new StyleScorer())
+                .breakpoint("SCORE (INLINE): {{score}}", ctx -> (double) ctx.getOrDefault("score", 0.0) >= 0.0)
+                .agent(new StyleEditor())
                 .end()
                 .output(OutputComposers.asBean(Novel.class))
                 .agent(new QualityScorer());
@@ -116,6 +120,8 @@ public class TestSequentialAndRepeatableAgents {
         NovelCreator novelCreator = builder.build();
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+
+        System.out.println(builder.toJson());
 
         try {
             workflowDebugger.toHtmlFile("workflow.html");
@@ -157,7 +163,12 @@ public class TestSequentialAndRepeatableAgents {
                            ↓ OUT > "quality": 0.74
                      -----------------------
                      ◼ RESULT: Novel[story=0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!, score=0.8]
-                     """,  workflowDebugger.toString(true));
+                     """, workflowDebugger.toString(true));
+    }
+
+    public interface NovelCreator {
+        @Agent(outputName = "story")
+        Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
     }
 
     public static class CreativeWriter extends WorkflowDebuggerSupport.Impl {
@@ -214,14 +225,6 @@ public class TestSequentialAndRepeatableAgents {
         }
     }
 
-    public interface NovelCreator {
-        @Agent(outputName = "story")
-        Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
-    }
-
-    static double score = 0.4;
-    static int passCounter = 0;
-
     public static class StyleScorer extends WorkflowDebuggerSupport.Impl {
         @UserMessage("""
                      You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based
@@ -232,8 +235,8 @@ public class TestSequentialAndRepeatableAgents {
         @Agent(value = "Scores a story based on how well it aligns with a given style", outputName = "score")
         public double scoreStyle(@V("story") String story, @V("style") String style) {
             inputReceived(expandUserMessage(Map.of(
-                            "story", story,
-                            "style", style)));
+                    "story", story,
+                    "style", style)));
             score += 0.2;
             double result = score;
             outputProduced(result);
@@ -269,20 +272,20 @@ public class TestSequentialAndRepeatableAgents {
         private String story;
         private double score;
 
-        public void setStory(String aStory) {
-            story = aStory;
-        }
-
-        public void setScore(double aScore) {
-            score = aScore;
-        }
-
         public String getStory() {
             return story;
         }
 
+        public void setStory(String aStory) {
+            story = aStory;
+        }
+
         public double getScore() {
             return score;
+        }
+
+        public void setScore(double aScore) {
+            score = aScore;
         }
 
         @Override

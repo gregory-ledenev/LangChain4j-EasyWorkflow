@@ -63,6 +63,7 @@ public class OutputComposers {
      * @param outputName The name of the output in the {@link AgenticScope}.
      * @return A new {@link Mapping} instance.
      */
+    @SuppressWarnings("unused")
     public static Mapping mappingOf(String outputName) {
         return mappingOf(outputName, outputName);
     }
@@ -221,6 +222,7 @@ public class OutputComposers {
      * @param propertyName The name of the property in the target bean.
      */
     public record Mapping(String outputName, String propertyName) {
+        @SuppressWarnings("unused")
         public Mapping(String outputName) {
             this(outputName, outputName);
         }

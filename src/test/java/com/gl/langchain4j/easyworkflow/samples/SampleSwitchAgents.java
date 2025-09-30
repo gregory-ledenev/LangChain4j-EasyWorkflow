@@ -112,6 +112,7 @@ public class SampleSwitchAgents {
         LEGAL, MEDICAL, TECHNICAL, UNKNOWN
     }
 
+    @SuppressWarnings("unused")
     public interface SummaryAgent {
 
         @UserMessage("""
@@ -122,6 +123,7 @@ public class SampleSwitchAgents {
         String summary(@V("response") String response);
     }
 
+    @SuppressWarnings("unused")
     public interface CategoryRouter {
 
         @UserMessage("""
@@ -134,6 +136,7 @@ public class SampleSwitchAgents {
         RequestCategory classify(@V("request") String request);
     }
 
+    @SuppressWarnings("unused")
     public interface MedicalExpert {
 
         @UserMessage("""
@@ -147,6 +150,7 @@ public class SampleSwitchAgents {
                 @V("request") String request);
     }
 
+    @SuppressWarnings("unused")
     public interface LegalExpert {
 
         @UserMessage("""
@@ -160,6 +164,7 @@ public class SampleSwitchAgents {
                 @V("request") String request);
     }
 
+    @SuppressWarnings("unused")
     public interface TechnicalExpert {
         @UserMessage("""
                      You are a technical expert.
@@ -172,12 +177,15 @@ public class SampleSwitchAgents {
                 @V("request") String request);
     }
 
+    @SuppressWarnings("unused")
     public interface ExpertRouterAgent {
 
         @Agent(outputName = "response")
         Map<String, String> ask(@V("request") String request);
+
     }
 
+    @SuppressWarnings("unused")
     public interface ContextSummarizer {
 
         @UserMessage("""
