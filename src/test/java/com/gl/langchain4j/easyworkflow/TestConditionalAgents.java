@@ -54,7 +54,7 @@ public class TestConditionalAgents {
         System.out.println(builder.toJson());
 
         try {
-            debugger.toHtmlFile("workflow.html");
+            debugger.toHtmlFile("workflow.html", false);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -105,7 +105,7 @@ public class TestConditionalAgents {
         System.out.println(builder.toJson());
 
         try {
-            debugger.toHtmlFile("workflow.html");
+            debugger.toHtmlFile("workflow.html", false);
         } catch (IOException ex) {
             ex.printStackTrace();
         }
@@ -118,7 +118,7 @@ public class TestConditionalAgents {
         assertTrue(breakpointHit.get());
         breakpointHit.set(false);
         try {
-            debugger.toHtmlFile("workflow.html");
+            debugger.toHtmlFile("workflow.html", false);
         } catch (IOException ex) {
             ex.printStackTrace();
         }

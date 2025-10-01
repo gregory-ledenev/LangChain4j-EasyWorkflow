@@ -91,6 +91,8 @@ public class SampleSwitchAgents {
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
 
+        System.out.println(builder.generateAISummary());
+
         try {
             out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
         } catch (Exception e) {
@@ -100,7 +102,7 @@ public class SampleSwitchAgents {
         out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
         out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
         try {
-            workflowDebugger.toHtmlFile("workflow.html");
+            workflowDebugger.toHtmlFile("workflow.html", true);
         } catch (IOException ex) {
             ex.printStackTrace();
         }

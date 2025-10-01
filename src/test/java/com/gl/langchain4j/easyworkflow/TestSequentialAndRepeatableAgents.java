@@ -124,7 +124,7 @@ public class TestSequentialAndRepeatableAgents {
         System.out.println(builder.toJson());
 
         try {
-            workflowDebugger.toHtmlFile("workflow.html");
+            workflowDebugger.toHtmlFile("workflow.html", false);
         } catch (IOException ex) {
             ex.printStackTrace();
         }

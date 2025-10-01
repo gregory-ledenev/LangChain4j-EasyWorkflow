@@ -520,11 +520,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Generates an HTML string with a visual representation of the workflow execution. It includes a flow chart diagram
      * and an inspector that allows checking results of agent invocations.
      *
-     * @param title    The title for the HTML page.
-     * @param subTitle The subtitle for the HTML page.
+     * @param title            The title for the HTML page.
+     * @param subTitle         The subtitle for the HTML page.
+     * @param isIncludeSummary Specifies whether to include an AI generated workflow summary
      * @return An HTML string representing the workflow execution.
      */
-    public String toHtml(String title, String subTitle) {
+    public String toHtml(String title, String subTitle, boolean isIncludeSummary) {
         Map<String, Object> workflowResult = new HashMap<>();
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -575,7 +576,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             completedAgents.add(FLOW_CHART_NODE_END);
         }
 
-        return agentWorkflowBuilder.toHtml(new HtmlConfiguration(title, subTitle,
+        return agentWorkflowBuilder.toHtml(new HtmlConfiguration(
+                title,
+                subTitle,
+                isIncludeSummary,
                 workflowResult,
                 completedAgents,
                 failedAgents,
@@ -587,11 +591,23 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Generates an HTML string with a visual representation of the workflow execution. The title is "Workflow Diagram"
      * and the subtitle includes the current timestamp.
      *
+     * @param isIncludeSummary Specifies whether to include an AI generated workflow summary
+     * @return An HTML string representing the workflow execution.
+     */
+    public String toHtml(boolean isIncludeSummary) {
+        return toHtml("Workflow Diagram",
+                "A visual representation of the workflow execution (" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")", isIncludeSummary);
+    }
+
+    /**
+     * Generates an HTML string with a visual representation of the workflow execution. The title is "Workflow Diagram"
+     * and the subtitle includes the current timestamp.
+     *
      * @return An HTML string representing the workflow execution.
      */
     public String toHtml() {
         return toHtml("Workflow Diagram",
-                "A visual representation of the workflow execution (" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")");
+                "A visual representation of the workflow execution (" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")", false);
     }
 
     /**
@@ -602,7 +618,19 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @throws IOException If an I/O error occurs.
      */
     public void toHtmlFile(String filePath) throws IOException {
-        Files.write(Paths.get(filePath), toHtml().getBytes());
+        toHtmlFile(filePath, false);
+    }
+
+    /**
+     * Generates an HTML with a visual representation of the workflow execution. It contains a flow chart diagram and an
+     * inspector that allows checking results of agent invocations.
+     *
+     * @param filePath The path to the file where the HTML should be written.
+     * @param isIncludeSummary Specifies whether to include an AI generated workflow summary.
+     * @throws IOException If an I/O error occurs.
+     */
+    public void toHtmlFile(String filePath, boolean isIncludeSummary) throws IOException {
+        Files.write(Paths.get(filePath), toHtml(isIncludeSummary).getBytes());
     }
 
     public abstract static class UserMessageMixIn {

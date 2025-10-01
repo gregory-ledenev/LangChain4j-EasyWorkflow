@@ -49,6 +49,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -918,6 +919,11 @@ public class EasyWorkflow {
              */
             @UserMessage("""
                          Prepare a summary for a workflow according to its JSON representation.
+                         Keep it readable and user friendly.
+                         Don't include anything is not related to the workflow (offer to continue conversation etc.).
+                         Don't mention:
+                         - It's generated based on JSON
+                         - UID's
                          The JSON representation is: '{{jsonRepresentation}}'.
                          """)
             @Agent(value = "prepares summary for a workflow", outputName = "summary")
@@ -997,7 +1003,7 @@ public class EasyWorkflow {
         }
 
         public record HtmlConfiguration(String title, String subTitle,
-                                        Map<String, Object> workflowResults,
+                                        boolean isIncludeSummary, Map<String, Object> workflowResults,
                                         List<String> completedAgents,
                                         Set<String> failedAgents,
                                         Set<String> runningAgents,
@@ -1005,7 +1011,7 @@ public class EasyWorkflow {
 
 
             public HtmlConfiguration(String aTitle, String aSubTitle) {
-                this(aTitle, aSubTitle, Map.of(), List.of(), Set.of(), Set.of(), Map.of());
+                this(aTitle, aSubTitle, false, Map.of(), List.of(), Set.of(), Set.of(), Map.of());
             }
 
             public HtmlConfiguration() {
@@ -1014,31 +1020,47 @@ public class EasyWorkflow {
         }
 
         String toHtml(HtmlConfiguration htmlConfiguration) {
-            String mermaidCode = toMermaid(htmlConfiguration.completedAgents(), htmlConfiguration.failedAgents(), htmlConfiguration.runningAgents());
+            try {
+                ObjectMapper objectMapper = new ObjectMapper();
+                return expandTemplate(getHtmlTemplate(), Map.of(
+                        FLOW_CHART_GRAPH_DEFINITION, toMermaid(htmlConfiguration.completedAgents(), htmlConfiguration.failedAgents(), htmlConfiguration.runningAgents()),
+                        FLOW_CHART_NODE_DATA, objectMapper.writeValueAsString(htmlConfiguration.workflowResults()),
+                        FLOW_CHART_NODE_NAMES,objectMapper.writeValueAsString(htmlConfiguration.agentNames()),
+                        FLOW_CHART_COMPLETED_NODES,objectMapper.writeValueAsString(htmlConfiguration.completedAgents()),
+                        FLOW_CHART_TITLE, htmlConfiguration.title() != null ? htmlConfiguration.title() : "Workflow Diagram",
+                        FLOW_CHART_SUB_TITLE, htmlConfiguration.subTitle() != null ? htmlConfiguration.subTitle() : "",
+                        FLOW_CHART_WORKFLOW_SUMMARY_MARKDOWN, generateAISummary(htmlConfiguration)
+                ));
+            } catch (JsonProcessingException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
 
+        private String generateAISummary(HtmlConfiguration htmlConfiguration) {
+            String markdownSummary = "";
+            if (htmlConfiguration.isIncludeSummary()) {
+                try {
+                    markdownSummary = generateAISummary()
+                            .replace("`", "\\`")
+                            .replace("```", "\\`\\`\\`");
+                } catch (Exception ex) {
+                    logger.warn("Failed to generate AI summary", ex);
+                }
+            }
+            return markdownSummary;
+        }
+
+        private String getHtmlTemplate() {
             String htmlTemplate;
             final String errorMessage = "Could not load 'flow-chart.html' resource";
-            try (java.io.InputStream is = getClass().getResourceAsStream("flow-chart.html")) {
+            try (InputStream is = getClass().getResourceAsStream("flow-chart.html")) {
                 if (is == null)
                     throw new IllegalStateException(errorMessage);
                 htmlTemplate = new String(is.readAllBytes());
             } catch (IOException e) {
                 throw new IllegalStateException(errorMessage, e);
             }
-
-            try {
-                ObjectMapper objectMapper = new ObjectMapper();
-                return expandTemplate(htmlTemplate, Map.of(
-                        FLOW_CHART_GRAPH_DEFINITION, mermaidCode,
-                        FLOW_CHART_NODE_DATA, objectMapper.writeValueAsString(htmlConfiguration.workflowResults()),
-                        FLOW_CHART_NODE_NAMES,objectMapper.writeValueAsString(htmlConfiguration.agentNames()),
-                        FLOW_CHART_COMPLETED_NODES,objectMapper.writeValueAsString(htmlConfiguration.completedAgents()),
-                        FLOW_CHART_TITLE, htmlConfiguration.title() != null ? htmlConfiguration.title() : "Workflow Diagram",
-                        FLOW_CHART_SUB_TITLE, htmlConfiguration.subTitle() != null ? htmlConfiguration.subTitle() : ""
-                ));
-            } catch (JsonProcessingException ex) {
-                throw new RuntimeException(ex);
-            }
+            return htmlTemplate;
         }
 
         public static final String FLOW_CHART_NODE_START = "startNode";
@@ -1049,6 +1071,7 @@ public class EasyWorkflow {
         public static final String FLOW_CHART_COMPLETED_NODES = "completedNodes";
         public static final String FLOW_CHART_TITLE = "title";
         public static final String FLOW_CHART_SUB_TITLE = "subTitle";
+        public static final String FLOW_CHART_WORKFLOW_SUMMARY_MARKDOWN = "workflowSummaryMarkdown";
 
         private static String mermaidInspectorLink(String node) {
             return "click %s call showInspector(\"%s\")\n".formatted(node, node);
@@ -1476,6 +1499,7 @@ public class EasyWorkflow {
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
             json.put("type", "group");
+            json.put("description", "A supervised group provided with a set of subagents that can autonomously generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
             return json;
         }
 
@@ -1702,9 +1726,16 @@ public class EasyWorkflow {
 
                     UserMessage userMessageAnnotation = method.getAnnotation(UserMessage.class);
                     if (userMessageAnnotation != null) {
-                        //// TODO: 9/30/25 handle loading from resource
-                        if (userMessageAnnotation.value().length > 0)
+                        if (! userMessageAnnotation.fromResource().isBlank()) {
+                            try (InputStream is = clazz.getResourceAsStream(userMessageAnnotation.fromResource())) {
+                                if (is != null)
+                                    json.put("userMessage", new String(is.readAllBytes()));
+                            } catch (IOException e) {
+                                logger.warn("Failed to load User Message from resource: {}", userMessageAnnotation.fromResource(), e);
+                            }
+                        } else if (userMessageAnnotation.value().length > 0) {
                             json.put("userMessage", String.join(userMessageAnnotation.delimiter(), userMessageAnnotation.value()));
+                        }
                     }
                     break;
                 }

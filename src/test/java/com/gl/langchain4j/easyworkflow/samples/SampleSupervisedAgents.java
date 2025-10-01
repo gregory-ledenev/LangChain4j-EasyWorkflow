@@ -70,7 +70,7 @@ public class SampleSupervisedAgents {
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
 
         EasyWorkflow.AgentWorkflowBuilder<SupervisorAgent> workflowBuilder = EasyWorkflow.builder(SupervisorAgent.class);
-        SupervisorAgent supervisorAgent1 = workflowBuilder
+        SupervisorAgent supervisorAgent = workflowBuilder
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(workflowDebugger)
                 .doAsGroup()
@@ -81,12 +81,14 @@ public class SampleSupervisedAgents {
                 .end()
                 .build();
 
+        System.out.println(workflowBuilder.generateAISummary());
+
         try {
             workflowBuilder.toHtmlFile("workflow.html");
         } catch (IOException ex) {
             ex.printStackTrace();
         }
-        System.out.println(supervisorAgent1.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
+        System.out.println(supervisorAgent.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
         System.out.println(bankTool.getBalance("Mario"));
         System.out.println(bankTool.getBalance("Georgios"));
         System.out.println(workflowDebugger.toString(true));
@@ -137,7 +139,7 @@ public class SampleSupervisedAgents {
 
     @SuppressWarnings("unused")
     public interface SupervisorAgent {
-        @Agent(outputName = "response")
+        @Agent(outputName = "response", description = "Perform a transaction described in a request")
         String makeTransaction(@V("request") String request);
     }
 
