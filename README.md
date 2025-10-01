@@ -207,7 +207,7 @@ The `WorkflowDebugger` captures the `AgenticScope`, which can be accessed with `
 workflow's context and data. Note that the scope is only available after the workflow has started.
 
 You can check if a workflow is running with `isStarted()`, get its input parameters with `getWorkflowInput()`, and
-retrieve the final result with `getWorkflowResult()`.
+retrieve the final result with `getWorkflowResult()`. If a workflow failed - you can obtain a failure via the `getWorkflowFailure()` method. The failure may be complex, containing lots of nested exceptions, so to get the cause use the `getFailureCauseException()` method.
 
 The debugger also tracks and caches all agent invocations. You can access this history with
 `getAgentInvocationTraceEntries()` to analyze the workflow process. Each entry contains details about the agent, its
