@@ -53,6 +53,40 @@ public class TestSequentialAndRepeatableAgents {
     static double score = 0.4;
     static int passCounter = 0;
 
+    // use that to test chat
+    public static void main(String[] args) {
+        TestSequentialAndRepeatableAgents test = new TestSequentialAndRepeatableAgents();
+        test.chat();
+    }
+
+    public void chat() {
+        OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
+                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
+                .build();
+
+        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+
+        EasyWorkflow.AgentWorkflowBuilder<NovelCreator> builder = EasyWorkflow.builder(NovelCreator.class)
+                .chatModel(BASE_MODEL)
+                .workflowDebugger(workflowDebugger)
+                .agent(new CreativeWriter())
+                .agent(new AudienceEditor())
+                .repeat(condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))
+                .agent(new StyleScorer())
+                .agent(new StyleEditor())
+                .end()
+                .output(OutputComposers.asBean(Novel.class))
+                .agent(new QualityScorer());
+
+        NovelCreator novelCreator = builder.build();
+
+        Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+
+        System.out.println(workflowDebugger.consoleChat("what was the latest score? Provide only value, nothing else"));
+    }
+
     @Test
     public void test() {
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()

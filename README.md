@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.13</version>
+    <version>0.9.14</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.13</version>
+    <version>0.9.14</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -232,6 +232,20 @@ For a human-readable summary of the workflow execution, you can use the `Workflo
 ◼ RESULT: Novel[story=In the enchanted realm of Aethoria, a young companion named Eryndor befriended...
 ```
 
+There is a console chat that provides an ability to chat with the debugger about workflow, its structure and properties, and about its execution results. The console chat can be invoked using the `WorkflowDebugger.consoleChat(...)` method:
+
+```
+Please wait. Initializing chat..............
+Console Chat (type your questions, or 'exit' to quit)
+
+> what was the latest score? Provide only value, nothing else
+[thinking..]
+Answer: 0.8
+> how many iterations?
+[thinking....]
+Answer: 2
+> 
+```
 #### 4.2 Defining and Handling Breakpoints
 
 The debugger allows you to define breakpoints that trigger custom actions. These actions can be used for logging, custom
