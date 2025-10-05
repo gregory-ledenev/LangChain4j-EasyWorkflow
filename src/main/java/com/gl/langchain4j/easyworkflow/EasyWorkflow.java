@@ -72,6 +72,9 @@ import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
  */
 public class EasyWorkflow {
 
+    public static final String VERSION = "v0.9.15";
+    public static final String FULL_VERSION = "EasyWorkflow for LangChain4j " + VERSION;
+
     /**
      * A shared {@link ExecutorService} used for parallel agent execution. It is initialized on first use and can be
      * explicitly closed.
