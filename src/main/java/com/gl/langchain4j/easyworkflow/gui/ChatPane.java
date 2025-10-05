@@ -44,6 +44,7 @@ import java.awt.geom.RoundRectangle2D;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
@@ -324,10 +325,6 @@ public class ChatPane extends JPanel {
         updateSendButon();
     }
 
-    public enum Appearance {
-        Light, Dark, Auto
-    }
-
     static class InputPaneBorder extends AbstractBorder {
         public InputPaneBorder() {
         }
@@ -381,5 +378,24 @@ public class ChatPane extends JPanel {
             super.updateUI();
             setOpaque(false);
         }
+    }
+
+    private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
+        if (UISupport.getOptions().getAppearance() == Appearance.Auto)
+            applyAppearance(Appearance.Auto, this);
+    };
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+
+        UISupport.getDetector().registerListener(appearanceChangeHandler);
+    }
+
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+
+        UISupport.getDetector().removeListener(appearanceChangeHandler);
     }
 }

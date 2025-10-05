@@ -28,6 +28,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
+import com.jthemedetecor.OsThemeDetector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -178,8 +179,8 @@ public class UISupport {
          *
          * @return The current appearance setting.
          */
-        public ChatPane.Appearance getAppearance() {
-            return ChatPane.Appearance.values()[getPreferences().getInt(PROP_APPEARANCE, ChatPane.Appearance.Auto.ordinal())];
+        public Appearance getAppearance() {
+            return Appearance.values()[getPreferences().getInt(PROP_APPEARANCE, Appearance.Auto.ordinal())];
         }
 
         /**
@@ -187,7 +188,7 @@ public class UISupport {
          *
          * @param appearance The desired appearance setting.
          */
-        public void setAppearance(ChatPane.Appearance appearance) {
+        public void setAppearance(Appearance appearance) {
             getPreferences().putInt(PROP_APPEARANCE, appearance.ordinal());
         }
 
@@ -270,17 +271,23 @@ public class UISupport {
         switch (getOptions().getAppearance()) {
             case Light -> setDarkAppearance(false);
             case Dark -> setDarkAppearance(true);
-            case Auto -> setDarkAppearance(Detector.isDarkMode());
+            case Auto -> setDarkAppearance(osThemeDetector.isDark());
         }
+    }
 
+    /**
+     * Enum representing the different appearance options for the application.
+     */
+    public enum Appearance {
+        Light, Dark, Auto
     }
 
     /**
      * Applies a specific appearance setting and updates the options.
      *
-     * @param darkAppearance The desired {@link ChatPane.Appearance} to apply.
+     * @param darkAppearance The desired {@link Appearance} to apply.
      */
-    public static void applyAppearance(ChatPane.Appearance darkAppearance) {
+    public static void applyAppearance(Appearance darkAppearance) {
         getOptions().setAppearance(darkAppearance);
         applyAppearance();
     }
@@ -310,7 +317,6 @@ public class UISupport {
                 System.err.println("Failed to initialize LaF");
             }
         }
-
     }
 
     /**
@@ -352,5 +358,17 @@ public class UISupport {
          * from an "About" dialog or similar UI element.
          */
         void visitSite();
+    }
+
+    final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
+
+    /**
+     * Retrieves the singleton instance of {@link OsThemeDetector}.
+     * This detector can be used to determine the operating system's current theme (light or dark)
+     * and to listen for theme changes.
+     * @return The {@link OsThemeDetector} instance.
+     */
+    public static OsThemeDetector getDetector() {
+        return osThemeDetector;
     }
 }
