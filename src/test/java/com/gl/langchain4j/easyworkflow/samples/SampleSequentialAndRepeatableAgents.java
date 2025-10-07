@@ -106,7 +106,7 @@ public class SampleSequentialAndRepeatableAgents {
                 .agent(new QualityScorer())
                 .build();
 
-        Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy", 0.9, true);
+        Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
         System.out.println(novel);
         System.out.println("Agentic Scope: " + workflowDebugger.getAgenticScope().state());
         System.out.println(workflowDebugger.toString(true));
@@ -147,7 +147,7 @@ public class SampleSequentialAndRepeatableAgents {
 
     public interface NovelCreator extends AgenticScopeOwner {
         @Agent(outputName = "story")
-        Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style, @V("score") double score, @V("exactMatch") boolean exactMatch);
+        Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
     }
 
     public interface StyleScorer {

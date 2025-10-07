@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.14</version>
+    <version>0.9.15</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.14</version>
+    <version>0.9.15</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -232,20 +232,6 @@ For a human-readable summary of the workflow execution, you can use the `Workflo
 ◼ RESULT: Novel[story=In the enchanted realm of Aethoria, a young companion named Eryndor befriended...
 ```
 
-There is a console chat that provides an ability to chat with the debugger about workflow, its structure and properties, and about its execution results. The console chat can be invoked using the `WorkflowDebugger.consoleChat(...)` method:
-
-```
-Please wait. Initializing chat..............
-Console Chat (type your questions, or 'exit' to quit)
-
-> what was the latest score? Provide only value, nothing else
-[thinking..]
-Answer: 0.8
-> how many iterations?
-[thinking....]
-Answer: 2
-> 
-```
 #### 4.2 Defining and Handling Breakpoints
 
 The debugger allows you to define breakpoints that trigger custom actions. These actions can be used for logging, custom
@@ -350,6 +336,53 @@ views, so opening the diagram in such a view lets you monitor progress and data 
 
 You may check a sample [Expert Agentic Workflow Diagram](https://raw.githack.com/gregory-ledenev/LangChain4j-EasyWorkflow/main/workflow-sample-diagram.html
 ) by opening it in the browser.
+
+## Playground
+
+EasyWorkflow provides an interactive playground for experimenting with agents (workflows) through a familiar chat-style interface. You can type a query, send it to an agent, receive a response, and repeat the process as often as needed to test and refine your agents.
+
+A playground is created with `Playground.createPlayground(...)`, where you specify the agent’s class and the playground type. To start a chat session, call `Playground.play()`, passing the agent and optionally an initial user message.
+
+```java
+Playground playground = Playground.createPlayground(
+        SampleSequentialAndRepeatableAgents.NovelCreator.class, 
+        Playground.Type.GUI
+);
+playground.play(novelCreator, Map.of(
+        "topic", "dragons and wizards",
+        "audience", "infants",
+        "style", "fantasy"
+));
+```
+
+If your agent requires user input during execution, use an agent created via the `HumanInTheLoopAgents.playgroundAgent(...)`. This ensures that the input will be collected automatically in a way appropriate for the selected playground type.
+
+There are two available playground types:
+
+### Console
+
+The console playground lets you chat with an agent directly via the terminal. If the agent expects multiple parameters, you can pass them as a semicolon-separated string.
+
+```
+PLAYGROUND (type your questions or arguments, or 'exit' to quit)
+
+To enter specific arguments, delimit them with a semicolon.
+Arguments:
+- topic (Type: String)
+- audience (Type: String)
+- style (Type: String)
+
+> {topic=dragons and wizards; audience=infants; style=fantasy}
+[thinking...]
+Answer: Novel[story=In the enchanted realm of Aethoria...
+> 
+```
+
+### GUI
+
+The GUI playground offers a modern and convenient chat interface. If an agent requires multiple arguments, they are presented in a form layout for easier input.
+
+![](gui-playground.png)
 
 ## Sample for Sequential and Repeatable Agents
 

@@ -344,7 +344,11 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             V v = parameter.getAnnotation(V.class);
             if (v != null)
                 parameterName = v.value();
-            formElements.add(new FormPanel.FormElement(parameterName, null, parameter.getType(), null, false, true));
+            FormPanel.EditorType editorType = FormPanel.EditorType.Default;
+            if (parameter.getType() == String.class)
+                editorType = FormPanel.EditorType.Note;
+
+            formElements.add(new FormPanel.FormElement(parameterName, null, parameter.getType(), null, editorType, true));
         }
         edtMessage.setFormElements(formElements);
     }

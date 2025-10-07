@@ -51,9 +51,34 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     private final Map<String, Editor> editors = new HashMap<>();
     private List<FormElement> formElements;
 
+    /**
+     * Defines the types of editors available for form elements.
+     */
+    public enum EditorType {
+        /**
+         * Default editor type.
+         */
+        Default,
+        /**
+         * Text field
+         */
+        Text,
+        /**
+         * Text area
+         */
+        Note,
+        /**
+         * Dropdown
+         */
+        Dropdown,
+        /**
+         * Editable dropdown
+         */
+        EditableDropdown
+    }
 
     /**
-     * Internal interface for form element editors.
+     * Interface for form element editors.
      */
     interface Editor {
 
@@ -232,7 +257,9 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             FormElement element = formElements.get(i);
             // Define the row specification based on whether the component is multi-line.
             // 'default' prevents single-line components from collapsing vertically.
-            boolean isMultiLine = (element.type() == String.class && (!element.compactEditor() || formElements.size() == 1)) ||
+            boolean isMultiLine = (element.type() == String.class &&
+                    (element.editorType() == EditorType.Note ||
+                            formElements.size() == 1)) ||
                     Map.class.isAssignableFrom(element.type());
             String rowSpec = isMultiLine ? "max(pref;40dlu)" : "default";
             builder.appendRow(rowSpec);
@@ -279,7 +306,8 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         Class<?> type = element.type();
 
         if (type == String.class) {
-            if (element.compactEditor() && formElements.size() > 1) {
+            if ((element.editorType() == EditorType.Text ||
+                    element.editorType() == EditorType.Default) && formElements.size() > 1) {
                 return new CompactStringEditor(element);
             } else {
                 return new StringEditor(element);
@@ -414,29 +442,29 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
                               String label,
                               Class<?> type,
                               Object defaultValue,
-                              boolean compactEditor,
+                              EditorType editorType,
                               boolean mandatory) {
 
         /**
          * Constructs a new {@code FormElement}.
          *
-         * @param name          The name of the form element.
-         * @param label         The human-readable label for the form element. If null or empty, a label will be
-         *                      generated from the name.
-         * @param type          The data type of the form element's value.
-         * @param defaultValue  The initial value of the form element.
-         * @param compactEditor A boolean indicating whether to use a compact editor (e.g., JTextField) for String
-         *                      types.
-         * @param mandatory     A boolean indicating whether the form element value is mandatory.
+         * @param name         The name of the form element.
+         * @param label        The human-readable label for the form element. If null or empty, a label will be
+         *                     generated from the name.
+         * @param type         The data type of the form element's value.
+         * @param defaultValue The initial value of the form element.
+         * @param editorType   A boolean indicating whether to use a compact editor (e.g., JTextField) for String
+         *                     types.
+         * @param mandatory    A boolean indicating whether the form element value is mandatory.
          * @throws NullPointerException if {@code name} is null.
          */
-        public FormElement(String name, String label, Class<?> type, Object defaultValue, boolean compactEditor, boolean mandatory) {
+        public FormElement(String name, String label, Class<?> type, Object defaultValue, EditorType editorType, boolean mandatory) {
             Objects.requireNonNull(name);
             this.name = name;
             this.label = label != null && label.length() > 0 ? label : labelFromName(name);
             this.type = type;
             this.defaultValue = defaultValue;
-            this.compactEditor = compactEditor;
+            this.editorType = editorType;
             this.mandatory = mandatory;
         }
 
@@ -731,7 +759,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
         @Override
         public JComponent getComponent() {
-            return new JLabel("Unsupported type: " + element.type().getSimpleName());
+            return new JLabel("🛑 " + "Unsupported type: " + element.type().getSimpleName());
         }
 
         @Override
