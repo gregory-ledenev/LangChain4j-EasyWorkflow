@@ -27,7 +27,6 @@
 package com.gl.langchain4j.easyworkflow;
 
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
-import com.gl.langchain4j.easyworkflow.gui.ChatFrame;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.UserMessage;
@@ -84,8 +83,10 @@ public class TestSequentialAndRepeatableAgents {
         NovelCreator novelCreator = builder.build();
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
+        WorkflowExpertSupport.play(workflowDebugger, "describe results", Playground.Type.GUI);
 
-        ChatFrame.showChat("what was the latest score? Provide only value, nothing else", workflowDebugger);
+//        Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI);
+//        playground.play(novelCreator, null);
     }
 
     @Test

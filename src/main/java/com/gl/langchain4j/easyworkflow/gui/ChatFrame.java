@@ -29,16 +29,16 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.WorkflowExpert;
+import com.gl.langchain4j.easyworkflow.WorkflowExpertSupport;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.IOException;
+import java.lang.reflect.Parameter;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.List;
-import java.util.function.Function;
+import java.util.Map;
 
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.applyAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.getOptions;
@@ -59,7 +59,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
      * @param icon The icon to be displayed for the chat frame.
      * @param chatEngine A function that takes a user message and returns a chat engine's response.
      */
-    public ChatFrame(String title, ImageIcon icon, Function<String, String> chatEngine) {
+    public ChatFrame(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine) {
         this.chatPane.setChatEngine(chatEngine);
 
         setTitle(title);
@@ -99,7 +99,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
      * @param exitOnClose If true, the application will exit when this frame is closed.
      * @return The created ChatFrame instance.
      */
-    public static ChatFrame showChat(String title, ImageIcon icon, Function<String, String> chatEngine, boolean exitOnClose) {
+    public static ChatFrame showChat(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, boolean exitOnClose) {
         applyAppearance();
 
         ChatFrame chatFrame = new ChatFrame(title,
@@ -126,14 +126,6 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         return chatFrame;
     }
 
-    public static void main(String[] args) {
-        String title = "Chat";
-        System.setProperty("apple.awt.application.name", title);
-        showChat(title,
-                new ImageIcon(ChatFrame.class.getResource("logo.png")),
-                (input) -> "Echo: " + input, true);
-    }
-
     /**
      * Displays a new ChatFrame configured to interact with a WorkflowExpert.
      *
@@ -142,13 +134,29 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
      * @return The created ChatFrame instance.
      */
 
-    public static ChatFrame showChat(String userMessage, WorkflowDebugger workflowDebugger) {
+    public static ChatFrame showChat(Map<String, Object> userMessage, WorkflowDebugger workflowDebugger) {
         String title = "Chat with Workflow";
         System.setProperty("apple.awt.application.name", title);
         System.setProperty("apple.awt.application.appearance", "system");
+        final WorkflowExpert workflowExpert = WorkflowExpertSupport.getWorkflowExpert(workflowDebugger);
         ChatFrame result = ChatFrame.showChat(title,
                 new ImageIcon(ChatFrame.class.getResource("logo.png")),
-                WorkflowExpert.getWorkflowExpert(workflowDebugger)::ask,
+                new ChatPane.ChatEngine() {
+                    @Override
+                    public Object send(Map<String, Object> message) {
+                        return workflowExpert.askMap(message);
+                    }
+
+                    @Override
+                    public Parameter[] getMessageParameters() {
+                        try {
+                            return WorkflowExpert.class.getDeclaredMethod("ask", String.class).getParameters();
+                        } catch (NoSuchMethodException aE) {
+                            throw new RuntimeException(aE);
+                        }
+                    }
+                }
+                ,
                 true);
         SwingUtilities.invokeLater(() -> result.getChatPane().setUserMessage(userMessage));
 

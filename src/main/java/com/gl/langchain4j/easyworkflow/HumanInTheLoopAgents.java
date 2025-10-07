@@ -28,6 +28,7 @@ package com.gl.langchain4j.easyworkflow;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 
+import java.util.Objects;
 import java.util.Scanner;
 
 /**
@@ -58,6 +59,26 @@ public class HumanInTheLoopAgents {
                         return confirmation;
                     }
                 })
+                .build();
+    }
+
+    /**
+     * Creates a {@link HumanInTheLoop} agent that interacts with a {@link Playground} instance.
+     *
+     * @param playground  The {@link Playground} instance to use for interaction.
+     * @param outputName  The name to assign to the output of this human-in-the-loop agent.
+     * @param description A description of the human's role or the prompt to display to the human.
+     * @return A new {@link HumanInTheLoop} instance configured for {@link Playground} interaction.
+     */
+    public static HumanInTheLoop playgroundAgent(Playground playground, String outputName, String description) {
+        Objects.requireNonNull(playground);
+
+        return AgenticServices
+                .humanInTheLoopBuilder()
+                .description(description)
+                .outputName(outputName)
+                .requestWriter(playground::setHumanRequest)
+                .responseReader(playground::getHumanResponse)
                 .build();
     }
 }

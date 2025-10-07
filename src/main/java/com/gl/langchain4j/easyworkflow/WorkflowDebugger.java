@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.HtmlConfiguration;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.agent.AgentInvocationException;
+import dev.langchain4j.agentic.agent.MissingArgumentException;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.lang.reflect.UndeclaredThrowableException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -91,69 +93,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         this.workflowContext = new WorkflowContext();
         this.workflowContext.setInputHandler(this);
         this.workflowContext.setOutputStateChangeHandler(this);
-    }
-
-    /**
-     * Starts a console chat session with a WorkflowExpert.
-     *
-     * @param userMessage The initial message from the user.
-     * @return The expert's response to the initial message.
-     */
-    public String consoleChat(String userMessage) {
-        return WorkflowExpert.consoleChat(this, userMessage);
-    }
-
-    static <T, R> R simulateConsoleProgress(T request, Function<T, R> worker) {
-        Thread thread = new Thread(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                out.print(".");
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        });
-        thread.start();
-        R result = worker.apply(request); // This is the blocking call
-        thread.interrupt();
-
-        return result;
-    }
-
-    /**
-     * Starts a console chat session with an agent specified by the custom chat function.
-     *
-     * @param userMessage  The initial message from the user.
-     * @param chatFunction A function that takes a user message and returns a chat response.
-     * @return The last response from the chat function before exiting.
-     */
-    public static String consoleChat(String userMessage, Function<String, String> chatFunction) {
-        String result = null;
-        String request = userMessage;
-
-        out.println("Console Chat (type your questions, or 'exit' to quit)\n");
-        if (request != null && ! request.isEmpty())
-            out.println("> " + request);
-
-        try (Scanner scanner = new Scanner(System.in)) {
-            //noinspection ConditionalBreakInInfiniteLoop
-            while (true) {
-                if (request != null && !request.isEmpty()) {
-                    out.print("[thinking");
-                    result = simulateConsoleProgress(request, chatFunction);
-                    out.println("]");
-                    if (result != null && !result.isEmpty())
-                        out.println("Answer: " + result);
-                }
-                out.print("> ");
-
-                request = scanner.nextLine();
-                if (request.equalsIgnoreCase("exit"))
-                    break;
-            }
-        }
-        return result;
     }
 
     /**
@@ -555,7 +494,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public static Throwable getFailureCauseException(Throwable failure) {
         Throwable cause = failure;
-        while ((cause instanceof java.lang.reflect.InvocationTargetException || cause instanceof AgentInvocationException)) {
+        while (! (cause instanceof MissingArgumentException)  &&
+                (cause instanceof java.lang.reflect.InvocationTargetException ||
+                cause instanceof AgentInvocationException ||
+                cause instanceof UndeclaredThrowableException)) {
             cause = cause.getCause();
         }
         return cause != null ? cause : failure;

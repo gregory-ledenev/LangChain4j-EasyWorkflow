@@ -26,10 +26,7 @@
 
 package com.gl.langchain4j.easyworkflow.samples;
 
-import com.gl.langchain4j.easyworkflow.AgentBuilderConfigurator;
-import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.HumanInTheLoopAgents;
-import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.*;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agentic.Agent;
@@ -64,8 +61,11 @@ public class SampleSupervisedAgents {
         bankTool.createAccount("Mario", 1000.0);
         bankTool.createAccount("Georgios", 1000.0);
 
-        HumanInTheLoop humanInTheLoop = HumanInTheLoopAgents.consoleAgent("confirmation",
-                "An agent that asks the user to confirm transactions. YES - to confirm; any other value - to decline");
+        HumanInTheLoop humanInTheLoop = HumanInTheLoopAgents.consoleAgent(
+                "confirmation",
+                """
+                An agent that asks the user to confirm transactions.
+                YES - to confirm; any other value - to decline""");
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
 
@@ -88,6 +88,7 @@ public class SampleSupervisedAgents {
         } catch (IOException ex) {
             ex.printStackTrace();
         }
+
         System.out.println(supervisorAgent.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
         System.out.println(bankTool.getBalance("Mario"));
         System.out.println(bankTool.getBalance("Georgios"));

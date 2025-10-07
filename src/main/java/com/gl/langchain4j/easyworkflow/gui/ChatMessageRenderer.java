@@ -1,5 +1,4 @@
 /*
- *
  * Copyright 2025 Gregory Ledenev (gregory.ledenev37@gmail.com)
  *
  * MIT License
@@ -21,7 +20,6 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * /
  */
 
 package com.gl.langchain4j.easyworkflow.gui;
@@ -42,9 +40,8 @@ import java.awt.event.ComponentEvent;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
- * Renders a single chat message within the chat interface.
- * This panel displays the message content, handles markdown rendering,
- * and provides context menu options like copy and resend.
+ * Renders a single chat message within the chat interface. This panel displays the message content, handles markdown
+ * rendering, and provides context menu options like copy and resend.
  */
 public class ChatMessageRenderer extends JPanel implements Scrollable {
     private final ChatMessageTextPane textPane;
@@ -57,6 +54,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
 
     /**
      * Constructs a ChatMessageRenderer for a given chat message.
+     *
      * @param chatMessage The chat message to be rendered.
      */
     public ChatMessageRenderer(ChatMessage chatMessage) {
@@ -132,10 +130,12 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
             }
 
             @Override
-            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {}
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+            }
 
             @Override
-            public void popupMenuCanceled(PopupMenuEvent e) {}
+            public void popupMenuCanceled(PopupMenuEvent e) {
+            }
         });
 
         JMenuItem mniCopy = new JMenuItem(new AbstractAction("Copy", new AutoIcon(ICON_COPY)) {
@@ -185,6 +185,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
 
     /**
      * Sets whether markdown should be rendered for chat messages.
+     *
      * @param isRenderMarkdown True to render markdown, false otherwise.
      */
     public void setRenderMarkdown(boolean isRenderMarkdown) {
@@ -199,7 +200,12 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
     }
 
     private void resend() {
-        ChatPane.getChatPane(this).setUserMessage(chatMessage.message());
+        if (chatMessage.rawMessage() != null)
+            ChatPane.getChatPane(this).setUserMessage(chatMessage.rawMessage());
+        else
+            ChatPane.getChatPane(this).setUserMessage(textPane.getSelectedText() != null ?
+                    textPane.getSelectedText()  :
+                    chatMessage.message());
     }
 
     void updateLayout(int availableWidth, boolean forceUpdate) {
@@ -233,12 +239,13 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
     public boolean getScrollableTracksViewportWidth() {
         return true;
     }
+
     @Override
     public boolean getScrollableTracksViewportHeight() {
         return false;
     }
 
-    class ChatMessageTextPane extends JEditorPane {
+    static class ChatMessageTextPane extends JEditorPane {
         private Dimension preferredSize = new Dimension(0, 0);
 
         public ChatMessageTextPane() {

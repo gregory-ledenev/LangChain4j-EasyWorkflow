@@ -1732,12 +1732,12 @@ public class EasyWorkflow {
                         if (! userMessageAnnotation.fromResource().isBlank()) {
                             try (InputStream is = clazz.getResourceAsStream(userMessageAnnotation.fromResource())) {
                                 if (is != null)
-                                    json.put("userMessage", new String(is.readAllBytes()));
+                                    json.put("rawMessage", new String(is.readAllBytes()));
                             } catch (IOException e) {
                                 logger.warn("Failed to load User Message from resource: {}", userMessageAnnotation.fromResource(), e);
                             }
                         } else if (userMessageAnnotation.value().length > 0) {
-                            json.put("userMessage", String.join(userMessageAnnotation.delimiter(), userMessageAnnotation.value()));
+                            json.put("rawMessage", String.join(userMessageAnnotation.delimiter(), userMessageAnnotation.value()));
                         }
                     }
                     break;

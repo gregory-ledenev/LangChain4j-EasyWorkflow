@@ -1,5 +1,4 @@
 /*
- *
  * Copyright 2025 Gregory Ledenev (gregory.ledenev37@gmail.com)
  *
  * MIT License
@@ -21,20 +20,20 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * /
  */
 
 package com.gl.langchain4j.easyworkflow.gui;
 
 /**
- * Represents a chat message, which can be either from the user or the system.
- * It can contain both plain text and HTML formatted content.
+ * Represents a chat message, which can be either from the user or the system. It can contain both plain text and HTML
+ * formatted content.
  *
- * @param message The plain text content of the message.
+ * @param rawMessage The message in original format
+ * @param message     The plain text content of the message.
  * @param htmlMessage The HTML formatted content of the message. Can be null if only plain text is available.
- * @param isFromUser A boolean indicating whether the message originated from the user (true) or the system (false).
+ * @param isFromUser  A boolean indicating whether the message originated from the user (true) or the system (false).
  */
-public record ChatMessage(String message, String htmlMessage, boolean isFromUser) {
+public record ChatMessage(java.util.Map<String, Object> rawMessage, String message, String htmlMessage, boolean isFromUser) {
     /**
      * Returns the best available representation of the message. Prioritizes HTML content if available, otherwise returns the plain text message.
      * @return The HTML message if {@code htmlMessage} is not null and not empty, otherwise the plain text {@code message}.

@@ -1,5 +1,4 @@
 /*
- *
  * Copyright 2025 Gregory Ledenev (gregory.ledenev37@gmail.com)
  *
  * MIT License
@@ -21,12 +20,12 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
- * /
  */
 
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.gui.UISupport.AutoIcon;
+import dev.langchain4j.service.V;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
@@ -37,29 +36,36 @@ import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
+import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
  * A panel that provides a chat interface, including message input, display, and settings.
  */
-public class ChatPane extends JPanel {
-    private static final Logger logger = LoggerFactory.getLogger(ChatPane.class);
+public class ChatPane extends JPanel implements PropertyChangeListener {
 
+    private static final Logger logger = LoggerFactory.getLogger(ChatPane.class);
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
-    private final MessageEditor edtMessage = new MessageEditor();
+    private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton("➤");
     private final JButton btnSettings;
-    private Function<String, String> chatEngine;
+    private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
+        if (UISupport.getOptions().getAppearance() == Appearance.Auto)
+            SwingUtilities.invokeLater(() -> applyAppearance(Appearance.Auto, this));
+    };
+    private ChatEngine chatEngine;
     private boolean waitingForResponse;
 
     /**
@@ -80,8 +86,7 @@ public class ChatPane extends JPanel {
                                 new EmptyBorder(10, 10, 10, 10))));
         add(inputPanel, BorderLayout.SOUTH);
 
-        setupMessageEditorPopupMenu();
-        edtMessage.setPlaceHolderText("Type a prompt...");
+        edtMessage.addPropertyChangeListener(this);
         JScrollPane messageScrollPane = new JScrollPane(edtMessage) {
             @Override
             public void updateUI() {
@@ -113,6 +118,7 @@ public class ChatPane extends JPanel {
         btnSettings.addActionListener(e -> showOptions());
         buttons.add(btnSettings);
         buttons.add(Box.createVerticalStrut(10));
+        buttons.add(Box.createVerticalGlue());
 
         btnSend.setFont(new Font("SansSerif", Font.BOLD, 30));
         btnSend.setAlignmentX(Component.RIGHT_ALIGNMENT);
@@ -122,34 +128,11 @@ public class ChatPane extends JPanel {
         buttons.add(btnSend);
 
         inputPanel.add(buttons, BorderLayout.EAST);
-
-        edtMessage.getInputMap().put(KeyStroke.getKeyStroke("ENTER"), "sendMessage");
-        edtMessage.getActionMap().put("sendMessage", new AbstractAction() {
-            @Override
-            public void actionPerformed(java.awt.event.ActionEvent e) {
-                sendMessage();
-            }
-        });
-        edtMessage.getDocument().addDocumentListener(new DocumentListener() {
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                updateSendButon();
-            }
-
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                updateSendButon();
-            }
-
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                updateSendButon();
-            }
-        });
     }
 
     /**
      * Retrieves the ChatPane instance that contains the given subComponent.
+     *
      * @param subComponent The sub-component to search from.
      * @return The ChatPane instance, or null if not found.
      */
@@ -164,8 +147,9 @@ public class ChatPane extends JPanel {
 
     /**
      * Applies the specified appearance to the ChatPane and its components.
+     *
      * @param darkAppearance The appearance to apply (Light, Dark, or Auto).
-     * @param chatPane The ChatPane instance to apply the appearance to.
+     * @param chatPane       The ChatPane instance to apply the appearance to.
      */
     public static void applyAppearance(Appearance darkAppearance, ChatPane chatPane) {
         UISupport.applyAppearance(darkAppearance);
@@ -173,13 +157,12 @@ public class ChatPane extends JPanel {
         chatPane.chatMessagesHostPane.getChatMessagesPane().updateRenderers();
     }
 
-    private void setupMessageEditorPopupMenu() {
-        JPopupMenu popupMenu = new JPopupMenu();
-        popupMenu.add(createAction("Copy", new AutoIcon(ICON_COPY), e -> edtMessage.copy()));
-        popupMenu.add(createAction("Paste", new AutoIcon(ICON_PASTE), e -> edtMessage.paste()));
-        popupMenu.add(new JSeparator());
-        popupMenu.add(createAction("Clear", new AutoIcon(ICON_CLEAR), e -> edtMessage.setText("")));
-        edtMessage.setComponentPopupMenu(popupMenu);
+    @Override
+    public void propertyChange(PropertyChangeEvent evt) {
+        if (evt.getPropertyName().equals(FormPanel.PROPERTY_VALUE_CHANGED))
+            updateSendButon();
+        else if (evt.getPropertyName().equals(FormPanel.PROPERTY_ENTER_PRESSED))
+            sendMessage();
     }
 
     private void showOptions() {
@@ -221,11 +204,7 @@ public class ChatPane extends JPanel {
         popupMenu.show(btnSettings, btnSend.getWidth() - size.width, -size.height);
     }
 
-    /**
-     * Returns the ChatMessagesPane instance.
-     * @return The ChatMessagesPane instance.
-     */
-    private ChatMessagesPane getChatMessagesPane() {
+    public ChatMessagesPane getChatMessagesPane() {
         return getChatMessagesHostPane().getChatMessagesPane();
     }
 
@@ -234,23 +213,49 @@ public class ChatPane extends JPanel {
     }
 
     private void updateSendButon() {
-        btnSend.setEnabled(!waitingForResponse && !edtMessage.getText().trim().isEmpty());
+        btnSend.setEnabled(!waitingForResponse && edtMessage.hasRequiredContent());
+    }
+
+    public Map<String, Object> getUserMessage() {
+        Map<String, Object> result = null;
+
+        List<String> errors = edtMessage.validateForm();
+        if (errors.isEmpty()) {
+            result = edtMessage.getFormValues();
+        } else {
+            JOptionPane.showMessageDialog(this, String.join("\n", errors), "Validation Errors", JOptionPane.ERROR_MESSAGE);
+        }
+
+        return result;
+    }
+
+    public void setUserMessage(Map<String, Object> userMessage) {
+        edtMessage.setFormValues(userMessage);
+    }
+
+    public void setUserMessage(String userMessage) {
+        for (FormPanel.FormElement formElement : edtMessage.getFormElements()) {
+            if (formElement.type() == String.class) {
+                edtMessage.setFormValues(Map.of(formElement.name(), userMessage));
+                break;
+            }
+        }
     }
 
     private void sendMessage() {
-        String message = edtMessage.getText();
-        if (!message.trim().isEmpty()) {
-            addChatMessage(new ChatMessage(message, null, true));
-            edtMessage.setText("");
+        Map<String, Object> message = getUserMessage();
+        if (message != null && !message.isEmpty()) {
+            addChatMessage(new ChatMessage(message, message.toString(), null, true));
+            edtMessage.clearContent();
             edtMessage.requestFocus();
 
             waitingForResponse = true;
             chatMessagesHostPane.addTypingIndicator();
             CompletableFuture.supplyAsync(() -> {
-                String response = chatEngine.apply(message);
+                String response = chatEngine.send(message).toString();
                 String responseAsHtml = convertMarkdownToHtml(response);
 
-                return new ChatMessage(response, responseAsHtml, false);
+                return new ChatMessage(null, response, responseAsHtml, false);
             }).whenComplete(this::processChatEngineResponse);
         }
     }
@@ -270,7 +275,7 @@ public class ChatPane extends JPanel {
             } else {
                 final String error = "Failed to get response from chat.";
                 logger.error(error, ex);
-                addChatMessage(new ChatMessage("🛑 " + error + " " + ex.getMessage(), null, false));
+                addChatMessage(new ChatMessage(null, "🛑 " + error + " " + ex.getMessage(), null, false));
             }
             waitingForResponse = false;
             chatMessagesHostPane.removeTypingIndicator();
@@ -284,45 +289,70 @@ public class ChatPane extends JPanel {
 
     /**
      * Returns the currently set chat engine.
+     *
      * @return The chat engine function.
      */
-    public Function<String, String> getChatEngine() {
+    public ChatEngine getChatEngine() {
         return chatEngine;
     }
 
     /**
      * Sets the chat engine function. This function will be called to get responses to user messages.
+     *
      * @param chatEngine The function that takes a user message (String) and returns a response (String).
      * @throws NullPointerException if chatEngine is null.
      */
-    public void setChatEngine(Function<String, String> chatEngine) {
+    public void setChatEngine(ChatEngine chatEngine) {
         Objects.requireNonNull(chatEngine);
         this.chatEngine = chatEngine;
+        setupMessageEditor(chatEngine);
+    }
+
+    private void setupMessageEditor(ChatEngine chatEngine) {
+        Objects.requireNonNull(chatEngine);
+
+        List<FormPanel.FormElement> formElements = new ArrayList<>();
+        for (Parameter parameter : chatEngine.getMessageParameters()) {
+            String parameterName = parameter.getName();
+            V v = parameter.getAnnotation(V.class);
+            if (v != null)
+                parameterName = v.value();
+            formElements.add(new FormPanel.FormElement(parameterName, null, parameter.getType(), null, false, true));
+        }
+        edtMessage.setFormElements(formElements);
     }
 
     /**
      * Returns a list of all chat messages currently displayed.
+     *
      * @return A List of ChatMessage objects.
      */
     public List<ChatMessage> getChatMessages() {
         return getChatMessagesPane().getChatMessages();
     }
 
-    /**
-     * Returns the text currently in the message editor.
-     * @return The user's current message.
-     */
-    public String getUserMessage() {
-        return edtMessage.getText();
+    @Override
+    public void addNotify() {
+        super.addNotify();
+
+        edtMessage.requestFocus();
+        UISupport.getDetector().registerListener(appearanceChangeHandler);
+    }
+
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+
+        UISupport.getDetector().removeListener(appearanceChangeHandler);
     }
 
     /**
-     * Sets the text in the message editor.
-     * @param userMessage The text to set.
+     * Interface for defining a chat engine that can send messages and provide parameter information.
      */
-    public void setUserMessage(String userMessage) {
-        edtMessage.setText(userMessage);
-        updateSendButon();
+    public interface ChatEngine {
+        Object send(Map<String, Object> message);
+
+        Parameter[] getMessageParameters();
     }
 
     static class InputPaneBorder extends AbstractBorder {
@@ -339,63 +369,5 @@ public class ChatPane extends JPanel {
 
             g2d.setColor(oldColor);
         }
-    }
-
-    static class MessageEditor extends JTextArea {
-        private String placeHolderText;
-
-        public MessageEditor() {
-            setLineWrap(true);
-            setWrapStyleWord(true);
-            setRows(3);
-            setFont(new Font("SansSerif", Font.PLAIN, 14));
-        }
-
-        public String getPlaceHolderText() {
-            return placeHolderText;
-        }
-
-        public void setPlaceHolderText(String aPlaceHolderText) {
-            placeHolderText = aPlaceHolderText;
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            super.paintComponent(g);
-
-            if (placeHolderText != null && getText().isEmpty()) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setColor(UIManager.getColor("textInactiveText"));
-                g2.setFont(getFont());
-                FontMetrics metrics = g2.getFontMetrics();
-                g2.drawString(placeHolderText, getInsets().left, getInsets().top + metrics.getAscent());
-                g2.dispose();
-            }
-        }
-
-        @Override
-        public void updateUI() {
-            super.updateUI();
-            setOpaque(false);
-        }
-    }
-
-    private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
-        if (UISupport.getOptions().getAppearance() == Appearance.Auto)
-            applyAppearance(Appearance.Auto, this);
-    };
-
-    @Override
-    public void addNotify() {
-        super.addNotify();
-
-        UISupport.getDetector().registerListener(appearanceChangeHandler);
-    }
-
-    @Override
-    public void removeNotify() {
-        super.removeNotify();
-
-        UISupport.getDetector().removeListener(appearanceChangeHandler);
     }
 }
