@@ -32,11 +32,11 @@ public interface WorkflowExpert {
      * @param userMessage The user's message or question.
      * @return The expert's response.
      */
-    @UserMessage("{{rawMessage}}")
+    @UserMessage("{{userMessage}}")
     @Agent
-    String ask(@V("rawMessage") String userMessage);
+    String ask(@V("userMessage") String userMessage);
 
     default String askMap(Map<String, Object> input) {
-        return ask(input.get("rawMessage").toString());
+        return ask(input.get("userMessage").toString());
     }
 }

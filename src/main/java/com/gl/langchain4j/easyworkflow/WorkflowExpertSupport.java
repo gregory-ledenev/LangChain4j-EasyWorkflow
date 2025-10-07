@@ -1,7 +1,11 @@
 package com.gl.langchain4j.easyworkflow;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import dev.langchain4j.data.document.DefaultDocument;
 import dev.langchain4j.data.document.Document;
+import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
@@ -41,6 +45,16 @@ public class WorkflowExpertSupport {
         documents.add(new DefaultDocument(workflowDebugger.toString(true)));
         documents.add(new DefaultDocument(workflowDebugger.getAgentWorkflowBuilder().toJson()));
 
+        if (workflowDebugger.getAgenticScope() != null) {
+            try {
+                String context = new ObjectMapper().writeValueAsString(workflowDebugger.getAgenticScope().state());
+                documents.add(new DefaultDocument(context, new Metadata(Map.of("type", "workflow context",
+                        "description", "Workflow context with state variables"))));
+            } catch (JsonProcessingException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
         InMemoryEmbeddingStore<TextSegment> embeddingStore = new InMemoryEmbeddingStore<>();
         EmbeddingStoreIngestor.builder()
                 .embeddingModel(new AllMiniLmL6V2EmbeddingModel())
@@ -75,6 +89,6 @@ public class WorkflowExpertSupport {
      * @param type           The type of playground to create.
      */
     public static void play(WorkflowExpert workflowExpert, String userMessage, Playground.Type type) {
-        Playground.createPlayground(WorkflowExpert.class, type).play(workflowExpert, Map.of("rawMessage", userMessage));
+        Playground.createPlayground(WorkflowExpert.class, type).play(workflowExpert, Map.of("userMessage", userMessage));
     }
 }

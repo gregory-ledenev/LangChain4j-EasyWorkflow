@@ -153,6 +153,7 @@ public class UISupport {
         static final String PROP_RENDER_MARKDOWN = "renderMarkdown";
         static final String PROP_APPEARANCE = "appearance";
         static final String PROP_FRAME_BOUNDS = "frameBounds";
+        static final String PROP_CLEAR_AFTER_SENDING = "clearAfterSending";
 
         /**
          * Checks if markdown rendering is enabled.
@@ -217,6 +218,24 @@ public class UISupport {
          */
         public void setFrameBounds(Rectangle frameBounds) {
             getPreferences().put(PROP_FRAME_BOUNDS, "%s, %s, %s, %s".formatted(frameBounds.x, frameBounds.y, frameBounds.width, frameBounds.height));
+        }
+
+        /**
+         * Checks if the "clear after sending" option is enabled.
+         *
+         * @return true if the user message form should be cleared after sending, false otherwise.
+         */
+        public boolean isClearAfterSending() {
+            return getPreferences().getBoolean(PROP_CLEAR_AFTER_SENDING, true);
+        }
+
+        /**
+         * Sets whether the user message form should be cleared after sending.
+         *
+         * @param isCleaAfterSending true to enable clearing after sending, false to disable.
+         */
+        public void setClearAfterSending(boolean isCleaAfterSending) {
+            getPreferences().putBoolean(PROP_CLEAR_AFTER_SENDING, isCleaAfterSending);
         }
     }
 

@@ -36,7 +36,6 @@ import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.geom.RoundRectangle2D;
 import java.beans.PropertyChangeEvent;
@@ -189,9 +188,15 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
         popupMenu.add(new JSeparator());
 
-        JMenuItem mniRenderMarkdown = new JCheckBoxMenuItem(createAction("Render Markdown", new AutoIcon(ICON_DOCUMENT), e -> getChatMessagesPane().setRenderMarkdown(!getChatMessagesPane().isRenderMarkdown())));
+        JMenuItem mniRenderMarkdown = new JCheckBoxMenuItem(createAction("Render Markdown", new AutoIcon(ICON_DOCUMENT),
+                e -> getChatMessagesPane().setRenderMarkdown(!getChatMessagesPane().isRenderMarkdown())));
         mniRenderMarkdown.setSelected(getChatMessagesPane().isRenderMarkdown());
         popupMenu.add(mniRenderMarkdown);
+
+        JMenuItem mniClearAfterSending = new JCheckBoxMenuItem(createAction("Clear After Sending", new AutoIcon(ICON_CLEAR),
+                e -> UISupport.getOptions().setClearAfterSending(! UISupport.getOptions().isClearAfterSending())));
+        mniClearAfterSending.setSelected(UISupport.getOptions().isClearAfterSending());
+        popupMenu.add(mniClearAfterSending);
 
         final AboutProvider aboutProvider = (AboutProvider) SwingUtilities.getAncestorOfClass(AboutProvider.class, this);
         if (aboutProvider != null) {
@@ -216,23 +221,37 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         btnSend.setEnabled(!waitingForResponse && edtMessage.hasRequiredContent());
     }
 
+    /**
+     * Retrieves the user's message from the input editor.
+     *
+     * @return A {@code Map<String, Object>} representing the user's message, where keys are parameter names and values
+     * are their corresponding inputs. Returns {@code null} if the message editor's content is invalid.
+     */
     public Map<String, Object> getUserMessage() {
         Map<String, Object> result = null;
 
-        List<String> errors = edtMessage.validateForm();
-        if (errors.isEmpty()) {
+        if (edtMessage.checkValidity() == null)
             result = edtMessage.getFormValues();
-        } else {
-            JOptionPane.showMessageDialog(this, String.join("\n", errors), "Validation Errors", JOptionPane.ERROR_MESSAGE);
-        }
 
         return result;
     }
 
+    /**
+     * Sets the content of the user message editor.
+     *
+     * @param userMessage A {@code Map<String, Object>} containing the values to set in the form. The keys should
+     *                    correspond to the names of the form elements.
+     */
     public void setUserMessage(Map<String, Object> userMessage) {
         edtMessage.setFormValues(userMessage);
     }
 
+    /**
+     * Sets the content of the user message editor with a single string value. This method attempts to find the first
+     * form element of type {@code String.class} and sets its value to the provided {@code userMessage}.
+     *
+     * @param userMessage The string value to set in the message editor.
+     */
     public void setUserMessage(String userMessage) {
         for (FormPanel.FormElement formElement : edtMessage.getFormElements()) {
             if (formElement.type() == String.class) {
@@ -246,10 +265,11 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         Map<String, Object> message = getUserMessage();
         if (message != null && !message.isEmpty()) {
             addChatMessage(new ChatMessage(message, message.toString(), null, true));
-            edtMessage.clearContent();
+            if (UISupport.getOptions().isClearAfterSending())
+                edtMessage.clearContent();
             edtMessage.requestFocus();
 
-            waitingForResponse = true;
+            setWaitingForResponse(true);
             chatMessagesHostPane.addTypingIndicator();
             CompletableFuture.supplyAsync(() -> {
                 String response = chatEngine.send(message).toString();
@@ -277,10 +297,17 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 logger.error(error, ex);
                 addChatMessage(new ChatMessage(null, "🛑 " + error + " " + ex.getMessage(), null, false));
             }
-            waitingForResponse = false;
+            setWaitingForResponse(false);
             chatMessagesHostPane.removeTypingIndicator();
             updateSendButon();
         });
+    }
+
+    private void setWaitingForResponse(boolean isWaitingForResponse) {
+        if (waitingForResponse != isWaitingForResponse) {
+            waitingForResponse = isWaitingForResponse;
+            updateSendButon();
+        }
     }
 
     private void addChatMessage(ChatMessage message) {

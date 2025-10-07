@@ -24,7 +24,6 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.jgoodies.forms.builder.DefaultFormBuilder;
 import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.CellConstraints;
@@ -49,8 +48,44 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     public static final String PROPERTY_VALUE_CHANGED = "valueChanged";
     public static final String PROPERTY_ENTER_PRESSED = "enterPressed";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private final Map<String, JComponent> inputComponents = new HashMap<>();
+    private final Map<String, Editor> editors = new HashMap<>();
     private List<FormElement> formElements;
+
+
+    /**
+     * Internal interface for form element editors.
+     */
+    interface Editor {
+
+        /**
+         * Sets the value of the editor.
+         * @param value The value to set.
+         */
+        void setValue(Object value);
+
+        /**
+         * Returns the current value of the editor.
+         * @return The current value.
+         */
+        Object getValue();
+
+        /**
+         * Returns the component used for the editor.
+         * @return The editor's component.
+         */
+        JComponent getComponent();
+
+        /**
+         * Checks the validity of the editor's current value.
+         * @return An error message if the value is invalid, or {@code null} if valid.
+         */
+        String checkValidity(boolean strictCheck);
+
+        /**
+         * Requests focus for the editor's component.
+         */
+        void requestFocus();
+    }    
 
     /**
      * Example usage of the FormPanel.
@@ -109,21 +144,14 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
      * @return true if all mandatory text components have content, false otherwise.
      */
     public boolean hasRequiredContent() {
-        boolean result = true;
-
+        String result = null;
         for (FormElement element : formElements) {
-            if (!element.mandatory)
-                continue;
-
-            JTextComponent textComponent = getTextComponent(inputComponents.get(element.name()));
-            if (textComponent != null) {
-                result = textComponent.getText() != null && !textComponent.getText().isEmpty();
-                if (!result)
-                    break;
-            }
+            Editor editor = editors.get(element.name());
+            result = editor.checkValidity(false);
+            if(result != null)
+                break;
         }
-
-        return result;
+        return result == null;
     }
 
     /**
@@ -132,7 +160,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     @Override
     public void requestFocus() {
         if (formElements != null && !formElements.isEmpty()) {
-            JComponent c = inputComponents.get(formElements.get(0).name());
+            JComponent c = editors.get(formElements.get(0).name()).getComponent();
             if (c instanceof JScrollPane scrollPane)
                 scrollPane.getViewport().getView().requestFocus();
             else
@@ -146,15 +174,8 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
      * Clears the content of all text-based input components in the form.
      */
     public void clearContent() {
-        for (JComponent component : inputComponents.values()) {
-            if (component instanceof JTextComponent textComponent) {
-                textComponent.setText(null);
-            } else if (component instanceof JScrollPane) {
-                JViewport viewport = ((JScrollPane) component).getViewport();
-                if (viewport.getView() instanceof JTextArea) {
-                    ((JTextArea) viewport.getView()).setText(null);
-                }
-            }
+        for (Editor editor : editors.values()) {
+            editor.setValue(null);
         }
     }
 
@@ -197,6 +218,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
     private void buildForm() {
         removeAll();
+        editors.clear();
 
         // Define the layout columns: Right-aligned label, gap, and a component that grows.
         String colSpec = "right:pref, 3dlu, default:grow";
@@ -214,9 +236,10 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
                     Map.class.isAssignableFrom(element.type());
             String rowSpec = isMultiLine ? "max(pref;40dlu)" : "default";
             builder.appendRow(rowSpec);
-
-            JComponent inputComponent = createInputComponent(element);
-            inputComponents.put(element.name(), inputComponent);
+            
+            Editor editor = createEditor(element);
+            editors.put(element.name(), editor);
+            JComponent inputComponent = editor.getComponent();
             if (formElements.size() > 1 || !isMultiLine) {
                 JLabel label = new JLabel(element.label() + ":");
 
@@ -252,82 +275,29 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         }
     }
 
-    private JComponent createInputComponent(FormElement element) {
+    private Editor createEditor(FormElement element) {
         Class<?> type = element.type();
-        Object defaultValue = element.defaultValue();
 
         if (type == String.class) {
             if (element.compactEditor() && formElements.size() > 1) {
-                JTextField textField = new JTextField(20);
-                textField.getDocument().addDocumentListener(this);
-                if (defaultValue != null) {
-                    textField.setText(defaultValue.toString());
-                }
-                return textField;
+                return new CompactStringEditor(element);
             } else {
-                TextEditor textArea = new TextEditor(formElements.size() > 1 ? 3 : 5, 20);
-                textArea.getDocument().addDocumentListener(this);
-                setupPopupMenu(textArea);
-                setupShortcuts(textArea);
-                if (defaultValue != null) {
-                    textArea.setText(defaultValue.toString());
-                }
-                JScrollPane scrollPane = new JScrollPane(textArea) {
-                    @Override
-                    public void updateUI() {
-                        super.updateUI();
-                        if (formElements.size() == 1) {
-                            setBorder(null);
-                            setOpaque(false);
-                        }
-                    }
-
-                };
-                if (formElements.size() == 1) {
-                    textArea.setOpaque(false);
-                    textArea.setPlaceHolderText(element.label());
-                }
-                return scrollPane;
+                return new StringEditor(element);
             }
         } else if (Number.class.isAssignableFrom(type) || type.isPrimitive()) {
             if (type == Boolean.class || type == boolean.class) {
-                JCheckBox checkBox = new JCheckBox();
-                checkBox.addActionListener(e -> firePropertyChange(PROPERTY_VALUE_CHANGED, null, null));
-                if (defaultValue != null) {
-                    checkBox.setSelected((Boolean) defaultValue);
-                }
-                return checkBox;
+                return new BooleanEditor(element);
             } else {
-                JTextField textField = new JTextField(20);
-                textField.getDocument().addDocumentListener(this);
-                setupPopupMenu(textField);
-                setupShortcuts(textField);
-                if (defaultValue != null) {
-                    textField.setText(defaultValue.toString());
-                }
-                return textField;
+                return new NumberEditor(element);
             }
         } else if (Map.class.isAssignableFrom(type)) {
-            TextEditor textArea = new TextEditor(5, 20);
-            textArea.getDocument().addDocumentListener(this);
-            setupPopupMenu(textArea);
-            setupShortcuts(textArea);
-            if (defaultValue != null) {
-                try {
-                    textArea.setText(OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(defaultValue));
-                } catch (JsonProcessingException e) {
-                    textArea.setText("Error converting default value to JSON: " + e.getMessage());
-                }
-            } else {
-                textArea.setText("{\n  \n}");
-            }
-            return new JScrollPane(textArea);
+            return new MapEditor(element);
         }
 
         // Fallback for unsupported types
-        return new JLabel("Unsupported type: " + type.getSimpleName());
+        return new UnsupportedTypeEditor(element);
     }
-
+    
     private void setupPopupMenu(JTextComponent textComponent) {
         JPopupMenu popupMenu = new JPopupMenu();
         popupMenu.add(createAction("Copy", new AutoIcon(ICON_COPY), e -> textComponent.copy()));
@@ -356,36 +326,23 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     }
 
     /**
-     * Validates the form inputs and returns a list of error messages. An empty list indicates the form is valid.
-     *
+     * Validates the form inputs and returns an error message or {@code null} if form is valid.
+     * It also shows the message and focuses on invalid editor.
      * @return A list of validation error messages.
      */
-    public List<String> validateForm() {
-        List<String> errors = new ArrayList<>();
+    public String checkValidity() {
+        String result = null;
         for (FormElement element : formElements) {
-            JComponent component = inputComponents.get(element.name());
-            String value = getComponentValueAsString(component);
-            Class<?> type = element.type();
-
-            if (Number.class.isAssignableFrom(type) || type.isPrimitive()) {
-                try {
-                    if (type == Integer.class || type == int.class) Integer.parseInt(value);
-                    else if (type == Long.class || type == long.class) Long.parseLong(value);
-                    else if (type == Double.class || type == double.class) Double.parseDouble(value);
-                    else if (type == Float.class || type == float.class) Float.parseFloat(value);
-                    // Add other numeric types if needed
-                } catch (NumberFormatException e) {
-                    errors.add("'" + element.label() + "' must be a valid number.");
-                }
-            } else if (Map.class.isAssignableFrom(type)) {
-                try {
-                    OBJECT_MAPPER.readValue(value, Map.class);
-                } catch (JsonProcessingException e) {
-                    errors.add("'" + element.label() + "' must be a valid JSON object.");
-                }
+            Editor editor = editors.get(element.name());
+            result = editor.checkValidity(true);
+            if(result != null) {
+                JOptionPane.showMessageDialog(this, result, "Validation Error", JOptionPane.ERROR_MESSAGE);
+                editor.requestFocus();
+                break;
             }
+
         }
-        return errors;
+        return result;
     }
 
     /**
@@ -397,30 +354,8 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     public Map<String, Object> getFormValues() {
         Map<String, Object> values = new HashMap<>();
         for (FormElement element : formElements) {
-            JComponent component = inputComponents.get(element.name());
-            String stringValue = getComponentValueAsString(component);
-            Class<?> type = element.type();
-            Object parsedValue = null;
-
-            try {
-                if (type == String.class) {
-                    parsedValue = stringValue;
-                } else if (type == Boolean.class || type == boolean.class) {
-                    parsedValue = ((JCheckBox) component).isSelected();
-                } else if (Number.class.isAssignableFrom(type) || type.isPrimitive()) {
-                    if (type == Integer.class || type == int.class) parsedValue = Integer.parseInt(stringValue);
-                    else if (type == Long.class || type == long.class) parsedValue = Long.parseLong(stringValue);
-                    else if (type == Double.class || type == double.class)
-                        parsedValue = Double.parseDouble(stringValue);
-                    else if (type == Float.class || type == float.class) parsedValue = Float.parseFloat(stringValue);
-                    else parsedValue = stringValue; // Fallback for other Numbers
-                } else if (Map.class.isAssignableFrom(type)) {
-                    parsedValue = OBJECT_MAPPER.readValue(stringValue, Map.class);
-                }
-            } catch (Exception e) {
-                // This should ideally not happen if validateForm() is called first
-                throw new RuntimeException("Error parsing value for '" + element.name() + "': " + e.getMessage(), e);
-            }
+            Editor editor = editors.get(element.name());
+            Object parsedValue = editor.getValue();
             values.put(element.name(), parsedValue);
         }
         return values;
@@ -437,52 +372,13 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
         for (FormElement element : formElements) {
             if (formValues.containsKey(element.name())) {
-                JComponent component = inputComponents.get(element.name());
+                Editor editor = editors.get(element.name());
                 Object value = formValues.get(element.name());
-                Class<?> type = element.type();
-
-                if (component == null || value == null) {
-                    continue;
-                }
-
-                if (type == String.class) {
-                    JTextComponent textComponent = getTextComponent(component);
-                    if (textComponent != null)
-                        textComponent.setText(value.toString());
-                } else if (type == Boolean.class || type == boolean.class) {
-                    if (component instanceof JCheckBox) {
-                        ((JCheckBox) component).setSelected((Boolean) value);
-                    }
-                } else if (Number.class.isAssignableFrom(type)) {
-                    if (component instanceof JTextField) {
-                        ((JTextField) component).setText(value.toString());
-                    }
-                } else if (Map.class.isAssignableFrom(type)) {
-                    JTextComponent textComponent = getTextComponent(component);
-                    if (textComponent != null) {
-                        try {
-                            textComponent.setText(OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(value));
-                        } catch (JsonProcessingException e) {
-                            textComponent.setText("Error converting value to JSON: " + e.getMessage());
-                        }
-                    }
+                if (editor != null) {
+                    editor.setValue(value);
                 }
             }
         }
-    }
-
-    private String getComponentValueAsString(JComponent component) {
-        if (component instanceof JTextField) {
-            return ((JTextField) component).getText();
-        } else if (component instanceof JScrollPane) {
-            JViewport viewport = ((JScrollPane) component).getViewport();
-            if (viewport.getView() instanceof JTextArea) {
-                return ((JTextArea) viewport.getView()).getText();
-            }
-        } else if (component instanceof JCheckBox) {
-            return String.valueOf(((JCheckBox) component).isSelected());
-        }
-        return "";
     }
 
     @Override
@@ -561,6 +457,293 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         }
     }
 
+    // --- Editor Implementations ---
+
+    private class CompactStringEditor implements Editor {
+        private final JTextField textField;
+        private final FormElement formElement;
+
+        public CompactStringEditor(FormElement formElement) {
+            this.formElement = formElement;
+            this.textField = new JTextField(20);
+            textField.getDocument().addDocumentListener(FormPanel.this);
+            textField.setToolTipText("%s %s".formatted(formElement.type().getSimpleName(), formElement.name()));
+            setupPopupMenu(textField);
+            setupShortcuts(textField);
+            setValue(formElement.defaultValue());
+        }
+
+        @Override
+        public void setValue(Object value) {
+            textField.setText(value != null ? value.toString() : null);
+        }
+
+        @Override
+        public Object getValue() {
+            return textField.getText();
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return textField;
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            String text = textField.getText();
+            boolean valid = !formElement.mandatory || (text != null && !text.isEmpty());
+            return valid ? null : "'%s' is not specified.".formatted(formElement.label());
+        }
+
+        @Override
+        public void requestFocus() {
+            textField.requestFocus();
+        }
+    }
+
+    private class StringEditor implements Editor {
+        private final TextEditor textArea;
+        private final JScrollPane scrollPane;
+        private final FormElement formElement;
+
+        public StringEditor(FormElement formElement) {
+            this.formElement = formElement;
+            this.textArea = new TextEditor(formElements.size() > 1 ? 3 : 5, 20);
+            textArea.getDocument().addDocumentListener(FormPanel.this);
+            textArea.setToolTipText("%s %s".formatted(formElement.type().getSimpleName(), formElement.name()));
+            setupPopupMenu(textArea);
+            setupShortcuts(textArea);
+
+            this.scrollPane = new JScrollPane(textArea) {
+                @Override
+                public void updateUI() {
+                    super.updateUI();
+                    if (formElements.size() == 1) {
+                        setBorder(null);
+                        setOpaque(false);
+                    }
+                }
+            };
+
+            if (formElements.size() == 1) {
+                textArea.setOpaque(false);
+                textArea.setPlaceHolderText(formElement.label());
+            }
+            setValue(formElement.defaultValue());
+        }
+
+        @Override
+        public void setValue(Object value) {
+            textArea.setText(value != null ? value.toString() : null);
+        }
+
+        @Override
+        public Object getValue() {
+            return textArea.getText();
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return scrollPane;
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            String text = textArea.getText();
+            boolean valid = !formElement.mandatory || (text != null && !text.isEmpty());
+            return valid ? null : "'%s' is not specified.".formatted(formElement.label());
+        }
+
+        @Override
+        public void requestFocus() {
+            textArea.requestFocus();
+        }
+    }
+
+    private class NumberEditor implements Editor {
+        private final JTextField textField;
+        private final FormElement formElement;
+
+        public NumberEditor(FormElement formElement) {
+            this.formElement = formElement;
+            this.textField = new JTextField(20);
+            textField.getDocument().addDocumentListener(FormPanel.this);
+            textField.setToolTipText("%s %s".formatted(formElement.type().getSimpleName(), formElement.name()));
+            setupPopupMenu(textField);
+            setupShortcuts(textField);
+            setValue(formElement.defaultValue());
+        }
+
+        @Override
+        public void setValue(Object value) {
+            textField.setText(value != null ? value.toString() : null);
+        }
+
+        @Override
+        public Object getValue() {
+            String text = textField.getText();
+            if (text == null || text.isEmpty()) return null;
+            Class<?> type = formElement.type();
+            try {
+                if (type == Integer.class || type == int.class) return Integer.parseInt(text);
+                if (type == Long.class || type == long.class) return Long.parseLong(text);
+                if (type == Double.class || type == double.class) return Double.parseDouble(text);
+                if (type == Float.class || type == float.class) return Float.parseFloat(text);
+                return null;
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return textField;
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            boolean valid = !formElement.mandatory;
+            if (valid)
+                return null;
+
+            if (strictCheck) {
+                valid = getValue() != null;
+            } else {
+                String text = textField.getText();
+                valid = text != null && !text.isEmpty();
+            }
+
+            return valid ? null : "'%s' is not specified or invalid.".formatted(formElement.label());
+        }
+
+        @Override
+        public void requestFocus() {
+            textField.requestFocus();
+        }
+    }
+
+    private class BooleanEditor implements Editor {
+        private final JCheckBox checkBox;
+
+        public BooleanEditor(FormElement element) {
+            this.checkBox = new JCheckBox();
+            checkBox.setToolTipText("%s %s".formatted(element.type().getSimpleName(), element.name()));
+            checkBox.addActionListener(e -> firePropertyChange(PROPERTY_VALUE_CHANGED, null, null));
+            setValue(element.defaultValue());
+        }
+
+        @Override
+        public void setValue(Object value) {
+            checkBox.setSelected(value != null && (Boolean) value);
+        }
+
+        @Override
+        public Object getValue() {
+            return checkBox.isSelected();
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return checkBox;
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            return null;
+        }
+
+        @Override
+        public void requestFocus() {
+            checkBox.requestFocus();
+        }
+    }
+
+    private class MapEditor implements Editor {
+        private final TextEditor textArea;
+        private final FormElement formElement;
+
+        public MapEditor(FormElement formElement) {
+            this.formElement = formElement;
+            this.textArea = new TextEditor(5, 20);
+            textArea.getDocument().addDocumentListener(FormPanel.this);
+            textArea.setToolTipText("%s %s (JSON)".formatted(formElement.type().getSimpleName(), formElement.name()));
+            setupPopupMenu(textArea);
+            setupShortcuts(textArea);
+            setValue(formElement.defaultValue());
+        }
+
+        @Override
+        public void setValue(Object value) {
+            if (value == null) {
+                textArea.setText("{\n  \n}");
+                return;
+            }
+            try {
+                textArea.setText(OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(value));
+            } catch (JsonProcessingException e) {
+                textArea.setText("Error converting value to JSON: " + e.getMessage());
+            }
+        }
+
+        @Override
+        public Object getValue() {
+            try {
+                return OBJECT_MAPPER.readValue(textArea.getText(), Map.class);
+            } catch (JsonProcessingException e) {
+                return textArea.getText(); // Return raw text if parsing fails, validation will catch it
+            }
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return new JScrollPane(textArea);
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            String text = textArea.getText();
+            boolean valid = !formElement.mandatory || (text != null && !text.isEmpty());
+            if (valid && strictCheck) {
+                try {
+                    OBJECT_MAPPER.readValue(text, Map.class);
+                } catch (JsonProcessingException e) {
+                    valid = false;
+                }
+            }
+            return valid ? null : "'%s' is not specified or can't be converted to JSON.".formatted(formElement.label());
+        }
+
+        @Override
+        public void requestFocus() {
+            textArea.requestFocus();
+        }
+
+    }
+
+    private record UnsupportedTypeEditor(FormElement element) implements Editor {
+        @Override
+        public void setValue(Object value) { /* No-op */ }
+
+        @Override
+        public Object getValue() {
+            return null;
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return new JLabel("Unsupported type: " + element.type().getSimpleName());
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            return null;
+        }
+
+        @Override
+        public void requestFocus() {
+        }
+    }
+
     static class TextEditor extends JTextArea {
         private String placeHolderText;
 
@@ -584,6 +767,8 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             setWrapStyleWord(true);
             setRows(3);
             setFont(new Font("SansSerif", Font.PLAIN, 14));
+            setFocusTraversalKeys(KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS, null);
+            setFocusTraversalKeys(KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS, null);
         }
 
         public String getPlaceHolderText() {
