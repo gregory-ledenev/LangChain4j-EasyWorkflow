@@ -320,7 +320,7 @@ public static class QualityScorer implements WorkflowDebuggerSupport {
 }
 ```
 
-### 4.4 Interactive Flow Chart Diagrams
+#### 4.4 Interactive Flow Chart Diagrams
 
 EasyWorkflow provides functionality to generate visual flowchart diagrams of agentic workflows, accompanied by the
 workflow results, as HTML files. These diagrams are invaluable for debugging, illustration, and documentation purposes.
@@ -336,6 +336,10 @@ views, so opening the diagram in such a view lets you monitor progress and data 
 
 You may check a sample [Expert Agentic Workflow Diagram](https://raw.githack.com/gregory-ledenev/LangChain4j-EasyWorkflow/main/workflow-sample-diagram.html
 ) by opening it in the browser.
+
+#### 4.5 Workflow Expert Agent
+
+There is a special `WorkflowExpert` agent that provides an ability to chat with the debugger about workflow, its structure and properties, and about its execution results. A `WorkflowExpert` agent can be obtained via the `WorkflowExpertSupport.getWorkflowExpert(...)` method. There's also a convenience method `WorkflowExpertSupport.play(...)` that starts a playground session with a `WorkflowExpert`.
 
 ## Playground
 
