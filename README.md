@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.15</version>
+    <version>0.9.16</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.15</version>
+    <version>0.9.16</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -359,7 +359,16 @@ playground.play(novelCreator, Map.of(
 ));
 ```
 
-If your agent requires user input during execution, use an agent created via the `HumanInTheLoopAgents.playgroundAgent(...)`. This ensures that the input will be collected automatically in a way appropriate for the selected playground type.
+You may specify instructions for Playground how to present and edit certain agent method parameters using `!PlaygroundParam` annotation.
+
+```java
+@PlaygroundParam(description = "Story style", 
+        editorType = FormEditorType.EditableDropdown, 
+        editorChoices = {"comedy", "horror", "fantasy", "romance"})
+@V("style")
+String style);
+```
+If your workflow requires user input during execution, use an agent created via the `HumanInTheLoopAgents.playgroundAgent(...)`. This ensures that the input will be collected automatically in a way appropriate for the selected playground type.
 
 There are two available playground types:
 

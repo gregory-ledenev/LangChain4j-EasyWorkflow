@@ -25,20 +25,27 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 /**
- * Represents a chat message, which can be either from the user or the system. It can contain both plain text and HTML
- * formatted content.
- *
- * @param rawMessage The message in original format
- * @param message     The plain text content of the message.
- * @param htmlMessage The HTML formatted content of the message. Can be null if only plain text is available.
- * @param isFromUser  A boolean indicating whether the message originated from the user (true) or the system (false).
+ * Defines the types of editors available for form elements.
  */
-public record ChatMessage(Object rawMessage, String message, String htmlMessage, boolean isFromUser) {
+public enum FormEditorType {
     /**
-     * Returns the best available representation of the message. Prioritizes HTML content if available, otherwise returns the plain text message.
-     * @return The HTML message if {@code htmlMessage} is not null and not empty, otherwise the plain text {@code message}.
+     * Default editor type.
      */
-    public String bestMessage() {
-        return htmlMessage() != null && ! htmlMessage().isEmpty() ? htmlMessage() : message();
-    }
+    Default,
+    /**
+     * Text field
+     */
+    Text,
+    /**
+     * Text area
+     */
+    Note,
+    /**
+     * Dropdown
+     */
+    Dropdown,
+    /**
+     * Editable dropdown
+     */
+    EditableDropdown
 }

@@ -21,11 +21,12 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.gl.langchain4j.easyworkflow.Playground.ARG_TITLE;
 import static java.lang.System.out;
 
 /**
- * Provides a factory method that allow getting an
- * expert for a {@code WorkflowDebugger} and for performing a playground session.
+ * Provides a factory method that allow getting an expert for a {@code WorkflowDebugger} and for performing a playground
+ * session.
  */
 public class WorkflowExpertSupport {
     /**
@@ -72,23 +73,27 @@ public class WorkflowExpertSupport {
      * Starts a playground session with a WorkflowExpert, initializing it first.
      *
      * @param workflowDebugger The WorkflowDebugger instance to use for expert initialization.
+     * @param workflowTitle    The title of the workflow.
      * @param userMessage      The initial message from the user.
      * @param type             The type of playground to create.
      */
-   public  static void play(WorkflowDebugger workflowDebugger, String userMessage, Playground.Type type) {
+    public static void play(WorkflowDebugger workflowDebugger, String workflowTitle, String userMessage, Playground.Type type) {
         out.print("Please wait. Initializing chat");
 
-        play(getWorkflowExpert(workflowDebugger), userMessage, type);
+        play(getWorkflowExpert(workflowDebugger), workflowTitle, userMessage, type);
     }
 
     /**
      * Starts a playground session with an existing WorkflowExpert.
      *
      * @param workflowExpert The initialized WorkflowExpert instance.
+     * @param workflowTitle  The title of the workflow.
      * @param userMessage    The user's message.
      * @param type           The type of playground to create.
      */
-    public static void play(WorkflowExpert workflowExpert, String userMessage, Playground.Type type) {
-        Playground.createPlayground(WorkflowExpert.class, type).play(workflowExpert, Map.of("userMessage", userMessage));
+    public static void play(WorkflowExpert workflowExpert, String workflowTitle, String userMessage, Playground.Type type) {
+        Playground playground = Playground.createPlayground(WorkflowExpert.class, type);
+        playground.setup(Map.of(ARG_TITLE, "Workflow Expert - %s".formatted(workflowTitle)));
+        playground.play(workflowExpert, Map.of("userMessage", userMessage));
     }
 }

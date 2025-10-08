@@ -43,7 +43,7 @@ public class TypingIndicator extends JPanel {
      */
     public TypingIndicator() {
         super(new FlowLayout(FlowLayout.LEFT, 0, 5));
-        add(new JLabel("  Typing"));
+        add(new JLabel("  Thinking"));
         add(typingLabel);
     }
 

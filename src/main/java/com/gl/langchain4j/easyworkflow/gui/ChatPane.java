@@ -24,6 +24,8 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.UISupport.AutoIcon;
 import dev.langchain4j.service.V;
 import org.commonmark.node.Node;
@@ -56,6 +58,7 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 public class ChatPane extends JPanel implements PropertyChangeListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatPane.class);
+    public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
     private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton("➤");
@@ -243,7 +246,9 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
      *                    correspond to the names of the form elements.
      */
     public void setUserMessage(Map<String, Object> userMessage) {
-        edtMessage.setFormValues(userMessage);
+        boolean result = edtMessage.setFormValues(userMessage);
+        if (! result)
+            setUserMessage(userMessage.toString());
     }
 
     /**
@@ -264,7 +269,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private void sendMessage() {
         Map<String, Object> message = getUserMessage();
         if (message != null && !message.isEmpty()) {
-            addChatMessage(new ChatMessage(message, message.toString(), null, true));
+            addChatMessage(chatMessageForMap(message, true));
             if (UISupport.getOptions().isClearAfterSending())
                 edtMessage.clearContent();
             edtMessage.requestFocus();
@@ -272,12 +277,44 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             setWaitingForResponse(true);
             chatMessagesHostPane.addTypingIndicator();
             CompletableFuture.supplyAsync(() -> {
-                String response = chatEngine.send(message).toString();
-                String responseAsHtml = convertMarkdownToHtml(response);
-
-                return new ChatMessage(null, response, responseAsHtml, false);
+                Object response = chatEngine.send(message);
+                return chatMessageForResponse(response);
             }).whenComplete(this::processChatEngineResponse);
         }
+    }
+
+    private ChatMessage chatMessageForResponse(Object response) {
+        if (response instanceof Map<?, ?> responseMap) {
+            return chatMessageForMap(responseMap, false);
+        } else if (response instanceof String) {
+            String responseString = response.toString();
+            String responseAsHtml = convertMarkdownToHtml(responseString);
+            return new ChatMessage(response, responseString, responseAsHtml, false);
+        } else if (response instanceof Number || response instanceof Boolean || response.getClass().isEnum()) {
+            return new ChatMessage(response, response.toString(), null, false);
+        } else {
+            try {
+                return chatMessageForMap(OBJECT_MAPPER.convertValue(response, Map.class), false);
+            } catch (Exception e) {
+                return new ChatMessage(response, response.toString(), null, false);
+            }
+        }
+    }
+
+    private ChatMessage chatMessageForMap(Map<?, ?> message, boolean isFromUser) {
+        String text;
+        String html = null;
+
+        if (message.size() == 1) {
+            text = message.values().iterator().next().toString();
+        } else {
+            StringBuilder markdown = new StringBuilder();
+            message.forEach((key, value) -> markdown.append(String.format("**%s**: %s\n", key, value)));
+            text = markdown.toString();
+            html = convertMarkdownToHtml(text);
+        }
+
+        return new ChatMessage(message, text, html, isFromUser);
     }
 
     private String convertMarkdownToHtml(String text) {
@@ -341,14 +378,34 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         List<FormPanel.FormElement> formElements = new ArrayList<>();
         for (Parameter parameter : chatEngine.getMessageParameters()) {
             String parameterName = parameter.getName();
+            String label = null;
+            String description = null;
+            FormEditorType editorType = FormEditorType.Default;
+            if (parameter.getType() == String.class)
+                editorType = FormEditorType.Note;
+            String[] editorChoices = null;
+
+            PlaygroundParam playgroundParam = parameter.getAnnotation(PlaygroundParam.class);
+            if (playgroundParam != null) {
+                if (! playgroundParam.label().isEmpty())
+                    label = playgroundParam.label();
+                if (! playgroundParam.description().isEmpty())
+                    description = playgroundParam.description();
+                editorType = playgroundParam.editorType();
+                editorChoices = playgroundParam.editorChoices();
+            }
             V v = parameter.getAnnotation(V.class);
             if (v != null)
                 parameterName = v.value();
-            FormPanel.EditorType editorType = FormPanel.EditorType.Default;
-            if (parameter.getType() == String.class)
-                editorType = FormPanel.EditorType.Note;
 
-            formElements.add(new FormPanel.FormElement(parameterName, null, parameter.getType(), null, editorType, true));
+            formElements.add(new FormPanel.FormElement(parameterName,
+                    label,
+                    description,
+                    parameter.getType(),
+                    null,
+                    editorType,
+                    editorChoices, true
+            ));
         }
         edtMessage.setFormElements(formElements);
     }

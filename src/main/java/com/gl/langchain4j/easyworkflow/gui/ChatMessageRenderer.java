@@ -36,6 +36,7 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.util.Map;
 
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
@@ -200,12 +201,18 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
     }
 
     private void resend() {
-        if (chatMessage.rawMessage() != null)
-            ChatPane.getChatPane(this).setUserMessage(chatMessage.rawMessage());
-        else
-            ChatPane.getChatPane(this).setUserMessage(textPane.getSelectedText() != null ?
-                    textPane.getSelectedText()  :
+        String selectedText = textPane.getSelectedText();
+        boolean selectedTextPresent = selectedText != null && !selectedText.isEmpty();
+
+        //noinspection rawtypes
+        if (! selectedTextPresent && chatMessage.rawMessage() instanceof Map map)
+            //noinspection unchecked
+            ChatPane.getChatPane(this).setUserMessage(map);
+        else {
+            ChatPane.getChatPane(this).setUserMessage(selectedTextPresent ?
+                    selectedText :
                     chatMessage.message());
+        }
     }
 
     void updateLayout(int availableWidth, boolean forceUpdate) {

@@ -26,11 +26,9 @@
 
 package com.gl.langchain4j.easyworkflow.samples;
 
-import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.OutputComposers;
-import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
-import com.gl.langchain4j.easyworkflow.WorkflowDebuggerSupport;
+import com.gl.langchain4j.easyworkflow.gui.FormEditorType;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
 import dev.langchain4j.data.message.AiMessage;
@@ -147,7 +145,18 @@ public class SampleSequentialAndRepeatableAgents {
 
     public interface NovelCreator extends AgenticScopeOwner {
         @Agent(outputName = "story")
-        Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
+        Novel createNovel(
+                @PlaygroundParam(editorType = FormEditorType.Note, description = "Story topic")
+                @V("topic")
+                String topic,
+
+                @PlaygroundParam(description = "Story audience", editorType = FormEditorType.EditableDropdown, editorChoices = {"infants", "children", "teenagers", "adults"})
+                @V("audience")
+                String audience,
+
+                @PlaygroundParam(description = "Story style", editorType = FormEditorType.EditableDropdown, editorChoices = {"comedy", "horror", "fantasy", "romance"})
+                @V("style")
+                String style);
     }
 
     public interface StyleScorer {
@@ -197,11 +206,11 @@ public class SampleSequentialAndRepeatableAgents {
             score = aScore;
         }
 
-        public String story() {
+        public String getStory() {
             return story;
         }
 
-        public double score() {
+        public double getScore() {
             return score;
         }
 

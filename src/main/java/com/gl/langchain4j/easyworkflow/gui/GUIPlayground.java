@@ -37,6 +37,7 @@ import java.util.Objects;
 public class GUIPlayground extends Playground.BasicPlayground {
     private ChatFrame chatFrame;
     private String humanRequest;
+    private Map<String, Object> arguments;
 
     /**
      * Constructs a new GUIPlayground with the specified agent class.
@@ -47,6 +48,12 @@ public class GUIPlayground extends Playground.BasicPlayground {
         super(agentClass);
     }
 
+    @Override
+    public void setup(Map<String, Object> arguments) {
+        super.setup(arguments);
+        this.arguments = arguments;
+    }
+
     /**
      * Initiates the chat interface for the playground.
      *
@@ -55,7 +62,14 @@ public class GUIPlayground extends Playground.BasicPlayground {
      */
     @Override
     public void play(Object agent, Map<String, Object> userMessage) {
-        String title = "Playground";
+        String title = "Playground - %s".formatted(agentClass.getSimpleName());
+
+        if (arguments != null && arguments.containsKey(ARG_TITLE)) {
+            String argTitle = (String) arguments.get(ARG_TITLE);
+            if (argTitle != null && ! argTitle.isEmpty())
+                title = argTitle;
+        }
+
         System.setProperty("apple.awt.application.name", title);
         System.setProperty("apple.awt.application.appearance", "system");
 

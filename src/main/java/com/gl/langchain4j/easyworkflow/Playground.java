@@ -61,6 +61,18 @@ public interface Playground {
     String getHumanResponse();
 
     /**
+     * Constant for the argument key "title".
+     */
+    public static final String ARG_TITLE = "title";
+
+    /**
+     * Sets up the playground with the given arguments. Use {@code ARG_} constants to pass arguments to the playground.
+     *
+     * @param arguments A map of arguments for setting up the playground.
+     */
+    void setup(Map<String, Object> arguments);
+
+    /**
      * Represents the type of playground.
      */
     enum Type {
@@ -100,6 +112,10 @@ public interface Playground {
         public BasicPlayground(Class<?> agentClass) {
             this.agentClass = agentClass;
             this.agentMethod = findAgentMethod();
+        }
+
+        @Override
+        public void setup(Map<String, Object> arguments) {
         }
 
         @Override

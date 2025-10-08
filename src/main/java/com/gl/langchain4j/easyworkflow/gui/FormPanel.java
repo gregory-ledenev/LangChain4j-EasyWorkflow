@@ -52,32 +52,6 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     private List<FormElement> formElements;
 
     /**
-     * Defines the types of editors available for form elements.
-     */
-    public enum EditorType {
-        /**
-         * Default editor type.
-         */
-        Default,
-        /**
-         * Text field
-         */
-        Text,
-        /**
-         * Text area
-         */
-        Note,
-        /**
-         * Dropdown
-         */
-        Dropdown,
-        /**
-         * Editable dropdown
-         */
-        EditableDropdown
-    }
-
-    /**
      * Interface for form element editors.
      */
     interface Editor {
@@ -111,48 +85,6 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
          */
         void requestFocus();
     }    
-
-    /**
-     * Example usage of the FormPanel.
-     */
-//    // Example usage
-//    public static void main(String[] args) {
-//        try {
-//            UIManager.setLookAndFeel(new FlatMacLightLaf());
-//        } catch (UnsupportedLookAndFeelException aE) {
-//            throw new RuntimeException(aE);
-//        }
-//        List<FormElement> elements = List.of(
-//                new FormElement("fullName", null, String.class, "John Doe", true, true),
-//                new FormElement("age", null, Integer.class, 30, true, true),
-//                new FormElement("test", null, Integer.class, 30, true, true)
-////                new FormElement("bio", "Biography", String.class, false, "A software engineer..."),
-////                new FormElement("isStudent", "Is Student", Boolean.class, true, false),
-////                new FormElement("metadata", "Metadata (JSON)", Map.class, false, Map.of("department", "IT", "projects", List.of("A", "B")))
-//        );
-//
-//        FormPanel formPanel = new FormPanel();
-//        formPanel.setFormElements(elements);
-//
-//        JButton submitButton = new JButton("Submit");
-//        submitButton.addActionListener(e -> {
-//            List<String> errors = formPanel.validateForm();
-//            if (errors.isEmpty()) {
-//                Map<String, Object> formValues = formPanel.getFormValues();
-//                JOptionPane.showMessageDialog(formPanel, "Form is valid!\n" + formValues, "Success", JOptionPane.INFORMATION_MESSAGE);
-//            } else {
-//                JOptionPane.showMessageDialog(formPanel, String.join("\n", errors), "Validation Errors", JOptionPane.ERROR_MESSAGE);
-//            }
-//        });
-//
-//        JFrame frame = new JFrame("FormPanel Demo");
-//        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//        frame.getContentPane().add(formPanel, BorderLayout.CENTER);
-//        frame.getContentPane().add(submitButton, BorderLayout.SOUTH);
-//        frame.pack();
-//        frame.setLocationRelativeTo(null);
-//        frame.setVisible(true);
-//    }
 
     private static JTextComponent getTextComponent(JComponent c) {
         if (c instanceof JTextComponent)
@@ -258,7 +190,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             // Define the row specification based on whether the component is multi-line.
             // 'default' prevents single-line components from collapsing vertically.
             boolean isMultiLine = (element.type() == String.class &&
-                    (element.editorType() == EditorType.Note ||
+                    (element.editorType() == FormEditorType.Note ||
                             formElements.size() == 1)) ||
                     Map.class.isAssignableFrom(element.type());
             String rowSpec = isMultiLine ? "max(pref;40dlu)" : "default";
@@ -269,11 +201,10 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             JComponent inputComponent = editor.getComponent();
             if (formElements.size() > 1 || !isMultiLine) {
                 JLabel label = new JLabel(element.label() + ":");
+                setupFont(label);
 
-                // Add the label, aligning it to the top for multi-line components for better aesthetics.
                 if (isMultiLine) {
-                    // For multi-line components, add a 4px top margin using an EmptyBorder for better vertical alignment.
-                    label.setBorder(BorderFactory.createEmptyBorder(6, 0, 0, 0));
+                    label.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
                     builder.add(label, cc.xy(1, builder.getRowCount(), "right, top"));
                 } else {
                     builder.add(label, cc.xy(1, builder.getRowCount(), "right, default"));
@@ -306,8 +237,12 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         Class<?> type = element.type();
 
         if (type == String.class) {
-            if ((element.editorType() == EditorType.Text ||
-                    element.editorType() == EditorType.Default) && formElements.size() > 1) {
+            if ((element.editorType() == FormEditorType.EditableDropdown) && formElements.size() > 1) {
+                return new EditableDropdownEditor(element);
+            } else if (element.editorType() == FormEditorType.Dropdown && formElements.size() > 1) {
+                return new DropdownEditor(element);
+            } else if ((element.editorType() == FormEditorType.Text ||
+                    element.editorType() == FormEditorType.Default)) {
                 return new CompactStringEditor(element);
             } else {
                 return new StringEditor(element);
@@ -393,10 +328,13 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
      * Sets the values of the form elements based on the provided map.
      *
      * @param formValues A map where keys are form element names and values are the corresponding data.
+     * @return {@code true} if any value was set, {@code false} otherwise.
      */
-    public void setFormValues(Map<String, Object> formValues) {
+    public boolean setFormValues(Map<String, Object> formValues) {
         if (formValues == null)
-            return;
+            return false;
+
+        boolean result = false;
 
         for (FormElement element : formElements) {
             if (formValues.containsKey(element.name())) {
@@ -404,9 +342,12 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
                 Object value = formValues.get(element.name());
                 if (editor != null) {
                     editor.setValue(value);
+                    result = true;
                 }
             }
         }
+
+        return result;
     }
 
     @Override
@@ -439,33 +380,45 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
      * compact editor, and if it's mandatory.
      */
     public record FormElement(String name,
-                              String label,
-                              Class<?> type,
+                              String label, String description, Class<?> type,
                               Object defaultValue,
-                              EditorType editorType,
-                              boolean mandatory) {
+                              FormEditorType editorType,
+                              Object[] editorChoices, boolean mandatory
+    ) {
 
         /**
          * Constructs a new {@code FormElement}.
          *
-         * @param name         The name of the form element.
-         * @param label        The human-readable label for the form element. If null or empty, a label will be
-         *                     generated from the name.
-         * @param type         The data type of the form element's value.
-         * @param defaultValue The initial value of the form element.
-         * @param editorType   A boolean indicating whether to use a compact editor (e.g., JTextField) for String
-         *                     types.
-         * @param mandatory    A boolean indicating whether the form element value is mandatory.
+         * @param name          The name of the form element.
+         * @param label         The human-readable label for the form element. If null or empty, a label will be
+         *                      generated from the name.
+         * @param description
+         * @param type          The data type of the form element's value.
+         * @param defaultValue  The initial value of the form element.
+         * @param editorType    A boolean indicating whether to use a compact editor (e.g., JTextField) for String
+         *                      types.
+         * @param editorChoices An array of options for dropdown editors.
+         * @param mandatory     A boolean indicating whether the form element value is mandatory
          * @throws NullPointerException if {@code name} is null.
          */
-        public FormElement(String name, String label, Class<?> type, Object defaultValue, EditorType editorType, boolean mandatory) {
+        public FormElement(String name, String label, String description, Class<?> type, Object defaultValue, FormEditorType editorType, Object[] editorChoices, boolean mandatory) {
             Objects.requireNonNull(name);
             this.name = name;
             this.label = label != null && label.length() > 0 ? label : labelFromName(name);
+            this.description = description;
             this.type = type;
             this.defaultValue = defaultValue;
             this.editorType = editorType;
             this.mandatory = mandatory;
+            this.editorChoices = editorChoices;
+        }
+
+        public FormElement(String name, String label, Class<?> type, Object defaultValue, FormEditorType editorType, boolean mandatory) {
+            this(name, label, null, type, defaultValue, editorType, null, mandatory);
+        }
+
+        public FormElement(String name, String label, Class<?> type, Object defaultValue, boolean mandatory, Object[] options) {
+            this(name, label, null, type, defaultValue, options != null ? FormEditorType.Dropdown : FormEditorType.Default, options, mandatory);
         }
 
         private String labelFromName(String name) {
@@ -487,6 +440,12 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
     // --- Editor Implementations ---
 
+    private static String getTooltipText(FormElement formElement) {
+        return formElement.description != null && formElement.description.isEmpty() ?
+                "%s %s".formatted(formElement.type().getSimpleName(), formElement.name()) :
+                formElement.description();
+    }
+
     private class CompactStringEditor implements Editor {
         private final JTextField textField;
         private final FormElement formElement;
@@ -495,7 +454,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             this.formElement = formElement;
             this.textField = new JTextField(20);
             textField.getDocument().addDocumentListener(FormPanel.this);
-            textField.setToolTipText("%s %s".formatted(formElement.type().getSimpleName(), formElement.name()));
+            textField.setToolTipText(getTooltipText(formElement));
             setupPopupMenu(textField);
             setupShortcuts(textField);
             setValue(formElement.defaultValue());
@@ -538,7 +497,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             this.formElement = formElement;
             this.textArea = new TextEditor(formElements.size() > 1 ? 3 : 5, 20);
             textArea.getDocument().addDocumentListener(FormPanel.this);
-            textArea.setToolTipText("%s %s".formatted(formElement.type().getSimpleName(), formElement.name()));
+            textArea.setToolTipText(getTooltipText(formElement));
             setupPopupMenu(textArea);
             setupShortcuts(textArea);
 
@@ -588,6 +547,10 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         }
     }
 
+    static void setupFont(JComponent c) {
+        c.setFont(c.getFont().deriveFont(c.getFont().getSize() + 2.0f));
+    }
+
     private class NumberEditor implements Editor {
         private final JTextField textField;
         private final FormElement formElement;
@@ -595,8 +558,9 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         public NumberEditor(FormElement formElement) {
             this.formElement = formElement;
             this.textField = new JTextField(20);
+            setupFont(this.textField);
             textField.getDocument().addDocumentListener(FormPanel.this);
-            textField.setToolTipText("%s %s".formatted(formElement.type().getSimpleName(), formElement.name()));
+            textField.setToolTipText(getTooltipText(formElement));
             setupPopupMenu(textField);
             setupShortcuts(textField);
             setValue(formElement.defaultValue());
@@ -653,11 +617,11 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     private class BooleanEditor implements Editor {
         private final JCheckBox checkBox;
 
-        public BooleanEditor(FormElement element) {
+        public BooleanEditor(FormElement formElement) {
             this.checkBox = new JCheckBox();
-            checkBox.setToolTipText("%s %s".formatted(element.type().getSimpleName(), element.name()));
+            checkBox.setToolTipText(getTooltipText(formElement));
             checkBox.addActionListener(e -> firePropertyChange(PROPERTY_VALUE_CHANGED, null, null));
-            setValue(element.defaultValue());
+            setValue(formElement.defaultValue());
         }
 
         @Override
@@ -694,7 +658,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             this.formElement = formElement;
             this.textArea = new TextEditor(5, 20);
             textArea.getDocument().addDocumentListener(FormPanel.this);
-            textArea.setToolTipText("%s %s (JSON)".formatted(formElement.type().getSimpleName(), formElement.name()));
+            textArea.setToolTipText(getTooltipText(formElement));
             setupPopupMenu(textArea);
             setupShortcuts(textArea);
             setValue(formElement.defaultValue());
@@ -748,6 +712,96 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
     }
 
+    private class DropdownEditor implements Editor {
+        private final JComboBox<Object> comboBox;
+        private final FormElement formElement;
+
+        public DropdownEditor(FormElement formElement) {
+            this.formElement = formElement;
+            this.comboBox = new JComboBox<>(formElement.editorChoices() != null ? formElement.editorChoices() : new Object[0]);
+            setupFont(this.comboBox);
+            comboBox.setToolTipText(getTooltipText(formElement));
+            comboBox.addActionListener(e -> firePropertyChange(PROPERTY_VALUE_CHANGED, null, null));
+            setValue(formElement.defaultValue());
+        }
+
+        @Override
+        public void setValue(Object value) {
+            comboBox.setSelectedItem(value);
+        }
+
+        @Override
+        public Object getValue() {
+            return comboBox.getSelectedItem();
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return comboBox;
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            Object selected = comboBox.getSelectedItem();
+            boolean valid = !formElement.mandatory() || (selected != null && !selected.toString().isEmpty());
+            return valid ? null : "'%s' is not specified.".formatted(formElement.label());
+        }
+
+        @Override
+        public void requestFocus() {
+            comboBox.requestFocus();
+        }
+    }
+
+    private class EditableDropdownEditor implements Editor {
+        private final JComboBox<Object> comboBox;
+        private final FormElement formElement;
+
+        public EditableDropdownEditor(FormElement formElement) {
+            this.formElement = formElement;
+            this.comboBox = new JComboBox<>(formElement.editorChoices() != null ? formElement.editorChoices() : new Object[0]);
+            setupFont(this.comboBox);
+            this.comboBox.setEditable(true);
+            comboBox.setToolTipText(getTooltipText(formElement));
+            comboBox.addActionListener(e -> firePropertyChange(PROPERTY_VALUE_CHANGED, null, null));
+
+            JTextComponent textComponent = (JTextComponent) comboBox.getEditor().getEditorComponent();
+            textComponent.getDocument().addDocumentListener(FormPanel.this);
+            setupPopupMenu(textComponent);
+            setupShortcuts(textComponent);
+
+            setValue(formElement.defaultValue());
+        }
+
+        @Override
+        public void setValue(Object value) {
+            comboBox.setSelectedItem(value);
+        }
+
+        @Override
+        public Object getValue() {
+            return comboBox.getEditor().getItem();
+        }
+
+        @Override
+        public JComponent getComponent() {
+            return comboBox;
+        }
+
+        @Override
+        public String checkValidity(boolean strictCheck) {
+            Object item = comboBox.getEditor().getItem();
+            String text = item != null ? item.toString() : "";
+            boolean valid = !formElement.mandatory() || !text.isEmpty();
+            return valid ? null : "'%s' is not specified.".formatted(formElement.label());
+        }
+
+        @Override
+        public void requestFocus() {
+            comboBox.requestFocus();
+        }
+    }
+
     private record UnsupportedTypeEditor(FormElement element) implements Editor {
         @Override
         public void setValue(Object value) { /* No-op */ }
@@ -794,7 +848,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             setLineWrap(true);
             setWrapStyleWord(true);
             setRows(3);
-            setFont(new Font("SansSerif", Font.PLAIN, 14));
+            setupFont(this);
             setFocusTraversalKeys(KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS, null);
             setFocusTraversalKeys(KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS, null);
         }
