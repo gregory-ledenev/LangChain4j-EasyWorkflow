@@ -77,9 +77,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
-            g2.setColor(UISupport.isDarkAppearance() ?
-                    new Color(128, 128, 128, 225) :
-                    new Color(255, 255, 255, 225));
+            Color color = UIManager.getColor("Panel.background");
+            g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(),240));
             g2.fillRect(0, 0, getWidth(), getHeight());
             g2.dispose();
         }

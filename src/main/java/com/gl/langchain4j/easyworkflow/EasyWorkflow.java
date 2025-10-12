@@ -72,7 +72,7 @@ import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
  */
 public class EasyWorkflow {
 
-    public static final String VERSION = "v0.9.16";
+    public static final String VERSION = "v0.9.18";
     public static final String FULL_VERSION = "EasyWorkflow for LangChain4j " + VERSION;
 
     /**

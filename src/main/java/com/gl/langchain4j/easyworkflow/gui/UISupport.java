@@ -24,6 +24,8 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLightLaf;
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.jthemedetecor.OsThemeDetector;
@@ -334,13 +336,24 @@ public class UISupport {
         if (darkAppearance == null || darkAppearance != isDarkAppearance) {
             darkAppearance = isDarkAppearance;
             try {
+                boolean isMac = isMac();
                 UIManager.setLookAndFeel(darkAppearance ?
-                        new FlatMacDarkLaf() :
-                        new FlatMacLightLaf());
+                        (isMac ? new FlatMacDarkLaf() : new FlatDarkLaf()) :
+                        (isMac ? new FlatMacLightLaf() : new FlatLightLaf()));
             } catch (Exception ex) {
                 System.err.println("Failed to initialize LaF");
             }
         }
+    }
+
+    /**
+     * Checks if the current operating system is macOS.
+     *
+     * @return true if the OS is macOS, false otherwise.
+     */
+    public static boolean isMac() {
+        String osName = System.getProperty("os.name").toLowerCase();
+        return osName.contains("mac") || osName.contains("darwin");
     }
 
     /**
