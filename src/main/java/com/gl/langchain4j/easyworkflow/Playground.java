@@ -63,7 +63,18 @@ public interface Playground {
     /**
      * Constant for the argument key "title".
      */
-    public static final String ARG_TITLE = "title";
+    String ARG_TITLE = "title";
+
+    /**
+     * Constant for the argument key "workflowDebugger".
+     */
+    String ARG_WORKFLOW_DEBUGGER = "workflowDebugger";
+
+    /**
+     * Constant for the argument key "use dialog".
+     */
+    String ARG_SHOW_DIALOG = "showDialog";
+    String ARG_OWNER_FRAME = "ownerFrame";
 
     /**
      * Sets up the playground with the given arguments. Use {@code ARG_} constants to pass arguments to the playground.

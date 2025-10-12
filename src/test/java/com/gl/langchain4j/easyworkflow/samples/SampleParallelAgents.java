@@ -26,6 +26,8 @@
 package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.Playground;
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.scope.AgenticScope;
@@ -111,8 +113,10 @@ public class SampleParallelAgents {
             System.out.println("--------------------");
 
             // getting results in parallel and using a bean list function to combine them
+            WorkflowDebugger workflowDebugger = new WorkflowDebugger();
             BeanListEveningPlannerAgent beanListEveningPlannerAgent = EasyWorkflow.builder(BeanListEveningPlannerAgent.class)
                     .chatModel(BASE_MODEL)
+                    .workflowDebugger(workflowDebugger)
                     .logInput(true)
                     .logOutput(true)
                     .doParallel(asBeanList(EveningPlan.class,
@@ -124,6 +128,14 @@ public class SampleParallelAgents {
                     .end()
                     .outputName("result")
                     .build();
+
+            // NOTE: to use Playground comment executor shutdown
+//            Playground playground = Playground.createPlayground(BeanListEveningPlannerAgent.class, Playground.Type.GUI);
+//            playground.setup(Map.of(
+//                    Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
+//                    Playground.ARG_SHOW_DIALOG, true));
+//            playground.play(beanListEveningPlannerAgent, null);
+
             System.out.println(beanListEveningPlannerAgent.plan("happy"));
             System.out.println(genericEveningPlannerAgent.plan("sad"));
         } finally {

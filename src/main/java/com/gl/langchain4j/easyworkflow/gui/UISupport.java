@@ -83,6 +83,10 @@ public class UISupport {
      * Key for the help icon.
      */
     public static final String ICON_HELP = "help";
+    /**
+     * Key for the expert icon.
+     */
+    public static final String ICON_EXPERT = "expert";
 
     /**
      * An Icon implementation that automatically loads the correct icon based on the current theme (light/dark).
@@ -138,6 +142,9 @@ public class UISupport {
 
         icons.put(getIconKey(ICON_HELP, false), loadImageIcon("help"));
         icons.put(getIconKey(ICON_HELP, true), loadImageIcon("help-light"));
+
+        icons.put(getIconKey(ICON_EXPERT, false), loadImageIcon("expert"));
+        icons.put(getIconKey(ICON_EXPERT, true), loadImageIcon("expert-light"));
     }
 
     private static ImageIcon loadImageIcon(String name) {
@@ -343,7 +350,10 @@ public class UISupport {
      * @return The appropriate {@link Icon} for the given key and current theme.
      */
     public static Icon getIcon(String iconKey) {
-        return icons.get(getIconKey(iconKey));
+        Icon result = icons.get(getIconKey(iconKey));
+        if (result == null)
+            result = icons.get(getIconKey(iconKey, ! isDarkAppearance()));
+        return result;
     }
 
     private static String getIconKey(String iconKey) {
@@ -351,7 +361,7 @@ public class UISupport {
     }
 
     private static String getIconKey(String iconKey, boolean isDarkAppearance) {
-        return iconKey + (isDarkAppearance ? iconKey : iconKey + "-light");
+        return iconKey + (! isDarkAppearance ? "" : "-light");
     }
 
     /**

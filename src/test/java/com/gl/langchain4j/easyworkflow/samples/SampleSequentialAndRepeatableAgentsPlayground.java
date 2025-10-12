@@ -3,6 +3,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.Playground;
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.util.Map;
@@ -18,8 +19,10 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
                 .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
                 .build();
 
+        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
         SampleSequentialAndRepeatableAgents.NovelCreator novelCreator = EasyWorkflow.builder(SampleSequentialAndRepeatableAgents.NovelCreator.class)
                 .chatModel(BASE_MODEL)
+                .workflowDebugger(workflowDebugger)
                 .agent(SampleSequentialAndRepeatableAgents.CreativeWriter.class)
                 .agent(SampleSequentialAndRepeatableAgents.AudienceEditor.class)
                 .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
@@ -31,6 +34,9 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
                 .build();
 
         Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class, Playground.Type.GUI);
+        playground.setup(Map.of(
+                Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
+                Playground.ARG_SHOW_DIALOG, true));
         playground.play(novelCreator, Map.of(
                 "topic", "dragons and wizards",
                 "audience", "infants",

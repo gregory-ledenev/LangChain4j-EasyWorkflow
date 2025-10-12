@@ -44,8 +44,8 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.applyAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.getOptions;
 
 /**
- * A frame that provides a chat interface.
- * It can be used to display a chat conversation and interact with a chat engine.
+ * A frame that provides a chat interface. It can be used to display a chat conversation and interact with a chat
+ * engine.
  */
 public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
@@ -55,8 +55,8 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     /**
      * Constructs a new ChatFrame.
      *
-     * @param title The title of the chat frame.
-     * @param icon The icon to be displayed for the chat frame.
+     * @param title      The title of the chat frame.
+     * @param icon       The icon to be displayed for the chat frame.
      * @param chatEngine A function that takes a user message and returns a chat engine's response.
      */
     public ChatFrame(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine) {
@@ -78,7 +78,13 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             Taskbar.getTaskbar().setIconImage(icon.getImage());
         }
 
-        setContentPane(chatPane);
+        JTabbedPane contentPane = new JTabbedPane();
+        contentPane.putClientProperty("JTabbedPane.hideTabAreaWithOneTab", Boolean.TRUE);
+        contentPane.putClientProperty("JTabbedPane.tabWidthMode", "equal");
+
+        contentPane.addTab(chatEngine.title(), chatPane);
+
+        setContentPane(contentPane);
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -93,9 +99,9 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     /**
      * Displays a new ChatFrame with the given title, icon, chat engine, and exit behavior.
      *
-     * @param title The title of the chat frame.
-     * @param icon The icon to be displayed for the chat frame.
-     * @param chatEngine A function that takes a user message and returns a chat engine's response.
+     * @param title       The title of the chat frame.
+     * @param icon        The icon to be displayed for the chat frame.
+     * @param chatEngine  A function that takes a user message and returns a chat engine's response.
      * @param exitOnClose If true, the application will exit when this frame is closed.
      * @return The created ChatFrame instance.
      */
@@ -104,7 +110,8 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
         ChatFrame chatFrame = new ChatFrame(title,
                 icon,
-                chatEngine);
+                chatEngine
+        );
         chatFrame.exitOnClose = exitOnClose;
         chatFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
@@ -129,7 +136,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     /**
      * Displays a new ChatFrame configured to interact with a WorkflowExpert.
      *
-     * @param userMessage The initial message to be displayed in the chat pane.
+     * @param userMessage      The initial message to be displayed in the chat pane.
      * @param workflowDebugger The WorkflowDebugger instance to be used by the WorkflowExpert.
      * @return The created ChatFrame instance.
      */
@@ -183,7 +190,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
     @Override
     public void showAbout(JComponent parent) {
-        Object[] options = { "Site", "OK" };
+        Object[] options = {"Site", "OK"};
         int result = JOptionPane.showOptionDialog(
                 null,
                 EasyWorkflow.FULL_VERSION,
