@@ -413,7 +413,7 @@ public interface NovelCreator extends AgenticScopeOwner {
 }
 ```
 
-You may include an action, that calls the workflow Expert, to the playground be specifying a Workflow debugger:
+You can add an action that invokes the Workflow Expert in the playground by specifying a Workflow debugger.
 
 ```java
 Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI);
