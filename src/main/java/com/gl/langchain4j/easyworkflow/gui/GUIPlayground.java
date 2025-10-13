@@ -73,12 +73,18 @@ public class GUIPlayground extends Playground.BasicPlayground {
         String title = "Playground - %s".formatted(agentClass.getSimpleName());
 
         boolean showDialog = false;
-        if (arguments != null && arguments.containsKey(ARG_TITLE)) {
-            String argTitle = (String) arguments.get(ARG_TITLE);
-            if (argTitle != null && ! argTitle.isEmpty())
-                title = argTitle;
+
+        if (arguments != null) {
+            if (arguments.containsKey(ARG_TITLE)) {
+                String argTitle = (String) arguments.get(ARG_TITLE);
+                if (argTitle != null && !argTitle.isEmpty())
+                    title = argTitle;
+            }
+
             showDialog = Boolean.valueOf(true).equals(arguments.get(ARG_SHOW_DIALOG));
         }
+
+        System.setProperty("apple.awt.application.appearance", "system");
 
         if (! showDialog)
             showChatFrame(agent, userMessage, title);
@@ -88,7 +94,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title);
-        System.setProperty("apple.awt.application.appearance", "system");
 
         chatFrame = ChatFrame.showChat(title, new ImageIcon(Objects.requireNonNull(ChatFrame.class.getResource("logo.png"))),
                 new ChatPane.ChatEngine() {

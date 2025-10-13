@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.18</version>
+    <version>0.9.19</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.18</version>
+    <version>0.9.19</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -348,10 +348,7 @@ EasyWorkflow provides an interactive playground for experimenting with agents (w
 A playground is created with `Playground.createPlayground(...)`, where you specify the agent’s class and the playground type. To start a chat session, call `Playground.play()`, passing the agent and optionally an initial user message.
 
 ```java
-Playground playground = Playground.createPlayground(
-        SampleSequentialAndRepeatableAgents.NovelCreator.class, 
-        Playground.Type.GUI
-);
+Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI);
 playground.play(novelCreator, Map.of(
         "topic", "dragons and wizards",
         "audience", "infants",
@@ -393,9 +390,35 @@ Answer: Novel[story=In the enchanted realm of Aethoria...
 
 ### GUI
 
-The GUI playground offers a modern and convenient chat interface. If an agent requires multiple arguments, they are presented in a form layout for easier input.
+The GUI playground offers a modern and convenient chat interface.
 
 ![](gui-playground.png)
+
+If an agent requires multiple arguments, they are presented in a form layout for easier input. To customize form - use `@PlaygroundParam` annotation, where you can specify how each agent's method parameter should be rendered, its description, value choices etc.
+```java
+public interface NovelCreator extends AgenticScopeOwner {
+    @Agent(outputName = "story")
+    Novel createNovel(
+            @PlaygroundParam(editorType = FormEditorType.Note, description = "Story topic")
+            @V("topic")
+            String topic,
+
+            @PlaygroundParam(description = "Story audience", editorType = FormEditorType.EditableDropdown, editorChoices = {"infants", "children", "teenagers", "adults"})
+            @V("audience")
+            String audience,
+
+            @PlaygroundParam(description = "Story style", editorType = FormEditorType.EditableDropdown, editorChoices = {"comedy", "horror", "fantasy", "romance"})
+            @V("style")
+            String style);
+}
+```
+
+You may include an action, that calls the workflow Expert, to the playground be specifying a Workflow debugger:
+
+```java
+Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI);
+playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
+```
 
 ## Sample for Sequential and Repeatable Agents
 

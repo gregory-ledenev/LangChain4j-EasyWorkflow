@@ -24,19 +24,19 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.jgoodies.forms.builder.DefaultFormBuilder;
-import com.jgoodies.forms.layout.FormLayout;
-import com.jgoodies.forms.layout.CellConstraints;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jgoodies.forms.builder.DefaultFormBuilder;
+import com.jgoodies.forms.layout.CellConstraints;
+import com.jgoodies.forms.layout.FormLayout;
 
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
 import java.awt.*;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
@@ -84,15 +84,6 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
          * Requests focus for the editor's component.
          */
         void requestFocus();
-    }    
-
-    private static JTextComponent getTextComponent(JComponent c) {
-        if (c instanceof JTextComponent)
-            return (JTextComponent) c;
-        else if (c instanceof JScrollPane)
-            return getTextComponent((JComponent) ((JScrollPane) c).getViewport().getView());
-        else
-            return null;
     }
 
     /**
@@ -251,7 +242,13 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             if (type == Boolean.class || type == boolean.class) {
                 return new BooleanEditor(element);
             } else {
-                return new NumberEditor(element);
+                if (element.editorType() == FormEditorType.EditableDropdown && formElements.size() > 1) {
+                    return new EditableDropdownEditor(element);
+                } else if (element.editorType() == FormEditorType.Dropdown && formElements.size() > 1) {
+                    return new DropdownEditor(element);
+                } else {
+                    return new NumberEditor(element);
+                }
             }
         } else if (Map.class.isAssignableFrom(type)) {
             return new MapEditor(element);
@@ -392,7 +389,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
          * @param name          The name of the form element.
          * @param label         The human-readable label for the form element. If null or empty, a label will be
          *                      generated from the name.
-         * @param description
+         * @param description   A tooltip description for the form element.
          * @param type          The data type of the form element's value.
          * @param defaultValue  The initial value of the form element.
          * @param editorType    A boolean indicating whether to use a compact editor (e.g., JTextField) for String
@@ -404,21 +401,13 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         public FormElement(String name, String label, String description, Class<?> type, Object defaultValue, FormEditorType editorType, Object[] editorChoices, boolean mandatory) {
             Objects.requireNonNull(name);
             this.name = name;
-            this.label = label != null && label.length() > 0 ? label : labelFromName(name);
+            this.label = label != null && !label.isEmpty() ? label : labelFromName(name);
             this.description = description;
             this.type = type;
             this.defaultValue = defaultValue;
             this.editorType = editorType;
             this.mandatory = mandatory;
             this.editorChoices = editorChoices;
-        }
-
-        public FormElement(String name, String label, Class<?> type, Object defaultValue, FormEditorType editorType, boolean mandatory) {
-            this(name, label, null, type, defaultValue, editorType, null, mandatory);
-        }
-
-        public FormElement(String name, String label, Class<?> type, Object defaultValue, boolean mandatory, Object[] options) {
-            this(name, label, null, type, defaultValue, options != null ? FormEditorType.Dropdown : FormEditorType.Default, options, mandatory);
         }
 
         private String labelFromName(String name) {
@@ -439,6 +428,21 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     }
 
     // --- Editor Implementations ---
+
+    private Number parseNumber(String text, Class<?> type) {
+        if (text == null || text.isEmpty()) {
+            return null;
+        }
+        try {
+            if (type == Integer.class || type == int.class) return Integer.parseInt(text);
+            if (type == Long.class || type == long.class) return Long.parseLong(text);
+            if (type == Double.class || type == double.class) return Double.parseDouble(text);
+            if (type == Float.class || type == float.class) return Float.parseFloat(text);
+            return null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
 
     private static String getTooltipText(FormElement formElement) {
         return formElement.description != null && formElement.description.isEmpty() ?
@@ -573,18 +577,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
         @Override
         public Object getValue() {
-            String text = textField.getText();
-            if (text == null || text.isEmpty()) return null;
-            Class<?> type = formElement.type();
-            try {
-                if (type == Integer.class || type == int.class) return Integer.parseInt(text);
-                if (type == Long.class || type == long.class) return Long.parseLong(text);
-                if (type == Double.class || type == double.class) return Double.parseDouble(text);
-                if (type == Float.class || type == float.class) return Float.parseFloat(text);
-                return null;
-            } catch (NumberFormatException e) {
-                return null;
-            }
+            return parseNumber(textField.getText(), formElement.type());
         }
 
         @Override
@@ -732,7 +725,20 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
         @Override
         public Object getValue() {
-            return comboBox.getSelectedItem();
+            Object item = comboBox.getSelectedItem();
+            if (item == null) {
+                return null;
+            }
+
+            Class<?> type = formElement.type();
+            if (Number.class.isAssignableFrom(type) || (type.isPrimitive() && type != boolean.class && type != void.class)) {
+                if (item instanceof Number) {
+                    return item;
+                }
+                return parseNumber(item.toString(), type);
+            }
+
+            return item;
         }
 
         @Override
@@ -743,8 +749,22 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         @Override
         public String checkValidity(boolean strictCheck) {
             Object selected = comboBox.getSelectedItem();
-            boolean valid = !formElement.mandatory() || (selected != null && !selected.toString().isEmpty());
-            return valid ? null : "'%s' is not specified.".formatted(formElement.label());
+            String text = selected != null ? selected.toString() : "";
+
+            if (text.isEmpty()) {
+                return formElement.mandatory() ? "'%s' is not specified.".formatted(formElement.label()) : null;
+            }
+
+            Class<?> type = formElement.type();
+            boolean isNumeric = Number.class.isAssignableFrom(type) || (type.isPrimitive() && type != boolean.class && type != void.class);
+
+            if (isNumeric && strictCheck) {
+                if (getValue() == null) {
+                    return "'%s' has an invalid number format.".formatted(formElement.label());
+                }
+            }
+
+            return null;
         }
 
         @Override
@@ -780,7 +800,20 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
         @Override
         public Object getValue() {
-            return comboBox.getEditor().getItem();
+            Object item = comboBox.getEditor().getItem();
+            if (item == null) {
+                return null;
+            }
+
+            Class<?> type = formElement.type();
+            if (Number.class.isAssignableFrom(type) || (type.isPrimitive() && type != boolean.class && type != void.class)) {
+                if (item instanceof Number) {
+                    return item;
+                }
+                return parseNumber(item.toString(), type);
+            }
+
+            return item;
         }
 
         @Override
@@ -792,8 +825,21 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         public String checkValidity(boolean strictCheck) {
             Object item = comboBox.getEditor().getItem();
             String text = item != null ? item.toString() : "";
-            boolean valid = !formElement.mandatory() || !text.isEmpty();
-            return valid ? null : "'%s' is not specified.".formatted(formElement.label());
+
+            if (text.isEmpty()) {
+                return formElement.mandatory() ? "'%s' is not specified.".formatted(formElement.label()) : null;
+            }
+
+            Class<?> type = formElement.type();
+            boolean isNumeric = Number.class.isAssignableFrom(type) || (type.isPrimitive() && type != boolean.class && type != void.class);
+
+            if (isNumeric && strictCheck) {
+                if (getValue() == null) {
+                    return "'%s' has an invalid number format.".formatted(formElement.label());
+                }
+            }
+            
+            return null;
         }
 
         @Override
@@ -834,16 +880,6 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             init();
         }
 
-        public TextEditor(int rows, int columns, String aPlaceHolderText) {
-            super(rows, columns);
-            init();
-            placeHolderText = aPlaceHolderText;
-        }
-
-        public TextEditor() {
-            init();
-        }
-
         private void init() {
             setLineWrap(true);
             setWrapStyleWord(true);
@@ -851,10 +887,6 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             setupFont(this);
             setFocusTraversalKeys(KeyboardFocusManager.FORWARD_TRAVERSAL_KEYS, null);
             setFocusTraversalKeys(KeyboardFocusManager.BACKWARD_TRAVERSAL_KEYS, null);
-        }
-
-        public String getPlaceHolderText() {
-            return placeHolderText;
         }
 
         public void setPlaceHolderText(String aPlaceHolderText) {

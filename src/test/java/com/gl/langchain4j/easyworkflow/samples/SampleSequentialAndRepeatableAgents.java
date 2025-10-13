@@ -156,7 +156,8 @@ public class SampleSequentialAndRepeatableAgents {
 
                 @PlaygroundParam(description = "Story style", editorType = FormEditorType.EditableDropdown, editorChoices = {"comedy", "horror", "fantasy", "romance"})
                 @V("style")
-                String style);
+                String style
+        );
     }
 
     public interface StyleScorer {

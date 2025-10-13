@@ -66,14 +66,21 @@ public interface Playground {
     String ARG_TITLE = "title";
 
     /**
-     * Constant for the argument key "workflowDebugger".
+     * Constant for the argument key "workflowDebugger". It can be used by GUI Playground to offer an action that calls
+     * Workflow Expert agent.
      */
     String ARG_WORKFLOW_DEBUGGER = "workflowDebugger";
 
     /**
-     * Constant for the argument key "use dialog".
+     * Constant for the argument key "use dialog". If the value for that argument is {@code true} - playground will be
+     * presented as a dialog vs. frame by default.
      */
     String ARG_SHOW_DIALOG = "showDialog";
+
+    /**
+     * Constant for the argument key "ownerFrame". If the value for that argument is {@code Frame} and
+     * {@code ARG_SHOW_DIALOG=true}- playground will be presented as a dialog with the specified owner frame.
+     */
     String ARG_OWNER_FRAME = "ownerFrame";
 
     /**

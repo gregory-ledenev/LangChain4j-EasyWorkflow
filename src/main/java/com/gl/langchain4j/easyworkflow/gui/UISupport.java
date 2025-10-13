@@ -324,7 +324,7 @@ public class UISupport {
      * @return true if the dark appearance is active, false otherwise.
      */
     public static boolean isDarkAppearance() {
-        return darkAppearance;
+        return darkAppearance != null ? darkAppearance : false;
     }
 
     /**

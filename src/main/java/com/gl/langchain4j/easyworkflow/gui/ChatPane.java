@@ -181,8 +181,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         inputPanel.add(pnlButtons, BorderLayout.EAST);
     }
 
-    ;
-
     /**
      * Retrieves the ChatPane instance that contains the given subComponent.
      *

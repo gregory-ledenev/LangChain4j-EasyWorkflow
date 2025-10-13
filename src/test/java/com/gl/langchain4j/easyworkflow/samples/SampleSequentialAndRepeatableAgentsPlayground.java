@@ -9,6 +9,8 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.Playground.ARG_SHOW_DIALOG;
+
 public class SampleSequentialAndRepeatableAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
 
@@ -34,9 +36,7 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
                 .build();
 
         Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class, Playground.Type.GUI);
-        playground.setup(Map.of(
-                Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
-                Playground.ARG_SHOW_DIALOG, true));
+        playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
         playground.play(novelCreator, Map.of(
                 "topic", "dragons and wizards",
                 "audience", "infants",
