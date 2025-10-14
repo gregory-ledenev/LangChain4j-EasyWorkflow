@@ -142,7 +142,7 @@ public interface Playground {
                 Object[] args = requestToArguments(request, agentMethod.getParameters());
                 return agentMethod.invoke(agent, args);
             } catch (Exception ex) {
-                return WorkflowDebugger.getFailureCauseException(ex).getMessage();
+                throw  new RuntimeException(WorkflowDebugger.getFailureCauseException(ex));
             }
         }
 

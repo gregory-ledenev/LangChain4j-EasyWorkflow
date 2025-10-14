@@ -28,17 +28,31 @@ package com.gl.langchain4j.easyworkflow.gui;
  * Represents a chat message, which can be either from the user or the system. It can contain both plain text and HTML
  * formatted content.
  *
- * @param rawMessage The message in original format
+ * @param rawMessage  The message in original format
  * @param message     The plain text content of the message.
  * @param htmlMessage The HTML formatted content of the message. Can be null if only plain text is available.
- * @param isFromUser  A boolean indicating whether the message originated from the user (true) or the system (false).
+ * @param type        The type of the message.
  */
-public record ChatMessage(Object rawMessage, String message, String htmlMessage, boolean isFromUser) {
+public record ChatMessage(Object rawMessage, String message, String htmlMessage, Type type) {
+    public enum Type {
+        User,
+        Agent,
+        System
+    }
     /**
      * Returns the best available representation of the message. Prioritizes HTML content if available, otherwise returns the plain text message.
      * @return The HTML message if {@code htmlMessage} is not null and not empty, otherwise the plain text {@code message}.
      */
     public String bestMessage() {
         return htmlMessage() != null && ! htmlMessage().isEmpty() ? htmlMessage() : message();
+    }
+
+
+    /**
+     * Checks if the message is outgoing (i.e., from the User or System).
+     * @return {@code true} if the message type is not {@code Agent}, {@code false} otherwise.
+     */
+    public boolean outgoing(){
+        return type() != ChatMessage.Type.Agent;
     }
 }

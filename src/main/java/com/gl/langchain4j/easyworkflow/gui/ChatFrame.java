@@ -35,6 +35,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.net.URI;
 import java.util.List;
@@ -149,6 +150,10 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         ChatFrame result = ChatFrame.showChat(title,
                 new ImageIcon(ChatFrame.class.getResource("logo.png")),
                 new ChatPane.ChatEngine() {
+                    private static Method getAskMethod() {
+                        return EasyWorkflow.getAgentMethod(WorkflowExpert.class);
+                    }
+
                     @Override
                     public Object send(Map<String, Object> message) {
                         return workflowExpert.askMap(message);
@@ -156,11 +161,17 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
                     @Override
                     public Parameter[] getMessageParameters() {
-                        try {
-                            return WorkflowExpert.class.getDeclaredMethod("ask", String.class).getParameters();
-                        } catch (NoSuchMethodException aE) {
-                            throw new RuntimeException(aE);
-                        }
+                        return getAskMethod().getParameters();
+                    }
+
+                    @Override
+                    public String getUserMessageTemplate() {
+                        return EasyWorkflow.getUserMessageTemplate(WorkflowExpert.class);
+                    }
+
+                    @Override
+                    public String getSystemMessageTemplate() {
+                        return EasyWorkflow.getSystemMessageTemplate(WorkflowExpert.class);
                     }
                 }
                 ,

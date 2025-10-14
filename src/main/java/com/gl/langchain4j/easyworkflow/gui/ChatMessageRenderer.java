@@ -74,8 +74,8 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.NONE;
-        gbc.anchor = chatMessage.isFromUser() ? GridBagConstraints.LINE_END : GridBagConstraints.LINE_START;
-        gbc.insets = new Insets(0, chatMessage.isFromUser() ? 20 : 0, 0, chatMessage.isFromUser() ? 0 : 20);
+        gbc.anchor = chatMessage.outgoing() ? GridBagConstraints.LINE_END : GridBagConstraints.LINE_START;
+        gbc.insets = new Insets(0, chatMessage.outgoing() ? 20 : 0, 0, chatMessage.outgoing() ? 0 : 20);
         add(bubbleBackground, gbc);
 
         addComponentListener(new ComponentAdapter() {
@@ -99,7 +99,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
                 chatMessage.bestMessage() :
                 chatMessage.message();
 
-        String color = chatMessage.isFromUser() ?
+        String color = chatMessage.outgoing() ?
                 "White" :
                 isDarkAppearance() ? "White" : "DarkGray";
         textPane.setText("""
@@ -118,7 +118,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         final ChatMessageTextPane textPane;
         textPane = new ChatMessageTextPane();
         textPane.setComponentPopupMenu(popupMenu);
-        textPane.setForeground(chatMessage.isFromUser() ? Color.WHITE : Color.DARK_GRAY);
+        textPane.setForeground(chatMessage.outgoing() ? Color.WHITE : Color.DARK_GRAY);
         return textPane;
     }
 

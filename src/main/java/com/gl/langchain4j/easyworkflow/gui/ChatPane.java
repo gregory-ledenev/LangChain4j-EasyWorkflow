@@ -25,6 +25,7 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.UISupport.AutoIcon;
 import dev.langchain4j.service.V;
@@ -410,6 +411,9 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private void sendMessage() {
         Map<String, Object> message = getUserMessage();
         if (message != null && !message.isEmpty()) {
+            if (getChatMessages().isEmpty())
+                addSystemChatMessage(message);
+
             addChatMessage(chatMessageForMap(message, true));
             if (UISupport.getOptions().isClearAfterSending())
                 edtMessage.clearContent();
@@ -422,6 +426,12 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 return chatMessageForResponse(response);
             }).whenComplete(this::processChatEngineResponse);
         }
+    }
+
+    private void addSystemChatMessage(Map<String, Object> message) {
+        String systemMessageTemplate = chatEngine.getSystemMessageTemplate();
+        if (systemMessageTemplate != null && ! systemMessageTemplate.isEmpty())
+            addChatMessage(new ChatMessage(null, EasyWorkflow.expandTemplate(systemMessageTemplate, message), null, ChatMessage.Type.System));
     }
 
     private ChatMessage chatMessageForResponse(Object response) {
@@ -443,38 +453,62 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                     logger.warn("Failed to convert element to map: " + element, ex);
                 }
             }
-            return new ChatMessage(response, result.toString(), convertMarkdownToHtml(result.toString()), false);
+            return new ChatMessage(response, result.toString(), convertMarkdownToHtml(result.toString()), ChatMessage.Type.Agent);
         } else if (response instanceof Map<?, ?> responseMap) {
             return chatMessageForMap(responseMap, false);
         } else if (response instanceof String) {
             String responseString = response.toString();
             String responseAsHtml = convertMarkdownToHtml(responseString);
-            return new ChatMessage(response, responseString, responseAsHtml, false);
-        } else if (response instanceof Number || response instanceof Boolean || response.getClass().isEnum()) {
-            return new ChatMessage(response, response.toString(), null, false);
+            return new ChatMessage(response, responseString, responseAsHtml, ChatMessage.Type.Agent);
         } else {
-            try {
-                return chatMessageForMap(OBJECT_MAPPER.convertValue(response, Map.class), false);
-            } catch (Exception e) {
-                return new ChatMessage(response, response.toString(), null, false);
+            ChatMessage chatMessage = new ChatMessage(response, response.toString(), null, ChatMessage.Type.Agent);
+            if (response instanceof Number || response instanceof Boolean || response.getClass().isEnum()) {
+                return chatMessage;
+            } else {
+                try {
+                    return chatMessageForMap(OBJECT_MAPPER.convertValue(response, Map.class), false);
+                } catch (Exception e) {
+                    return chatMessage;
+                }
             }
         }
     }
 
     private ChatMessage chatMessageForMap(Map<?, ?> message, boolean isFromUser) {
-        String text;
+        String text = null;
         String html = null;
+
+        String userMessage = null;
+        if (isFromUser) {
+            String template = chatEngine.getUserMessageTemplate();
+            if (template != null && ! template.isEmpty()) {
+                try {
+                    //noinspection unchecked
+                    userMessage = EasyWorkflow.expandTemplate(template, (Map<String, Object>) message);
+                } catch (Exception ex) {
+                    logger.error("Failed to expand template: %s".formatted(template), ex);
+                }
+            }
+        }
+
+        boolean isSimplified = false;
 
         if (message.size() == 1) {
             text = message.values().iterator().next().toString();
-        } else {
+            isSimplified = userMessage == null || text.equals(userMessage);
+        }
+
+        if (! isSimplified) {
             StringBuilder markdown = new StringBuilder();
-            message.forEach((key, value) -> markdown.append(String.format("**%s**: %s<br>", key, value)));
+            final String format = "**%s**: %s<br>";
+            if (userMessage != null && ! userMessage.isEmpty())
+                markdown.append(String.format(format, "userMessage", userMessage));
+            message.forEach((key, value) -> markdown.append(String.format(format, key, value)));
             text = markdown.toString();
             html = convertMarkdownToHtml(text);
         }
 
-        return new ChatMessage(message, text, html, isFromUser);
+        return new ChatMessage(message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent);
     }
 
     private String convertMarkdownToHtml(String text) {
@@ -492,7 +526,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             } else {
                 final String error = "Failed to get response from chat.";
                 logger.error(error, ex);
-                addChatMessage(new ChatMessage(null, "🛑 " + error + " " + ex.getMessage(), null, false));
+                addChatMessage(new ChatMessage(null, "🛑 " + error + " " + ex.getMessage(), null, ChatMessage.Type.Agent));
             }
             setWaitingForResponse(false);
             chatMessagesHostPane.removeTypingIndicator();
@@ -605,6 +639,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         Object send(Map<String, Object> message);
 
         Parameter[] getMessageParameters();
+        String getUserMessageTemplate();
+        String getSystemMessageTemplate();
 
         default String title() {
             return "Chat";

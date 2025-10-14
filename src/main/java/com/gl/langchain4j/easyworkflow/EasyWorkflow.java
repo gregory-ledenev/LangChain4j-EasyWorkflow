@@ -44,6 +44,7 @@ import dev.langchain4j.guardrail.OutputGuardrail;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.input.PromptTemplate;
+import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -2073,5 +2074,79 @@ public class EasyWorkflow {
             mermaid.append(edge);
             return nodeId;
         }
+    }
+
+    /**
+     * Retrieves the method annotated with {@link Agent} from the given class.
+     *
+     * @param clazz The class to inspect.
+     * @return The method annotated with {@link Agent}, or {@code null} if no such method is found.
+     */
+    public static Method getAgentMethod(Class<?> clazz) {
+        for (Method method : clazz.getDeclaredMethods()) {
+            Agent annotation = method.getAnnotation(Agent.class);
+            if (annotation != null)
+                return method;
+        }
+        return null;
+    }
+
+    /**
+     * Expands the {@link UserMessage} template of an agent method with the provided states.
+     *
+     * @param clazz The class of the agent.
+     * @param states The map of states to use for template expansion.
+     * @return The expanded user message, or {@code null} if no {@link UserMessage} annotation is found or an error occurs.
+     */
+    public static String expandUserMessage(Class<?> clazz, Map<String, Object> states) {
+        String template = getUserMessageTemplate(clazz);
+        return template != null ? EasyWorkflow.expandTemplate(template, states) : null;
+    }
+
+    /**
+     * Retrieves the {@link UserMessage} template from the method annotated with {@link Agent} in the given class.
+     *
+     * @param clazz The class of the agent.
+     * @return The user message template string, or {@code null} if no {@link UserMessage} annotation is found or an error occurs.
+     */
+    public static String getUserMessageTemplate(Class<?> clazz) {
+        Method agentMethod = getAgentMethod(clazz);
+        if (agentMethod != null) {
+            UserMessage annotation = agentMethod.getAnnotation(UserMessage.class);
+            if (annotation != null)
+                return getUserMessageTemplate(clazz, annotation.value(), annotation.delimiter(), annotation.fromResource());
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the {@link SystemMessage} template from the method annotated with {@link Agent} in the given class.
+     *
+     * @param clazz The class of the agent.
+     * @return The system message template string, or {@code null} if no {@link SystemMessage} annotation is found or an error occurs.
+     */
+    public static String getSystemMessageTemplate(Class<?> clazz) {
+        Method agentMethod = getAgentMethod(clazz);
+        if (agentMethod != null) {
+            SystemMessage annotation = agentMethod.getAnnotation(SystemMessage.class);
+            if (annotation != null)
+                return getUserMessageTemplate(clazz, annotation.value(), annotation.delimiter(), annotation.fromResource());
+        }
+        return null;
+    }
+
+    private static String getUserMessageTemplate(Class<?> clazz, String[] value, String delimiter, String fromResource) {
+        String template = null;
+        if (! fromResource.isEmpty()) {
+            try (InputStream is = clazz.getResourceAsStream("/" + fromResource)) {
+                if (is != null)
+                    template = new String(is.readAllBytes());
+            } catch (IOException e) {
+                logger.warn("Failed to load User Message from resource: {}", fromResource, e);
+            }
+        } else {
+            template = String.join(delimiter, value);
+        }
+        return template;
     }
 }

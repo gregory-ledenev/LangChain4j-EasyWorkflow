@@ -65,8 +65,10 @@ public class ChatMessageRendererBubble extends JPanel {
     public void updateColors() {
         if (chatMessage == null)
             return;
-        if (chatMessage.isFromUser()) {
-            setBackground(new Color(0, 122, 255));
+        if (chatMessage.outgoing()) {
+            setBackground(chatMessage.type() == ChatMessage.Type.User ?
+                    new Color(0, 122, 255) :
+                    new Color(32, 155, 255));
             setForeground(new Color(0, 80, 200));
         } else {
             if (isDarkAppearance()) {
@@ -109,7 +111,7 @@ public class ChatMessageRendererBubble extends JPanel {
         int h = getHeight() - 1;
 
         GeneralPath path = new GeneralPath();
-        if (chatMessage.isFromUser()) {
+        if (chatMessage.outgoing()) {
             path.moveTo(r, 0);
             path.lineTo(w - r, 0);
             path.quadTo(w, 0, w, r);

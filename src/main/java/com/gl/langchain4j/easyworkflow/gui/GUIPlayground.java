@@ -106,6 +106,16 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     public Parameter[] getMessageParameters() {
                         return agentMethod.getParameters();
                     }
+
+                    @Override
+                    public String getUserMessageTemplate() {
+                        return EasyWorkflow.getUserMessageTemplate(agentClass);
+                    }
+
+                    @Override
+                    public String getSystemMessageTemplate() {
+                        return EasyWorkflow.getSystemMessageTemplate(agentClass);
+                    }
                 },
                 true);
         SwingUtilities.invokeLater(() -> {
@@ -168,6 +178,16 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     @Override
                     public Object send(Map<String, Object> message) {
                         return apply(agent, message);
+                    }
+
+                    @Override
+                    public String getUserMessageTemplate() {
+                        return EasyWorkflow.getUserMessageTemplate(agentClass);
+                    }
+
+                    @Override
+                    public String getSystemMessageTemplate() {
+                        return EasyWorkflow.getSystemMessageTemplate(agentClass);
                     }
 
                     @Override

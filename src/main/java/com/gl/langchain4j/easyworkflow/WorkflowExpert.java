@@ -8,6 +8,7 @@ import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
+import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
@@ -29,14 +30,15 @@ public interface WorkflowExpert {
     /**
      * Asks the workflow expert a question.
      *
-     * @param userMessage The user's message or question.
+     * @param question The user's message or question.
      * @return The expert's response.
      */
-    @UserMessage("{{userMessage}}")
+    @SystemMessage("You are a helpful assistant that can answer questions about a workflow and its execution results.")
+    @UserMessage("{{question}}")
     @Agent
-    String ask(@V("userMessage") String userMessage);
+    String ask(@V("question") String question);
 
     default String askMap(Map<String, Object> input) {
-        return ask(input.get("userMessage").toString());
+        return ask(input.get("question").toString());
     }
 }
