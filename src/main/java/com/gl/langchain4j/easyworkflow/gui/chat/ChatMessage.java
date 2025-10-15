@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.chat;
 
 /**
  * Represents a chat message, which can be either from the user or the system. It can contain both plain text and HTML

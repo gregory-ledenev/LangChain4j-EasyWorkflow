@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

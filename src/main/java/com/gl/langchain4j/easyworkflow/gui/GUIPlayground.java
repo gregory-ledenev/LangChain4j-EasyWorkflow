@@ -25,6 +25,9 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.*;
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatDialog;
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatFrame;
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,7 +98,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title);
 
-        chatFrame = ChatFrame.showChat(title, new ImageIcon(Objects.requireNonNull(ChatFrame.class.getResource("logo.png"))),
+        chatFrame = ChatFrame.showChat(title, new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("logo.png"))),
                 new ChatPane.ChatEngine() {
                     @Override
                     public Object send(Map<String, Object> message) {

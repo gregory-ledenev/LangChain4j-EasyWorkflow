@@ -9,7 +9,10 @@ import dev.langchain4j.model.openai.OpenAiChatModel;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
 import static com.gl.langchain4j.easyworkflow.Playground.ARG_SHOW_DIALOG;
+
+import com.gl.langchain4j.easyworkflow.gui.inspector.*;
 
 public class SampleSequentialAndRepeatableAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
@@ -22,24 +25,26 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
                 .build();
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
-        SampleSequentialAndRepeatableAgents.NovelCreator novelCreator = EasyWorkflow.builder(SampleSequentialAndRepeatableAgents.NovelCreator.class)
+        EasyWorkflow.AgentWorkflowBuilder<SampleSequentialAndRepeatableAgents.NovelCreator> builder = EasyWorkflow.builder(SampleSequentialAndRepeatableAgents.NovelCreator.class)
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(workflowDebugger)
                 .agent(SampleSequentialAndRepeatableAgents.CreativeWriter.class)
                 .agent(SampleSequentialAndRepeatableAgents.AudienceEditor.class)
-                .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)
+                .repeat( condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))
                 .agent(SampleSequentialAndRepeatableAgents.StyleScorer.class)
                 .agent(SampleSequentialAndRepeatableAgents.StyleEditor.class)
                 .end()
                 .output(OutputComposers.asBean(SampleSequentialAndRepeatableAgents.Novel.class))
-                .agent(new SampleSequentialAndRepeatableAgents.QualityScorer())
+                .agent(new SampleSequentialAndRepeatableAgents.QualityScorer());
+        SampleSequentialAndRepeatableAgents.NovelCreator novelCreator = builder
                 .build();
 
-        Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class, Playground.Type.GUI);
-        playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
-        playground.play(novelCreator, Map.of(
-                "topic", "dragons and wizards",
-                "audience", "infants",
-                "style", "fantasy"));
+        WorkflowInspectorListPane.show(builder);
+//        Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class, Playground.Type.GUI);
+//        playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
+//        playground.play(novelCreator, Map.of(
+//                "topic", "dragons and wizards",
+//                "audience", "infants",
+//                "style", "fantasy"));
     }
 }

@@ -24,12 +24,13 @@
  * /
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.WorkflowExpert;
 import com.gl.langchain4j.easyworkflow.WorkflowExpertSupport;
+import com.gl.langchain4j.easyworkflow.gui.UISupport;
 
 import javax.swing.*;
 import java.awt.*;

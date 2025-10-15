@@ -28,6 +28,7 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.jthemedetecor.OsThemeDetector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +91,13 @@ public class UISupport {
      */
     public static final String ICON_EXPERT = "expert";
 
+    public static final String ICON_SIGNPOST = "signpost";
+    public static final String ICON_REFRESH = "refresh";
+    public static final String ICON_BOX = "box";
+    public static final String ICON_STACK = "stack";
+    public static final String ICON_TARGET = "target";
+    public static final String ICON_BREAKPOINT = "breakpoint";
+
     /**
      * An Icon implementation that automatically loads the correct icon based on the current theme (light/dark).
      */
@@ -147,6 +155,21 @@ public class UISupport {
 
         icons.put(getIconKey(ICON_EXPERT, false), loadImageIcon("expert"));
         icons.put(getIconKey(ICON_EXPERT, true), loadImageIcon("expert-light"));
+
+        icons.put(getIconKey(ICON_SIGNPOST, false), loadImageIcon("signpost"));
+        icons.put(getIconKey(ICON_SIGNPOST, true), loadImageIcon("signpost-light"));
+
+        icons.put(getIconKey(ICON_REFRESH, false), loadImageIcon("refresh"));
+        icons.put(getIconKey(ICON_REFRESH, true), loadImageIcon("refresh-light"));
+
+        icons.put(getIconKey(ICON_BOX, false), loadImageIcon("box"));
+        icons.put(getIconKey(ICON_BOX, true), loadImageIcon("box-light"));
+
+        icons.put(getIconKey(ICON_TARGET, false), loadImageIcon("target"));
+        icons.put(getIconKey(ICON_TARGET, true), loadImageIcon("target-light"));
+
+        icons.put(getIconKey(ICON_BREAKPOINT, false), loadImageIcon("breakpoint"));
+        icons.put(getIconKey(ICON_BREAKPOINT, true), loadImageIcon("breakpoint-light"));
     }
 
     private static ImageIcon loadImageIcon(String name) {
@@ -367,6 +390,17 @@ public class UISupport {
         if (result == null)
             result = icons.get(getIconKey(iconKey, ! isDarkAppearance()));
         return result;
+    }
+
+    /**
+     * Retrieves an icon based on its key and a specified appearance.
+     *
+     * @param iconKey The base key of the icon (e.g., "copy").
+     * @param isDarkAppearance true to get the dark appearance icon, false for the light appearance icon.
+     * @return The appropriate {@link Icon} for the given key and specified theme.
+     */
+    public static Icon getIcon(String iconKey, boolean isDarkAppearance) {
+        return icons.get(getIconKey(iconKey, isDarkAppearance));
     }
 
     private static String getIconKey(String iconKey) {

@@ -29,6 +29,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -41,6 +42,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
 import static java.lang.System.out;
 
 /**
@@ -70,7 +72,7 @@ public class SampleConditionalAgents {
                 .workflowDebugger(workflowDebugger)
                 .setState("response", "")
                 .agent(CategoryRouter.class)
-                .ifThen(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL)
+                .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL, "category == RequestCategory.MEDICAL"))
                 .agent(MedicalExpert.class)
                 .end().elseIf()
                 .breakpoint("ELSEIF")
@@ -84,6 +86,8 @@ public class SampleConditionalAgents {
                 .agent(SummaryAgent.class)
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
+
+        WorkflowInspectorListPane.show(builder);
 
         System.out.println(builder.generateAISummary());
 

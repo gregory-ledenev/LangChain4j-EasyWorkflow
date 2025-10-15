@@ -29,6 +29,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.guardrail.OutputGuardrail;
@@ -90,6 +91,8 @@ public class SampleSwitchAgents {
                 .agent(SummaryAgent.class)
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
+
+        WorkflowInspectorListPane.show(builder);
 
         System.out.println(builder.generateAISummary());
 

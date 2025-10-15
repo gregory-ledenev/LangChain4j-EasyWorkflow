@@ -22,11 +22,14 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
+import com.gl.langchain4j.easyworkflow.gui.FormEditorType;
+import com.gl.langchain4j.easyworkflow.gui.FormPanel;
+import com.gl.langchain4j.easyworkflow.gui.UISupport;
 import com.gl.langchain4j.easyworkflow.gui.UISupport.AutoIcon;
 import dev.langchain4j.service.V;
 import org.commonmark.node.Node;

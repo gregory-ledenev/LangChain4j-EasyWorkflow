@@ -46,6 +46,7 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -82,6 +83,29 @@ public class EasyWorkflow {
      */
     private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
     private static final Logger logger = LoggerFactory.getLogger(EasyWorkflow.class);
+
+    public static final String JSON_TYPE_AGENT = "agent";
+    public static final String JSON_TYPE_NON_AI_AGENT = "nonAiAgent";
+    public static final String JSON_TYPE_REPEAT = "repeat";
+    public static final String JSON_TYPE_IF_THEN = "ifThen";
+
+    public static final String JSON_KEY_UID = "uid";
+    public static final String JSON_KEY_AGENT_CLASS_NAME = "className";
+    public static final String JSON_KEY_OUTPUT_NAME = "outputName";
+    public static final String JSON_KEY_OUTPUT_TYPE = "outputType";
+    public static final String JSON_KEY_DESCRIPTION = "description";
+    public static final String JSON_KEY_USER_MESSAGE = "userMessage";
+    public static final String JSON_KEY_SYSTEM_MESSAGE = "systemMessage";
+    public static final String JSON_KEY_PARAMETERS = "parameters";
+    public static final String JSON_KEY_NAME = "name";
+    public static final String JSON_KEY_TYPE = "type";
+    public static final String JSON_KEY_LABEL = "label";
+    public static final String JSON_KEY_EDITOR_TYPE = "editorType";
+    public static final String JSON_KEY_EDITOR_CHOICES = "editorChoices";
+    public static final String JSON_KEY_CONDITION = "condition";
+    public static final String JSON_KEY_EXPRESSION = "expression";
+    public static final String JSON_KEY_MAX_ITERATIONS = "maxIterations";
+    public static final String JSON_KEY_VALUE = "value";
 
     private EasyWorkflow() {
     }
@@ -1328,9 +1352,9 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put("type", "ifThen");
+            json.put(JSON_KEY_TYPE, JSON_TYPE_IF_THEN);
             if (conditionExpression != null) {
-                json.put("condition", conditionExpression);
+                json.put(JSON_KEY_CONDITION, conditionExpression);
             }
             return json;
         }
@@ -1403,7 +1427,7 @@ public class EasyWorkflow {
             Map<String, Object> json = super.toJson();
             json.put("type", "doWhen");
             if (whenExpression != null) {
-                json.put("expression", whenExpression);
+                json.put(JSON_KEY_EXPRESSION, whenExpression);
             }
             return json;
         }
@@ -1464,7 +1488,7 @@ public class EasyWorkflow {
             json.put("type", "match");
             Object val = getValue();
             if (val != null) {
-                json.put("value", val.toString());
+                json.put(JSON_KEY_VALUE, val.toString());
             }
             return json;
         }
@@ -1712,41 +1736,67 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = new LinkedHashMap<>();
-            json.put("type", "agent");
-            json.put("uid", getId());
+            json.put(JSON_KEY_TYPE, JSON_TYPE_AGENT);
+            json.put(JSON_KEY_UID, getId());
 
             Class<?> clazz = (agentClass != null) ? agentClass : agent.getClass();
-            json.put("className", clazz.getSimpleName());
-
-            final String outputNameKey = "outputName";
+            json.put(JSON_KEY_AGENT_CLASS_NAME, clazz.getName());
+            json.put(JSON_KEY_NAME, clazz.getSimpleName());
 
             for (Method method : clazz.getDeclaredMethods()) {
                 Agent agentAnnotation = method.getAnnotation(Agent.class);
                 if (agentAnnotation != null) {
                     if (!agentAnnotation.value().isBlank())
-                        json.put("description", agentAnnotation.value());
+                        json.put(JSON_KEY_DESCRIPTION, agentAnnotation.value());
                     if (!agentAnnotation.outputName().isBlank())
-                        json.put(outputNameKey, agentAnnotation.outputName());
+                        json.put(JSON_KEY_OUTPUT_NAME, agentAnnotation.outputName());
 
-                    UserMessage userMessageAnnotation = method.getAnnotation(UserMessage.class);
-                    if (userMessageAnnotation != null) {
-                        if (! userMessageAnnotation.fromResource().isBlank()) {
-                            try (InputStream is = clazz.getResourceAsStream(userMessageAnnotation.fromResource())) {
-                                if (is != null)
-                                    json.put("rawMessage", new String(is.readAllBytes()));
-                            } catch (IOException e) {
-                                logger.warn("Failed to load User Message from resource: {}", userMessageAnnotation.fromResource(), e);
-                            }
-                        } else if (userMessageAnnotation.value().length > 0) {
-                            json.put("rawMessage", String.join(userMessageAnnotation.delimiter(), userMessageAnnotation.value()));
-                        }
+                    json.put(JSON_KEY_OUTPUT_TYPE, method.getReturnType().getName());
+
+                    UserMessage userAnn = method.getAnnotation(UserMessage.class);
+                    if (userAnn != null) {
+                        String userMessage = getUserMessageTemplate(clazz, userAnn.value(), userAnn.delimiter(), userAnn.fromResource());
+                        if (userMessage != null && ! userMessage.isEmpty())
+                            json.put(JSON_KEY_USER_MESSAGE, userMessage);
                     }
+
+                    SystemMessage sysAnn = method.getAnnotation(SystemMessage.class);
+                    if (sysAnn != null) {
+                        String systemMessage = getUserMessageTemplate(clazz, sysAnn.value(), sysAnn.delimiter(), sysAnn.fromResource());
+                        if (systemMessage != null && ! systemMessage.isEmpty())
+                            json.put(JSON_KEY_SYSTEM_MESSAGE, systemMessage);
+                    }
+
+                    Parameter[] parameters = method.getParameters();
+                    if (parameters.length > 0) {
+                        List<Map<String, Object>> params = new ArrayList<>();
+                        for (Parameter parameter : parameters) {
+                            Map<String, Object> paramJson = new LinkedHashMap<>();
+                            paramJson.put(JSON_KEY_NAME, parameter.getName());
+                            paramJson.put(JSON_KEY_TYPE, parameter.getType().getName());
+
+                            V vAnnotation = parameter.getAnnotation(V.class);
+                            if (vAnnotation != null)
+                                paramJson.put(JSON_KEY_NAME, vAnnotation.value());
+
+                            PlaygroundParam playgroundParamAnnotation = parameter.getAnnotation(PlaygroundParam.class);
+                            if (playgroundParamAnnotation != null) {
+                                paramJson.put(JSON_KEY_LABEL, playgroundParamAnnotation.label());
+                                paramJson.put(JSON_KEY_DESCRIPTION, playgroundParamAnnotation.description());
+                                paramJson.put(JSON_KEY_EDITOR_TYPE, playgroundParamAnnotation.editorType());
+                                paramJson.put(JSON_KEY_EDITOR_CHOICES, playgroundParamAnnotation.editorChoices());
+                            }
+                            params.add(paramJson);
+                        }
+                        json.put(JSON_KEY_PARAMETERS, params);
+                    }
+
                     break;
                 }
             }
 
             if (outputName != null) {
-                json.put(outputNameKey, outputName);
+                json.put(JSON_KEY_OUTPUT_NAME, outputName);
             }
 
             return json;
@@ -1946,8 +1996,7 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put("type", "nonAiAgent");
-            json.put("className", getAgent().getClass().getSimpleName());
+            json.put(JSON_KEY_TYPE, JSON_TYPE_NON_AI_AGENT);
             return json;
         }
 
@@ -1961,8 +2010,7 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put("type", "setState");
-            json.put("details", ((SetStateAgents.SetStateAgent) getAgent()).getAgentName());
+            json.put(JSON_KEY_OUTPUT_NAME, String.join(", ", ((SetStateAgents.SetStateAgent) getAgent()).listStates()));
             return json;
         }
 
