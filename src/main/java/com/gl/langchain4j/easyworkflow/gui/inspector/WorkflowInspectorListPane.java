@@ -22,9 +22,37 @@ public class WorkflowInspectorListPane extends JPanel {
     public WorkflowInspectorListPane() {
         setLayout(new BorderLayout());
         model = new DefaultListModel<>();
-        list = new JList<>(model);
+        list = new JList<>(model) {
+            @Override
+            public boolean getScrollableTracksViewportWidth() {
+                return true;
+            }
+        };
         list.setCellRenderer(new WorkflowItemRenderer());
-        add(new JScrollPane(list), BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(list);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        add(scrollPane, BorderLayout.CENTER);
+    }
+
+    private static String getSimpleClassName(String className) {
+        int lastIndex = Math.max(className.lastIndexOf('.'), className.lastIndexOf('$'));
+
+        return lastIndex == -1 ? className : className.substring(lastIndex + 1);
+    }
+
+    private static String getAgentTitle(Map<String, Object> node) {
+        return ((String) node.get(JSON_KEY_NAME)).replaceAll("(?<=[a-z])(?=[A-Z])", " ");
+    }
+
+    public static void show(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
+        JFrame frame = new JFrame("Workflow Inspector");
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        WorkflowInspectorListPane pane = new WorkflowInspectorListPane();
+        pane.setWorkflow(builder);
+        frame.setLocationRelativeTo(null);
+        frame.add(pane);
+        frame.pack();
+        frame.setVisible(true);
     }
 
     public void setWorkflow(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
@@ -37,12 +65,6 @@ public class WorkflowInspectorListPane extends JPanel {
             e.printStackTrace();
             model.addElement(new WorkflowItem(null, "Error parsing workflow", e.getMessage(), 0));
         }
-    }
-
-    private static String getSimpleClassName(String className) {
-        int lastIndex = Math.max(className.lastIndexOf('.'), className.lastIndexOf('$'));
-
-        return lastIndex == -1 ? className : className.substring(lastIndex + 1);
     }
 
     private void populateModelFromJson(List<Map<String, Object>> nodes, int indentation) {
@@ -105,10 +127,6 @@ public class WorkflowInspectorListPane extends JPanel {
                 populateModelFromJson((List<Map<String, Object>>) node.get("elseBlock"), indentation + 1);
             }
         }
-    }
-
-    private static String getAgentTitle(Map<String, Object> node) {
-        return ((String) node.get(JSON_KEY_NAME)).replaceAll("(?<=[a-z])(?=[A-Z])", " ");
     }
 
     private String getAgentSubtitle(Map<String, Object> node) {
@@ -184,9 +202,15 @@ public class WorkflowInspectorListPane extends JPanel {
         private final JLabel iconLabel = new JLabel();
         private final JLabel titleLabel = new JLabel();
         private final JLabel subtitleLabel = new JLabel();
+        private int leftIndent;
+        private LinkType linkType;
+
+        private enum LinkType {
+            None, Top, Bottom, Both
+        }
 
         public WorkflowItemRenderer() {
-            setLayout(new BorderLayout(10, 5));
+            setLayout(new BorderLayout(5, 5));
             setOpaque(true);
 
             JPanel textPanel = new JPanel();
@@ -202,12 +226,57 @@ public class WorkflowInspectorListPane extends JPanel {
 
             textPanel.add(Box.createVerticalGlue());
 
+            iconLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 5));
             add(iconLabel, BorderLayout.WEST);
             add(textPanel, BorderLayout.CENTER);
         }
 
         @Override
+        public boolean isOpaque() {
+            return false;
+        }
+
+        @Override
+        public void paintComponent(Graphics g) {
+            Graphics2D graphics = (Graphics2D) g.create();
+            graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+
+            Rectangle rect = new Rectangle(leftIndent, 5, getWidth() - leftIndent - 10, getHeight() - 10);
+            graphics.setColor(getBackground());
+            graphics.fillRect(rect.x, rect.y, rect.width, rect.height);
+            graphics.setColor(Color.DARK_GRAY);
+            graphics.drawRect(rect.x, rect.y, rect.width, rect.height);
+            switch (linkType) {
+                case Top:
+                    graphics.drawLine(getWidth() / 2, 0, getWidth() / 2, 5);
+                    break;
+                case Bottom:
+                    graphics.drawLine(getWidth() / 2, getHeight() - 5, getWidth() / 2, getHeight());
+                    break;
+                case Both:
+                    graphics.drawLine(getWidth() / 2, 0, getWidth() / 2, 5);
+                    graphics.drawLine(getWidth() / 2, getHeight() - 5, getWidth() / 2, getHeight());
+                    break;
+                default:
+                    // do nothing
+            }
+            graphics.dispose();
+        }
+
+        @Override
         public Component getListCellRendererComponent(JList<? extends WorkflowItem> list, WorkflowItem value, int index, boolean isSelected, boolean cellHasFocus) {
+            int size = list.getModel().getSize();
+            if (size == 1)
+                linkType = LinkType.None;
+            else if (index == 0 && size > 1) {
+                linkType = LinkType.Bottom;
+            } else if (index == size - 1 && size > 1) {
+                linkType = LinkType.Top;
+            } else {
+                linkType = LinkType.Both;
+            }
+
             iconLabel.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), isSelected && cellHasFocus) : null);
             titleLabel.setText(value.getTitle());
 
@@ -217,8 +286,8 @@ public class WorkflowInspectorListPane extends JPanel {
                 subtitleLabel.setText(value.getSubtitle());
             }
 
-            int leftIndent = value.getIndentation() * 20;
-            setBorder(BorderFactory.createEmptyBorder(5, 10 + leftIndent, 5, 10));
+            leftIndent = value.getIndentation() * 20 + 10;
+            setBorder(BorderFactory.createEmptyBorder(10, leftIndent, 10, 20));
 
             if (isSelected) {
                 setBackground(list.getSelectionBackground());
@@ -232,16 +301,5 @@ public class WorkflowInspectorListPane extends JPanel {
 
             return this;
         }
-    }
-
-    public static void show(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
-        JFrame frame = new JFrame("Workflow Inspector");
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        WorkflowInspectorListPane pane = new WorkflowInspectorListPane();
-        pane.setWorkflow(builder);
-        frame.setLocationRelativeTo(null);
-        frame.add(pane);
-        frame.pack();
-        frame.setVisible(true);
     }
 }

@@ -39,6 +39,7 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
         SampleSequentialAndRepeatableAgents.NovelCreator novelCreator = builder
                 .build();
 
+        System.out.println(builder.toJson());
         WorkflowInspectorListPane.show(builder);
 //        Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class, Playground.Type.GUI);
 //        playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
