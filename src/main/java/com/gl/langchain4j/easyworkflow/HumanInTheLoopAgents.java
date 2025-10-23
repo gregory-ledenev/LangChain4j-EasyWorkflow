@@ -30,6 +30,8 @@ import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 
 import java.util.Objects;
 import java.util.Scanner;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Utility class for creating various types of Human-in-the-Loop agents. These agents allow for human intervention and
@@ -72,13 +74,55 @@ public class HumanInTheLoopAgents {
      */
     public static HumanInTheLoop playgroundAgent(Playground playground, String outputName, String description) {
         Objects.requireNonNull(playground);
+        RequestWriter requestWriter = new RequestWriter(playground);
+        ResponseReader responseReader = new ResponseReader(playground);
 
-        return AgenticServices
+        final HumanInTheLoop humanInTheLoop = AgenticServices
                 .humanInTheLoopBuilder()
                 .description(description)
                 .outputName(outputName)
-                .requestWriter(playground::setHumanRequest)
-                .responseReader(playground::getHumanResponse)
+                .requestWriter(requestWriter)
+                .responseReader(responseReader)
                 .build();
+        requestWriter.setAgent(humanInTheLoop);
+        responseReader.setAgent(humanInTheLoop);
+
+        return humanInTheLoop;
+    }
+
+    static class RequestWriter implements Consumer<String> {
+        private final Playground playground;
+        private HumanInTheLoop agent;
+
+        public RequestWriter(Playground aPlayground) {
+            playground = aPlayground;
+        }
+
+        public void setAgent(HumanInTheLoop aAgent) {
+            agent = aAgent;
+        }
+
+        @Override
+        public void accept(String request) {
+            playground.setHumanRequest(agent, request);
+        }
+    }
+
+    static class ResponseReader implements Supplier<String> {
+        private final Playground playground;
+        private HumanInTheLoop agent;
+
+        public ResponseReader(Playground aPlayground) {
+            playground = aPlayground;
+        }
+
+        public void setAgent(HumanInTheLoop aAgent) {
+            agent = aAgent;
+        }
+
+        @Override
+        public String get() {
+            return playground.getHumanResponse(agent);
+        }
     }
 }

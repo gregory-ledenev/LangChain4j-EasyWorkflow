@@ -23,7 +23,9 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui.chat;
+package com.gl.langchain4j.easyworkflow.gui;
+
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

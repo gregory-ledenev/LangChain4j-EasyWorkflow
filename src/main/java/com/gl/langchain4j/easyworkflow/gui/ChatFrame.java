@@ -24,13 +24,16 @@
  * /
  */
 
-package com.gl.langchain4j.easyworkflow.gui.chat;
+package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.WorkflowExpert;
 import com.gl.langchain4j.easyworkflow.WorkflowExpertSupport;
-import com.gl.langchain4j.easyworkflow.gui.UISupport;
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
+import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
+import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 
 import javax.swing.*;
 import java.awt.*;
@@ -52,6 +55,9 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.getOptions;
 public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
     private final ChatPane chatPane = new ChatPane();
+    private WorkflowDebugger workflowDebugger;
+    private WorkflowInspectorDetailsPane pnlWorkflowInspectorDetails;
+    private WorkflowInspectorListPane pnlWorkflowInspectorList;
     private boolean exitOnClose;
 
     /**
@@ -61,7 +67,8 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
      * @param icon       The icon to be displayed for the chat frame.
      * @param chatEngine A function that takes a user message and returns a chat engine's response.
      */
-    public ChatFrame(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine) {
+    public ChatFrame(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger) {
+        setWorkflowDebugger(workflowDebugger);
         this.chatPane.setChatEngine(chatEngine);
 
         setTitle(title);
@@ -70,9 +77,10 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         if (frameBounds != null) {
             setBounds(frameBounds);
         } else {
-            setSize(500, 700);
+            setSize(workflowDebugger != null ? 1200 : 500, 700);
             setLocationRelativeTo(null);
         }
+        chatPane.setPreferredSize(new Dimension(400, 700));
         setMinimumSize(new Dimension(500, 700));
 
         if (icon != null) {
@@ -80,13 +88,30 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             Taskbar.getTaskbar().setIconImage(icon.getImage());
         }
 
-        JTabbedPane contentPane = new JTabbedPane();
-        contentPane.putClientProperty("JTabbedPane.hideTabAreaWithOneTab", Boolean.TRUE);
-        contentPane.putClientProperty("JTabbedPane.tabWidthMode", "equal");
+        if (workflowDebugger != null) {
+            JSplitPane contentPane = new JSplitPane();
+            contentPane.setResizeWeight(0);
+            contentPane.setLeftComponent(chatPane);
+            pnlWorkflowInspectorList = new WorkflowInspectorListPane();
+            pnlWorkflowInspectorList.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
+            pnlWorkflowInspectorList.setPreferredSize(new Dimension(400, 700));
+            pnlWorkflowInspectorList.setWorkflowDebugger(workflowDebugger);
 
-        contentPane.addTab(chatEngine.title(), chatPane);
+            JSplitPane pnlWorkflow = new JSplitPane();
+            pnlWorkflow.setLeftComponent(pnlWorkflowInspectorList);
+            pnlWorkflowInspectorDetails = new WorkflowInspectorDetailsPane();
+            pnlWorkflow.setRightComponent(pnlWorkflowInspectorDetails);
+            pnlWorkflow.setResizeWeight(0.5);
+            contentPane.setRightComponent(pnlWorkflow);
+            setContentPane(contentPane);
 
-        setContentPane(contentPane);
+            pnlWorkflowInspectorList.getList().addListSelectionListener(e -> {
+                pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorList.getSelectedData());
+            });
+        } else {
+            setContentPane(chatPane);
+        }
+
         addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
@@ -107,12 +132,13 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
      * @param exitOnClose If true, the application will exit when this frame is closed.
      * @return The created ChatFrame instance.
      */
-    public static ChatFrame showChat(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, boolean exitOnClose) {
+    public static ChatFrame showChat(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger, boolean exitOnClose) {
         applyAppearance();
 
         ChatFrame chatFrame = new ChatFrame(title,
                 icon,
-                chatEngine
+                chatEngine,
+                workflowDebugger
         );
         chatFrame.exitOnClose = exitOnClose;
         chatFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -176,10 +202,21 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                     }
                 }
                 ,
+                workflowDebugger,
                 true);
         SwingUtilities.invokeLater(() -> result.getChatPane().setUserMessage(userMessage));
 
         return result;
+    }
+
+    public WorkflowDebugger getWorkflowDebugger() {
+        return workflowDebugger;
+    }
+
+    public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
+        this.workflowDebugger = workflowDebugger;
+        if (pnlWorkflowInspectorList != null)
+            pnlWorkflowInspectorList.setWorkflowDebugger(workflowDebugger);
     }
 
     /**

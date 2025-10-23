@@ -25,9 +25,9 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.*;
-import com.gl.langchain4j.easyworkflow.gui.chat.ChatDialog;
-import com.gl.langchain4j.easyworkflow.gui.chat.ChatFrame;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
+import dev.langchain4j.agentic.workflow.HumanInTheLoop;
+import dev.langchain4j.data.message.UserMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,6 +45,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
  * A GUI-based playground for interacting with an agent.
  */
 public class GUIPlayground extends Playground.BasicPlayground {
+    private static final Logger logger = LoggerFactory.getLogger(GUIPlayground.class);
     private ChatFrame chatFrame;
     private ChatDialog chatDialog;
     private String humanRequest;
@@ -66,9 +67,20 @@ public class GUIPlayground extends Playground.BasicPlayground {
     }
 
     /**
+     * Retrieves the {@link WorkflowDebugger} instance from the argument map.
+     *
+     * @return The {@link WorkflowDebugger} instance if present, otherwise {@code null}.
+     */
+    public WorkflowDebugger getWorkflowDebugger() {
+        if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER))
+            return (WorkflowDebugger) arguments.get(ARG_WORKFLOW_DEBUGGER);
+        return null;
+    }
+
+    /**
      * Initiates the chat interface for the playground.
      *
-     * @param agent The agent instance to interact with.
+     * @param agent       The agent instance to interact with.
      * @param userMessage The initial message from the user.
      */
     @Override
@@ -89,7 +101,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
         System.setProperty("apple.awt.application.appearance", "system");
 
-        if (! showDialog)
+        if (!showDialog)
             showChatFrame(agent, userMessage, title);
         else
             showChatDialog(agent, userMessage, title);
@@ -97,6 +109,13 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title);
+
+        WorkflowDebugger workflowDebugger;
+        if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER))
+            workflowDebugger = (WorkflowDebugger) arguments.get(ARG_WORKFLOW_DEBUGGER);
+        else {
+            workflowDebugger = null;
+        }
 
         chatFrame = ChatFrame.showChat(title, new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("logo.png"))),
                 new ChatPane.ChatEngine() {
@@ -120,59 +139,22 @@ public class GUIPlayground extends Playground.BasicPlayground {
                         return EasyWorkflow.getSystemMessageTemplate(agentClass);
                     }
                 },
+                workflowDebugger,
                 true);
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
                 ChatPane chatPane = chatFrame.getChatPane();
                 chatPane.setUserMessage(userMessage);
-                if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER)) {
-                    WorkflowDebugger workflowDebugger = (WorkflowDebugger) arguments.get(ARG_WORKFLOW_DEBUGGER);
-                    if (workflowDebugger != null) {
-                        Action action = new WorkflowExpertAction(new UISupport.AutoIcon(UISupport.ICON_EXPERT),
-                                chatFrame,
-                                agentClass, workflowDebugger
-                        );
-                        chatFrame.getChatPane().setupToolActions(new Action[] {action});
-                    }
+                if (workflowDebugger != null) {
+                    Action action = new WorkflowExpertAction(new UISupport.AutoIcon(UISupport.ICON_EXPERT),
+                            chatFrame,
+                            agentClass, workflowDebugger
+                    );
+                    chatFrame.getChatPane().setupToolActions(new Action[]{action});
                 }
             }
         });
     }
-
-    private static class WorkflowExpertAction extends AbstractAction {
-        private final WorkflowDebugger workflowDebugger;
-        private final Class<?> agentClass;
-        private final ChatFrame chatFrame;
-
-        public WorkflowExpertAction(Icon icon, ChatFrame aChatFrame, Class<?> aAgentClass, WorkflowDebugger aWorkflowDebugger) {
-            super(null, icon);
-            chatFrame = aChatFrame;
-            workflowDebugger = aWorkflowDebugger;
-            agentClass = aAgentClass;
-            putValue(Action.SHORT_DESCRIPTION, "Workflow Expert");        }
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            setEnabled(false);
-            chatFrame.getChatPane().setWaitState(true, "Preparing Workflow Expert...");
-            CompletableFuture.supplyAsync(() -> WorkflowExpertSupport.getWorkflowExpert(workflowDebugger)).
-                    whenComplete((workflowExpert, ex) -> {
-                        if (ex == null) {
-                            Playground playground = Playground.createPlayground(WorkflowExpert.class, Type.GUI);
-                            playground.setup(Map.of(ARG_TITLE, "Workflow Expert - %s".formatted(agentClass.getSimpleName()),
-                                    ARG_SHOW_DIALOG, true,
-                                    ARG_OWNER_FRAME, chatFrame));
-                            playground.play(workflowExpert, null);
-                        } else {
-                            logger.error("Failed to get workflow expert", ex);
-                        }
-                        setEnabled(true);
-                        chatFrame.getChatPane().setWaitState(false);
-                    });
-        }
-    }
-
-    private static final Logger logger = LoggerFactory.getLogger(GUIPlayground.class);
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {
 
@@ -213,8 +195,16 @@ public class GUIPlayground extends Playground.BasicPlayground {
      * @param request The request message to be displayed to the human.
      */
     @Override
-    public void setHumanRequest(String request) {
+    public void setHumanRequest(HumanInTheLoop agent, String request) {
         humanRequest = request;
+        WorkflowDebugger workflowDebugger = getWorkflowDebugger();
+        if (workflowDebugger != null) {
+            EasyWorkflow.AgentExpression agentMetadata = (EasyWorkflow.AgentExpression) workflowDebugger.getAgentMetadata(agent);
+            String outputName = agentMetadata.getOutputName();
+            if (outputName == null)
+                outputName = "$humanRequest";
+            workflowDebugger.inputReceived(agent, agentMetadata.getAgentClass(), UserMessage.userMessage(request));
+        }
     }
 
     /**
@@ -223,9 +213,53 @@ public class GUIPlayground extends Playground.BasicPlayground {
      * @return The human's response, or "canceled" if the dialog is closed without input.
      */
     @Override
-    public String getHumanResponse() {
+    public String getHumanResponse(HumanInTheLoop agent) {
         ChatPane chatPane = chatFrame != null ? chatFrame.getChatPane() : chatDialog.getChatPane();
         String result = JOptionPane.showInputDialog(chatPane, humanRequest);
+
+        WorkflowDebugger workflowDebugger = getWorkflowDebugger();
+        if (workflowDebugger != null) {
+            EasyWorkflow.AgentExpression agentMetadata = (EasyWorkflow.AgentExpression) workflowDebugger.getAgentMetadata(agent);
+            String outputName = agentMetadata.getOutputName();
+            if (outputName == null)
+                outputName = "$humanResponse";
+            workflowDebugger.stateChanged(agent, agentMetadata.getAgentClass(), outputName, result);
+        }
+
         return result != null ? result : "canceled";
+    }
+
+    private static class WorkflowExpertAction extends AbstractAction {
+        private final WorkflowDebugger workflowDebugger;
+        private final Class<?> agentClass;
+        private final ChatFrame chatFrame;
+
+        public WorkflowExpertAction(Icon icon, ChatFrame aChatFrame, Class<?> aAgentClass, WorkflowDebugger aWorkflowDebugger) {
+            super(null, icon);
+            chatFrame = aChatFrame;
+            workflowDebugger = aWorkflowDebugger;
+            agentClass = aAgentClass;
+            putValue(Action.SHORT_DESCRIPTION, "Workflow Expert");
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            setEnabled(false);
+            chatFrame.getChatPane().setWaitState(true, "Preparing Workflow Expert...");
+            CompletableFuture.supplyAsync(() -> WorkflowExpertSupport.getWorkflowExpert(workflowDebugger)).
+                    whenComplete((workflowExpert, ex) -> {
+                        if (ex == null) {
+                            Playground playground = Playground.createPlayground(WorkflowExpert.class, Type.GUI);
+                            playground.setup(Map.of(ARG_TITLE, "Workflow Expert - %s".formatted(agentClass.getSimpleName()),
+                                    ARG_SHOW_DIALOG, true,
+                                    ARG_OWNER_FRAME, chatFrame));
+                            playground.play(workflowExpert, null);
+                        } else {
+                            logger.error("Failed to get workflow expert", ex);
+                        }
+                        setEnabled(true);
+                        chatFrame.getChatPane().setWaitState(false);
+                    });
+        }
     }
 }

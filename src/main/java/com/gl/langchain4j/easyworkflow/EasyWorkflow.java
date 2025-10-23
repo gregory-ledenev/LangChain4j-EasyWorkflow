@@ -88,6 +88,10 @@ public class EasyWorkflow {
     public static final String JSON_TYPE_NON_AI_AGENT = "nonAiAgent";
     public static final String JSON_TYPE_REPEAT = "repeat";
     public static final String JSON_TYPE_IF_THEN = "ifThen";
+    public static final String JSON_TYPE_DO_WHEN = "doWhen";
+    public static final String JSON_TYPE_MATCH = "match";
+    public static final String JSON_TYPE_GROUP = "group";
+    public static final String JSON_TYPE_DO_PARALLEL = "doParallel";
 
     public static final String JSON_KEY_UID = "uid";
     public static final String JSON_KEY_AGENT_CLASS_NAME = "className";
@@ -270,7 +274,7 @@ public class EasyWorkflow {
     /**
      * Represents an expression within the workflow, which can create an agent.
      */
-    interface Expression {
+    public interface Expression {
         Object createAgent();
 
         String getId();
@@ -1526,7 +1530,7 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put("type", "group");
+            json.put("type", JSON_TYPE_GROUP);
             json.put("description", "A supervised group provided with a set of subagents that can autonomously generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
             return json;
         }
@@ -1645,7 +1649,7 @@ public class EasyWorkflow {
         }
     }
 
-    static class AgentExpression implements Expression {
+    public static class AgentExpression implements Expression {
         private final String id = UUID.randomUUID().toString();
         private final AgentWorkflowBuilder<?> agentWorkflowBuilder;
         private final String outputName;
@@ -1675,11 +1679,14 @@ public class EasyWorkflow {
 
         protected static String getOutputName(Class<?> agentClass) {
             String result = "response";
-            Method[] declaredMethods = agentClass.getDeclaredMethods();
-            if (declaredMethods.length > 0) {
-                Agent annotation = declaredMethods[0].getAnnotation(Agent.class);
-                if (annotation != null && !annotation.outputName().isEmpty())
-                    result = annotation.outputName();
+
+            if (agentClass != null) {
+                Method[] declaredMethods = agentClass.getDeclaredMethods();
+                if (declaredMethods.length > 0) {
+                    Agent annotation = declaredMethods[0].getAnnotation(Agent.class);
+                    if (annotation != null && !annotation.outputName().isEmpty())
+                        result = annotation.outputName();
+                }
             }
 
             return result;

@@ -47,12 +47,17 @@ public class ChatMessagesHostPane extends JPanel {
         setOpaque(false);
 
         chatMessagesPane = new ChatMessagesPane();
-        scrollPane = new JScrollPane(chatMessagesPane);
+        scrollPane = new JScrollPane(chatMessagesPane) {
+            @Override
+            public void updateUI() {
+                super.updateUI();
+                setBorder(null);
+            }
+        };
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getViewport().setOpaque(false);
         scrollPane.setOpaque(false);
-        scrollPane.setBorder(null);
 
         btnScrollToBottom = new JButton("↓ ↓ ↓");
         btnScrollToBottom.setToolTipText("Scroll to Bottom");

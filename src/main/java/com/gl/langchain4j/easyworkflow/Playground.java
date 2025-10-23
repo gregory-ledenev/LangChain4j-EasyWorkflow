@@ -25,6 +25,7 @@
 package com.gl.langchain4j.easyworkflow;
 
 import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.service.V;
 
 import java.lang.reflect.Method;
@@ -50,7 +51,7 @@ public interface Playground {
      *
      * @param request The human's request.
      */
-    void setHumanRequest(String request);
+    void setHumanRequest(HumanInTheLoop agent, String request);
 
     /**
      * Gets the human's response. This method is typically used in interactive playgrounds
@@ -58,7 +59,7 @@ public interface Playground {
      *
      * @return The human's response.
      */
-    String getHumanResponse();
+    String getHumanResponse(HumanInTheLoop agent);
 
     /**
      * Constant for the argument key "title".
@@ -319,7 +320,7 @@ public interface Playground {
          * @param request The human's request.
          */
         @Override
-        public void setHumanRequest(String request) {
+        public void setHumanRequest(HumanInTheLoop agent, String request) {
             humanRequest =  request;
             out.println(humanRequest);
             out.print("> ");
@@ -330,7 +331,7 @@ public interface Playground {
          * @return The human's response.
          */
         @Override
-        public String getHumanResponse() {
+        public String getHumanResponse(HumanInTheLoop agent) {
             return scanner.nextLine();
         }
     }

@@ -53,6 +53,7 @@ public class SampleSupervisedAgentsPlayground {
             ex.printStackTrace();
         }
 
+        playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
         playground.play(supervisorAgent, Map.of("request", "Transfer 100 EUR from Mario's account to Georgios' one"));
     }
 }

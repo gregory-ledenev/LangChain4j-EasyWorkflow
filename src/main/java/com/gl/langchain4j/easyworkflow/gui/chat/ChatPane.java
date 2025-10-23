@@ -100,6 +100,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     public ChatPane() {
         super(new BorderLayout());
         setBorder(null);
+        setMinimumSize(new Dimension(400, 300));
 
         // Layered pane for wait state
         add(layeredPane, BorderLayout.CENTER);

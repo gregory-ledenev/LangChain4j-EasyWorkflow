@@ -48,13 +48,11 @@ import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.gl.langchain4j.easyworkflow.BreakpointActions.log;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_END;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_START;
-import static java.lang.System.out;
 
 /**
  * A debugger for the EasyWorkflow framework, allowing users to set breakpoints and inspect the workflow's flow and
@@ -63,6 +61,7 @@ import static java.lang.System.out;
 public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, WorkflowContext.InputHandler {
     public static final String KEY_INPUT = "$input";
     public static final String KEY_OUTPUT = "$output";
+    public static final String KEY_AGENT = "$agent";
     public static final String KEY_AGENT_CLASS = "$agentClass";
     public static final String KEY_AGENT_CLASS_SIMPLE_NAME = "$agentClass.simpleName";
     public static final String KEY_OUTPUT_NAME = "$outputName";
@@ -155,7 +154,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         saveWorkflowInput(method, args);
 
         saveBreakpointsState();
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STARTED, null, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STARTED, null, null, null, null);
     }
 
     private void saveWorkflowInput(Method method, Object[] args) {
@@ -176,7 +175,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public void sessionStopped(Object result) {
         workflowResult = result;
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STOPPED, null, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STOPPED, null, null, null, null);
         resetBreakpoints();
         started = false;
     }
@@ -189,7 +188,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public void sessionFailed(Throwable failure) {
         this.workflowFailure = failure;
         updateAgentInvocationTraceEntry(failure);
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_FAILED, null, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_FAILED, null, null, null, null);
         resetBreakpoints();
         started = false;
     }
@@ -255,7 +254,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
     }
 
-    protected void findAndExecuteBreakpoints(Breakpoint.Type type, Class<?> agentClass, String outputName, Object outputValue) {
+    protected void findAndExecuteBreakpoints(Breakpoint.Type type, Object agent, Class<?> agentClass, String outputName, Object outputValue) {
         if (!breakpointsEnabled)
             return;
 
@@ -274,6 +273,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             if (breakpoint.matches(type, agentClass, outputName)) {
                 if (breakpoint.isEnabled() && (breakpoint.getCondition() == null || breakpoint.getCondition().test(agenticScopeState))) {
                     if (agentClass != null) {
+                        agenticScopeState.put(KEY_AGENT, agent);
                         agenticScopeState.put(KEY_AGENT_CLASS, agentClass);
                         agenticScopeState.put(KEY_AGENT_CLASS_SIMPLE_NAME, agentClass.getSimpleName());
                     }
@@ -324,6 +324,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         agentMetadata.put(agent, metadata);
     }
 
+    public EasyWorkflow.Expression getAgentMetadata(Object agent) {
+        return agentMetadata.get(agent);
+    }
+
     /**
      * Handles state change events from the {@link WorkflowContext}. This method is called when an agent's output state
      * changes. It then checks for and executes any matching {@link Breakpoint}s of type
@@ -337,7 +341,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     @Override
     public void stateChanged(Object agent, Class<?> agentClass, String stateName, Object stateValue) {
         updateAgentInvocationTraceEntry(agent, stateName, stateValue);
-        findAndExecuteBreakpoints(Breakpoint.Type.AGENT_OUTPUT, agentClass, stateName, stateValue);
+        findAndExecuteBreakpoints(Breakpoint.Type.AGENT_OUTPUT, agent, agentClass != null ? agentClass : Object.class, stateName, stateValue);
     }
 
     /**
@@ -353,8 +357,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public void inputReceived(Object agent, Class<?> agentClass, UserMessage userMessage) {
         agenticScope.writeState(KEY_INPUT, userMessage);
         try {
-            addAgentInvocationTraceEntry(agent, agentClass, userMessage);
-            findAndExecuteBreakpoints(Breakpoint.Type.AGENT_INPUT, agentClass, null, null);
+            Class<?> adjustedAgentClass = agentClass != null ? agentClass : Object.class;
+            addAgentInvocationTraceEntry(agent, adjustedAgentClass, userMessage);
+            findAndExecuteBreakpoints(Breakpoint.Type.AGENT_INPUT, agent, adjustedAgentClass, null, null);
         } finally {
             agenticScope.writeState(KEY_INPUT, null);
         }
@@ -541,9 +546,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public String toHtml(String title, String subTitle, boolean isIncludeSummary) {
         Map<String, Object> workflowResult = new HashMap<>();
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
-        objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
+        ObjectMapper objectMapper = createObjectMapper();
 
         Set<String> runningAgents = new HashSet<>();
         List<String> completedAgents = new ArrayList<>();
@@ -598,6 +601,13 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 failedAgents,
                 runningAgents,
                 agentNames));
+    }
+
+    public static ObjectMapper createObjectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
+        objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
+        return objectMapper;
     }
 
     /**
