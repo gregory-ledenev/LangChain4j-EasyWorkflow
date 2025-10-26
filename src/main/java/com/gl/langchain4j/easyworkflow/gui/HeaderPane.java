@@ -25,10 +25,11 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import javax.swing.*;
+import javax.swing.border.LineBorder;
 
 import java.awt.*;
 
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.getDefaultBorderColor;
+import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
  * A custom panel that serves as a header, displaying a title and an optional subtitle.
@@ -37,19 +38,61 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.getDefaultBorderColo
 public class HeaderPane extends JPanel{
     private final JLabel lblTitle = new JLabel();
     private final JLabel lblSubtitle = new JLabel();
+    private final JToolBar toolbar = new JToolBar() {
+        @Override
+        public Dimension getPreferredSize() {
+            Dimension preferredSize = super.getPreferredSize();
+            preferredSize.height = 36;
+            return preferredSize;
+        }
+    };
+    private boolean paintBorderAtRight = true;
+
+    /**
+     * Constructs a new HeaderPane. Initializes the layout, sets up the title and subtitle labels, and applies a
+     * border.
+     */
+    public HeaderPane() {
+        this(true);
+    }
 
     /**
      * Constructs a new HeaderPane.
      * Initializes the layout, sets up the title and subtitle labels, and applies a border.
      */
-    public HeaderPane() {
-        setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
+    public HeaderPane(boolean paintBorderAtRight) {
+        this.paintBorderAtRight = paintBorderAtRight;
+
+        BoxLayout mgr = new BoxLayout(this, BoxLayout.Y_AXIS);
+        setLayout(mgr);
+
+        Box pnlTitle = new Box(BoxLayout.X_AXIS);
+        pnlTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        pnlTitle.add(lblTitle);
+        pnlTitle.add(Box.createHorizontalGlue());
+        pnlTitle.add(toolbar);
+        add(pnlTitle);
+
         lblTitle.setFont(lblTitle.getFont().deriveFont(18f));
-        add(lblTitle);
         add(lblSubtitle);
         lblSubtitle.setForeground(Color.gray);
 
+//        toolbar.setMargin(new Insets(0, 0, 0, 0));
+//
+//        lblTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+//        lblSubtitle.setBorder(BorderFactory.createEmptyBorder(-5, 0, 0, 0));
+//        pnlTitle.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+//        toolbar.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+//        lblTitle.setBorder(new LineBorder(Color.BLUE));
+//        lblSubtitle.setBorder(new LineBorder(Color.BLUE));
+//        pnlTitle.setBorder(new LineBorder(Color.RED));
+//        toolbar.setBorder(new LineBorder(Color.GREEN));
+
         updateUI();
+    }
+
+    public JToolBar getToolbar() {
+        return toolbar;
     }
 
     @Override
@@ -57,7 +100,7 @@ public class HeaderPane extends JPanel{
         super.updateUI();
 
         setBorder(BorderFactory.createCompoundBorder(
-                UISupport.createCustomLineBorder(getDefaultBorderColor(), false, false,true, false),
+                createCustomLineBorder(getDefaultBorderColor(), false, true,true, paintBorderAtRight),
                 BorderFactory.createEmptyBorder(10, 10, 10, 10)));
     }
 

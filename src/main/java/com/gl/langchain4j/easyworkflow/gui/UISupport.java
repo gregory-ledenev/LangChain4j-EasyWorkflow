@@ -28,8 +28,10 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
-import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.jthemedetecor.OsThemeDetector;
+import org.commonmark.node.Node;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,6 +46,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
+
+import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.Actions.BasicAction.COPY_NAME;
 
 /**
  * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
@@ -94,6 +99,10 @@ public class UISupport {
     public static final String ICON_BREAKPOINT = "breakpoint";
     public static final String ICON_PLAY = "play";
     public static final String ICON_STOP = "stop";
+    public static final String ICON_ALWAYS_EXPAND = "always-expand";
+    public static final String ICON_FILE_TYPE_CODE = "file-type-code";
+    public static final String ICON_FILE_TYPE_TEXT = "file-type-text";
+
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
     private static final Map<String, Icon> icons = new HashMap<>();
@@ -148,6 +157,15 @@ public class UISupport {
 
         icons.put(getIconKey(ICON_STOP, false), loadImageIcon("stop"));
         icons.put(getIconKey(ICON_STOP, true), loadImageIcon("stop-light"));
+
+        icons.put(getIconKey(ICON_ALWAYS_EXPAND, false), loadImageIcon("always-expand"));
+        icons.put(getIconKey(ICON_ALWAYS_EXPAND, true), loadImageIcon("always-expand-light"));
+
+        icons.put(getIconKey(ICON_FILE_TYPE_CODE, false), loadImageIcon("file-type-code"));
+        icons.put(getIconKey(ICON_FILE_TYPE_CODE, true), loadImageIcon("file-type-code-light"));
+
+        icons.put(getIconKey(ICON_FILE_TYPE_TEXT, false), loadImageIcon("file-type-text"));
+        icons.put(getIconKey(ICON_FILE_TYPE_TEXT, true), loadImageIcon("file-type-text-light"));
     }
 
     private static ImageIcon loadImageIcon(String name) {
@@ -183,7 +201,7 @@ public class UISupport {
      * @return The {@link Preferences} object for the application.
      */
     public static Preferences getPreferences() {
-        return Preferences.userRoot().node(ChatPane.class.getName().replace(".", "/"));
+        return Preferences.userRoot().node(GUIPlayground.class.getName().replace(".", "/"));
     }
 
     /**
@@ -311,6 +329,251 @@ public class UISupport {
         return new CustomScrollPane(view, retainBorder, topBorder, leftBorder, bottomBorder, rightBorder);
     }
 
+    /**
+     * Returns the default border color based on the current appearance.
+     *
+     * @return {@link Color#DARK_GRAY} if the dark appearance is active, otherwise {@link Color#LIGHT_GRAY}.
+     */
+    public static Color getDefaultBorderColor() {
+        return isDarkAppearance() ? Color.DARK_GRAY : Color.LIGHT_GRAY;
+    }
+
+    /**
+     * Creates a custom line border with specified color and sides to paint.
+     *
+     * @param lineColor   The color of the border.
+     * @param paintTop    True to paint the top border, false otherwise.
+     * @param paintLeft   True to paint the left border, false otherwise.
+     * @param paintBottom True to paint the bottom border, false otherwise.
+     * @param paintRight  True to paint the right border, false otherwise.
+     * @return A new {@link Border} instance with the specified custom line border.
+     */
+    public static Border createCustomLineBorder(Color lineColor, boolean paintTop, boolean paintLeft, boolean paintBottom, boolean paintRight) {
+        return new CustomLineBorder(lineColor, new Insets(paintTop ? 1 : 0, paintLeft ? 1 : 0, paintBottom ? 1 : 0, paintRight ? 1 : 0),
+                paintTop, paintLeft, paintBottom, paintRight);
+    }
+
+    /**
+     * Creates a rounded rectangle border with the specified line color.
+     *
+     * @param lineColor The color of the border.
+     * @return A new {@link Border} instance with a rounded rectangle shape.
+     */
+    public static Border RoundRectBorder(Color lineColor) {
+        return new RoundRectBorder(lineColor);
+    }
+
+    /**
+     * Creates a rounded rectangle border with the specified line color.
+     *
+     * @param lineColor The color of the border.
+     * @return A new {@link Border} instance with a rounded rectangle shape.
+     */
+    public static Border createRoundRectBorder(Color lineColor) {
+        return new RoundRectBorder(lineColor);
+    }
+
+    /**
+     * Creates a {@link JButton} for use in a toolbar, optionally preserving its text.
+     *
+     * @param action The {@link Action} to associate with the button.
+     * @return A new {@link JButton} instance configured for toolbar use.
+     */
+    public static JButton createToolbarButton(Action action) {
+        JButton result = new JButton(action);
+        if (! Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
+            result.setText(null);
+
+        boolean hasText = result.getText() != null;
+        result.setMargin(new Insets(4, hasText ? 6  :4, 4, hasText ? 6 : 4));
+
+        return result;
+    }
+
+    /**
+     * Creates a {@link JToggleButton} for use in a toolbar, optionally preserving its text.
+     *
+     * @param action       The {@link Action} to associate with the toggle button.
+     * @param preserveText If {@code true}, the toggle button's text will be kept; otherwise, it will be set to
+     *                     {@code null}.
+     * @return A new {@link JToggleButton} instance configured for toolbar use.
+     */
+    public static JToggleButton createToolbarToggleButton(Action action, boolean preserveText, Map<String, ButtonGroup> buttonGroupMap) {
+        ButtonGroup buttonGroup = null;
+        if (action instanceof StateAction stateAction) {
+            if (stateAction.getExclusiveGroup() != null)
+                buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
+        }
+
+        JToggleButton result = new JToggleButton(action);
+        if (buttonGroup != null)
+            buttonGroup.add(result);
+        if (! Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {
+            result.setText(null);
+        }
+        boolean hasText = result.getText() != null;
+        result.setMargin(new Insets(4, hasText ? 6  :4, 4, hasText ? 6 : 4));
+        return result;
+    }
+
+    /**
+     * Creates a {@link JMenuItem} from an {@link Action}
+     *
+     * @param action The {@link Action} to associate with the menu item.
+     * @return A new {@link JMenuItem} instance.
+     */
+    public static JMenuItem creteMenuItem(Action action) {
+        JMenuItem result = new JMenuItem(action);
+        result.setToolTipText(null);
+        return result;
+    }
+
+    /**
+     * Creates a {@link JCheckBoxMenuItem} from an {@link Action}.
+     *
+     * @param action The {@link Action} to associate with the checkbox menu item.
+     * @return A new {@link JCheckBoxMenuItem} instance.
+     */
+    public static JCheckBoxMenuItem creteMenuCheckBoxItem(Action action) {
+        JCheckBoxMenuItem result = new JCheckBoxMenuItem(action);
+        result.setToolTipText(null);
+        return result;
+    }
+
+    /**
+     * Creates a {@link JRadioButtonMenuItem} from an {@link Action}.
+     *
+     * @param action The {@link Action} to associate with the radio button menu item.
+     * @return A new {@link JRadioButtonMenuItem} instance.
+     */
+    public static JRadioButtonMenuItem createRadioButtonMenuItem(Action action) {
+        JRadioButtonMenuItem result = new JRadioButtonMenuItem(action);
+        result.setToolTipText(null);
+        return result;
+    }
+
+    /**
+     * Sets up a {@link JPopupMenu} with actions from an {@link ActionGroup}.
+     *
+     * @param popupMenu   The {@link JPopupMenu} to set up.
+     * @param actionGroup The {@link ActionGroup} containing the actions to add to the popup menu.
+     */
+    public static void setupPopupMenu(JPopupMenu popupMenu, ActionGroup actionGroup) {
+        setupPopupMenu(popupMenu, actionGroup, new HashMap<>());
+    }
+
+    private static void setupPopupMenu(JPopupMenu popupMenu, ActionGroup actionGroup, Map<String, ButtonGroup> buttonGroupMap) {
+        int i = 0;
+        for (Action action : actionGroup.getActions()) {
+            if (action instanceof ActionGroup subGroup) {
+                if (subGroup.isPopup()) {
+                    JMenu subMenu = new JMenu(subGroup.getValue(Action.NAME).toString());
+                    subMenu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null); // Cast to Icon
+                    setupPopupMenu(subMenu.getPopupMenu(), subGroup, buttonGroupMap); // Pass buttonGroupMap for nested groups
+                    popupMenu.add(subMenu);
+                } else {
+                    // If it's an ActionGroup but not a popup, treat its actions as direct menu items
+                    for (Action subAction : subGroup.getActions()) {
+                        addMenuItem(popupMenu, subAction, buttonGroupMap);
+                    }
+                    if (i < actionGroup.getActions().length - 1)
+                        popupMenu.addSeparator(); // Separator after a non-popup action group's items
+                }
+            } else {
+                addMenuItem(popupMenu, action, buttonGroupMap);
+            }
+            i++;
+        }
+    }
+
+    private static void addMenuItem(JPopupMenu popupMenu, Action action, Map<String, ButtonGroup> buttonGroupMap) {
+        if (action instanceof StateAction stateAction) {
+            if (stateAction.getExclusiveGroup() != null) {
+                ButtonGroup buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
+                JRadioButtonMenuItem rbMenuItem = createRadioButtonMenuItem(stateAction);
+                buttonGroup.add(rbMenuItem);
+                popupMenu.add(rbMenuItem);
+            } else {
+                popupMenu.add(creteMenuCheckBoxItem(stateAction));
+            }
+        } else if (action instanceof ActionGroup subGroup && !subGroup.isPopup()) {
+            // This case handles non-popup ActionGroups that are not nested within another ActionGroup
+            // Their actions are added directly to the current popupMenu
+            for (Action subAction : subGroup.getActions()) {
+                addMenuItem(popupMenu, subAction, buttonGroupMap);
+            }
+            popupMenu.addSeparator();
+        } else {
+            popupMenu.add(creteMenuItem(action));
+        }
+    }
+
+    /**
+     * Sets up a {@link JToolBar} with actions from an {@link ActionGroup}.
+     *
+     * @param toolbar The {@link JToolBar} to set up.
+     * @param actionGroup The {@link ActionGroup} containing the actions to add to the toolbar.
+     */
+    public static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup) {
+        setupToolbar(toolbar, actionGroup, true, new HashMap<>());
+    }
+
+    private static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup, boolean addSeparators,
+                                     Map<String, ButtonGroup> buttonGroupMap) {
+        for (int i = 0; i < actionGroup.getActions().length; ++i) {
+            Action action = actionGroup.getActions()[i];
+            if (action instanceof ActionGroup subGroup) {
+                if (subGroup.isPopup()) {
+                    JButton popupButton = createToolbarButton(subGroup);
+                    JPopupMenu subPopupMenu = new JPopupMenu();
+                    setupPopupMenu(subPopupMenu, subGroup);
+                    popupButton.addActionListener(e -> subPopupMenu.show(popupButton, 0, popupButton.getHeight()));
+                    toolbar.add(popupButton); // Add the popup button to the toolbar
+                } else { // Not a popup, so add its actions directly to the current toolbar
+                    setupToolbar(toolbar, subGroup, false, buttonGroupMap); // Recursively add actions of the subgroup without separators
+                }
+            } else {
+                addToolbarItem(toolbar, action, buttonGroupMap);
+            } // Add separator after each top-level ActionGroup or individual action
+            if (addSeparators && i < actionGroup.getActions().length - 1 && action instanceof ActionGroup subGroup && !subGroup.isPopup()) {
+                if (actionGroup.getActions()[i + 1] instanceof ActionGroup nextSubGroup && !nextSubGroup.isPopup()) {
+                    // Don't add a separator between two non-popup action groups
+                }
+            }
+        }
+    }
+
+    private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
+        toolbar.add(action instanceof StateAction ? createToolbarToggleButton(action, false, buttonGroupMap) : createToolbarButton(action));
+    }
+
+    /**
+     * Enum representing the different appearance options for the application.
+     */
+    public enum Appearance {
+        Light, Dark, Auto
+    }
+
+    /**
+     * Functional interface for providing an "About" dialog or information. Implementations of this interface can be
+     * used to display application-specific information when an "About" action is triggered.
+     */
+    public interface AboutProvider {
+
+        /**
+         * Displays the "About" dialog or information.
+         *
+         * @param parent The parent component to which the dialog should be relative.
+         */
+        void showAbout(JComponent parent);
+
+        /**
+         * Opens the application's website or relevant URL in a web browser. This method is typically invoked when a
+         * "Visit Website" action is triggered from an "About" dialog or similar UI element.
+         */
+        void visitSite();
+    }
+
     static class CustomScrollPane extends JScrollPane {
         private final boolean retainBorder;
 
@@ -343,42 +606,6 @@ public class UISupport {
             else
                 setBorder(null);
         }
-    }
-
-    /**
-     * Returns the default border color based on the current appearance.
-     *
-     * @return {@link Color#DARK_GRAY} if the dark appearance is active, otherwise {@link Color#LIGHT_GRAY}.
-     */
-    public static Color getDefaultBorderColor() {
-        return isDarkAppearance() ? Color.DARK_GRAY : Color.LIGHT_GRAY;
-    }
-
-    /**
-     * Enum representing the different appearance options for the application.
-     */
-    public enum Appearance {
-        Light, Dark, Auto
-    }
-
-    /**
-     * Functional interface for providing an "About" dialog or information. Implementations of this interface can be
-     * used to display application-specific information when an "About" action is triggered.
-     */
-    public interface AboutProvider {
-
-        /**
-         * Displays the "About" dialog or information.
-         *
-         * @param parent The parent component to which the dialog should be relative.
-         */
-        void showAbout(JComponent parent);
-
-        /**
-         * Opens the application's website or relevant URL in a web browser. This method is typically invoked when a
-         * "Visit Website" action is triggered from an "About" dialog or similar UI element.
-         */
-        void visitSite();
     }
 
     /**
@@ -504,19 +731,43 @@ public class UISupport {
         }
     }
 
-    /**
-     * Creates a custom line border with specified color and sides to paint.
-     *
-     * @param lineColor The color of the border.
-     * @param paintTop  True to paint the top border, false otherwise.
-     * @param paintLeft True to paint the left border, false otherwise.
-     * @param paintBottom True to paint the bottom border, false otherwise.
-     * @param paintRight True to paint the right border, false otherwise.
-     * @return A new {@link Border} instance with the specified custom line border.
-     */
-    public static Border createCustomLineBorder(Color lineColor, boolean paintTop, boolean paintLeft, boolean paintBottom, boolean paintRight) {
-        return new CustomLineBorder(lineColor, new Insets(paintTop ? 1 : 0, paintLeft ? 1 : 0, paintBottom ? 1 : 0, paintRight ? 1 : 0),
-                paintTop, paintLeft, paintBottom, paintRight);
+    static class RoundRectBorder extends AbstractBorder {
+        protected Color lineColor;
+        protected int arcWidth = -1;
+        protected int arcHeight = -1;
+
+        public RoundRectBorder(Color lineColor, int arcWidth, int arcHeight) {
+            this.lineColor = lineColor;
+            this.arcWidth = arcWidth;
+            this.arcHeight = arcHeight;
+        }
+
+        public RoundRectBorder(Color lineColor) {
+            this.lineColor = lineColor;
+        }
+
+        @Override
+        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+            super.paintBorder(c, g, x, y, width, height);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(lineColor);
+            g2.drawRoundRect(x, y, width - 1, height - 1,
+                    arcWidth == -1 ? height : arcWidth,
+                    arcHeight == -1 ? height : arcHeight);
+            g2.dispose();
+        }
+
+        @Override
+        public Insets getBorderInsets(Component c) {
+            return new Insets(1, 1, 1, 1); // Default insets for a thin border
+        }
+
+        @Override
+        public Insets getBorderInsets(Component c, Insets insets) {
+            insets.left = insets.top = insets.right = insets.bottom = 1;
+            return insets;
+        }
     }
 
     static class CustomLineBorder extends AbstractBorder {
@@ -548,6 +799,7 @@ public class UISupport {
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
             super.paintBorder(c, g, x, y, width, height);
             g.setColor(lineColor);
+            ((Graphics2D)g).setStroke(new BasicStroke(0.5f));
             if (paintTop) {
                 g.drawLine(x + insets.left, y, x + width - insets.right, y); // Top
             }
@@ -575,6 +827,19 @@ public class UISupport {
             insets.bottom = this.insets.bottom;
             return insets;
         }
+    }
 
+    /**
+     * Converts a given Markdown text into HTML format.
+     *
+     * @param text The Markdown text to be converted.
+     * @return The HTML representation of the Markdown text.
+     */
+    public static String convertMarkdownToHtml(String text) {
+        Parser parser = Parser.builder().build();
+        Node document = parser.parse(text);
+        HtmlRenderer renderer = HtmlRenderer.builder().omitSingleParagraphP(true).build();
+
+        return renderer.render(document);
     }
 }

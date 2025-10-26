@@ -44,9 +44,9 @@ import java.lang.reflect.Parameter;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.applyAppearance;
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.getOptions;
+import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
  * A frame that provides a chat interface. It can be used to display a chat conversation and interact with a chat
@@ -55,6 +55,10 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.getOptions;
 public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
     private final ChatPane chatPane = new ChatPane();
+    private JEditorPane pnlWorkflowSummaryView;
+    private JPanel pnlWorkflowContents;
+    private JPanel pnlWorkflowContentsHost;
+    private JScrollPane pnlWorkflowSummary;
     private WorkflowDebugger workflowDebugger;
     private WorkflowInspectorDetailsPane pnlWorkflowInspectorDetails;
     private WorkflowInspectorListPane pnlWorkflowInspectorList;
@@ -97,8 +101,55 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             pnlWorkflowInspectorList.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorList.setWorkflowDebugger(workflowDebugger);
 
+            pnlWorkflowSummaryView = new JEditorPane() {
+                @Override
+                public boolean getScrollableTracksViewportWidth() {
+                    return true;
+                }
+            };
+            pnlWorkflowSummaryView.setContentType("text/html");
+            pnlWorkflowSummaryView.setEditable(false);
+            pnlWorkflowSummaryView.setFont(pnlWorkflowSummaryView.getFont().deriveFont(15f));
+            pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, true, false, true, false, true);
+            pnlWorkflowSummary.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+
+            pnlWorkflowContentsHost = new JPanel(new BorderLayout());
+            HeaderPane headerPane = new HeaderPane();
+            headerPane.setTitle("Workflow");
+            headerPane.setSubtitle("Workflow structure, summary, its agents and execution steps");
+
+            final String showGroup = "show";
+            Actions.StateAction showStructureAction = new Actions.StateAction("Structure", new AutoIcon(ICON_FILE_TYPE_CODE), e -> {
+                showWorkflowStructure();
+            });
+            showStructureAction.setCopyName(true);
+            showStructureAction.setShortDescription("Show workflow structure");
+            showStructureAction.setExclusiveGroup(showGroup);
+            showStructureAction.setSelected(true);
+
+            Actions.StateAction showSummaryAction = new Actions.StateAction("Summary", new AutoIcon(ICON_FILE_TYPE_TEXT), e -> {
+                showWorkflowSummary();
+            });
+            showSummaryAction.setCopyName(true);
+            showSummaryAction.setShortDescription("Show workflow summary");
+            showSummaryAction.setExclusiveGroup(showGroup);
+
+            UISupport.setupToolbar(headerPane.getToolbar(),
+                    new Actions.ActionGroup(
+                            showStructureAction,
+                            showSummaryAction
+                    )
+            );
+
+            pnlWorkflowContentsHost.add(headerPane, BorderLayout.NORTH);
+
+            pnlWorkflowContents = new JPanel(new CardLayout());
+            pnlWorkflowContents.add(pnlWorkflowInspectorList);
+            pnlWorkflowContents.add(pnlWorkflowSummary);
+            pnlWorkflowContentsHost.add(pnlWorkflowContents, BorderLayout.CENTER);
+
             JSplitPane pnlWorkflow = new JSplitPane();
-            pnlWorkflow.setLeftComponent(pnlWorkflowInspectorList);
+            pnlWorkflow.setLeftComponent(pnlWorkflowContentsHost);
             pnlWorkflowInspectorDetails = new WorkflowInspectorDetailsPane();
             pnlWorkflow.setRightComponent(pnlWorkflowInspectorDetails);
             pnlWorkflow.setResizeWeight(0.5);
@@ -121,6 +172,40 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                     System.exit(0);
             }
         });
+    }
+
+    private boolean summaryGenerated = false;
+    private boolean summaryGenerating = false;
+
+    private void showWorkflowSummary() {
+        ((CardLayout) pnlWorkflowContents.getLayout()).last(pnlWorkflowContents);
+        if (! summaryGenerated && ! summaryGenerating) {
+            summaryGenerating = true;
+            pnlWorkflowSummaryView.setText("Generating summary..."); // Set initial text immediately
+            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); // Set cursor immediately
+            CompletableFuture.supplyAsync(() -> workflowDebugger.getAgentWorkflowBuilder().generateAISummary()).
+                    thenAccept(summary -> {
+                        summaryGenerated = true;
+                        SwingUtilities.invokeLater(() -> {
+                            pnlWorkflowSummaryView.setText("<html><body style=\"padding: 10px;\">%s</body></html>".formatted(UISupport.convertMarkdownToHtml(summary)));
+                            pnlWorkflowSummaryView.setCaretPosition(0);
+                            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                            summaryGenerating = false;
+                        });
+                    }).exceptionally(ex -> {
+                        SwingUtilities.invokeLater(() -> {
+                            pnlWorkflowSummaryView.setText("<html>Error generating summary: %s</html>".formatted(ex.getMessage()));
+                            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                            summaryGenerating = false;
+                            ex.printStackTrace();
+                        });
+                        return null; // Return null to complete the exceptionally stage
+            });
+        }
+    }
+
+    private void showWorkflowStructure() {
+        ((CardLayout) pnlWorkflowContents.getLayout()).first(pnlWorkflowContents);
     }
 
     /**

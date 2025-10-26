@@ -273,7 +273,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
             setContentType("text/html");
             setOpaque(false);
             putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
-            setFont(new Font("SansSerif", Font.PLAIN, 14));
+            setFont(getFont().deriveFont(15f));
         }
 
         public static int getPreferredHeight(JEditorPane editor, int width) {
