@@ -259,6 +259,9 @@ public class UISupport {
                 UIManager.setLookAndFeel(darkAppearance ?
                         (isMac ? new FlatMacDarkLaf() : new FlatDarkLaf()) :
                         (isMac ? new FlatMacLightLaf() : new FlatLightLaf()));
+                if (isMac)
+                    UIManager.put("ToggleButton.toolbar.selectedBackground",
+                            darkAppearance ? Color.DARK_GRAY: new Color(232, 232, 232));
             } catch (Exception ex) {
                 System.err.println("Failed to initialize LaF");
             }

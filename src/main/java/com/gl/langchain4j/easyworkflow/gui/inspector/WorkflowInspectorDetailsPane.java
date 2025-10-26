@@ -166,7 +166,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             add(headerPane, BorderLayout.NORTH);
             JScrollPane scrollPane = UISupport.createScrollPane(treeValues, true, false, true, true, false);
             headerPane.setTitle("Inspector");
-            headerPane.setSubtitle("Execution results for a selected agent");
+//            headerPane.setSubtitle("Execution results for a selected agent");
             add(scrollPane, BorderLayout.CENTER);
             treeValues.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
             treeValues.setRootVisible(false);

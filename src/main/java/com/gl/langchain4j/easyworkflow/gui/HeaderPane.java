@@ -101,7 +101,7 @@ public class HeaderPane extends JPanel{
 
         setBorder(BorderFactory.createCompoundBorder(
                 createCustomLineBorder(getDefaultBorderColor(), false, true,true, paintBorderAtRight),
-                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+                BorderFactory.createEmptyBorder(2, 10, 2, 10)));
     }
 
     /**

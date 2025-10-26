@@ -116,7 +116,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             pnlWorkflowContentsHost = new JPanel(new BorderLayout());
             HeaderPane headerPane = new HeaderPane();
             headerPane.setTitle("Workflow");
-            headerPane.setSubtitle("Workflow structure, summary, its agents and execution steps");
+//            headerPane.setSubtitle("Workflow structure, summary, its agents and execution steps");
 
             final String showGroup = "show";
             Actions.StateAction showStructureAction = new Actions.StateAction("Structure", new AutoIcon(ICON_FILE_TYPE_CODE), e -> {
@@ -187,7 +187,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                     thenAccept(summary -> {
                         summaryGenerated = true;
                         SwingUtilities.invokeLater(() -> {
-                            pnlWorkflowSummaryView.setText("<html><body style=\"padding: 10px;\">%s</body></html>".formatted(UISupport.convertMarkdownToHtml(summary)));
+                            pnlWorkflowSummaryView.setText("<html><body style=\"padding: 5px 10px;\">%s</body></html>".formatted(UISupport.convertMarkdownToHtml(summary)));
                             pnlWorkflowSummaryView.setCaretPosition(0);
                             pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
                             summaryGenerating = false;
