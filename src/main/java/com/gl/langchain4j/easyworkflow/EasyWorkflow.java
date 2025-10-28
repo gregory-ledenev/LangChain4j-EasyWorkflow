@@ -74,7 +74,7 @@ import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
  */
 public class EasyWorkflow {
 
-    public static final String VERSION = "v0.9.19";
+    public static final String VERSION = "v0.9.22";
     public static final String FULL_VERSION = "EasyWorkflow for LangChain4j " + VERSION;
 
     /**
@@ -122,7 +122,7 @@ public class EasyWorkflow {
      * @return A {@link Predicate} with an overridden {@code toString()} method.
      */
     public static Predicate<AgenticScope> condition(Predicate<AgenticScope> condition, String conditionString) {
-        return new Predicate<AgenticScope>() {
+        return new Predicate<>() {
             @Override
             public String toString() {
                 return conditionString;
@@ -143,7 +143,7 @@ public class EasyWorkflow {
      * @return A {@link Function} with an overridden {@code toString()} method.
      */
     public static Function<AgenticScope, Object> expression(Function<AgenticScope, Object> expression, String expressionString) {
-        return new Function<AgenticScope, Object>() {
+        return new Function<>() {
             @Override
             public String toString() {
                 return expressionString;

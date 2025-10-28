@@ -24,6 +24,8 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
+import com.gl.langchain4j.easyworkflow.gui.UISupport;
+
 import javax.swing.*;
 import java.awt.*;
 
@@ -47,13 +49,7 @@ public class ChatMessagesHostPane extends JPanel {
         setOpaque(false);
 
         chatMessagesPane = new ChatMessagesPane();
-        scrollPane = new JScrollPane(chatMessagesPane) {
-            @Override
-            public void updateUI() {
-                super.updateUI();
-                setBorder(null);
-            }
-        };
+        scrollPane = UISupport.createScrollPane(chatMessagesPane, false);
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getViewport().setOpaque(false);

@@ -65,6 +65,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public static final String KEY_AGENT_CLASS = "$agentClass";
     public static final String KEY_AGENT_CLASS_SIMPLE_NAME = "$agentClass.simpleName";
     public static final String KEY_OUTPUT_NAME = "$outputName";
+    public static final String KEY_TRACE_ENTRY = "$traceEntry";
 
     private static final Logger logger = LoggerFactory.getLogger(WorkflowDebugger.class);
     private final WorkflowContext workflowContext;
@@ -154,7 +155,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         saveWorkflowInput(method, args);
 
         saveBreakpointsState();
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STARTED, null, null, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STARTED, null, null, null, null, null);
     }
 
     private void saveWorkflowInput(Method method, Object[] args) {
@@ -175,7 +176,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public void sessionStopped(Object result) {
         workflowResult = result;
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STOPPED, null, null, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STOPPED, null, null, null, null, null);
         resetBreakpoints();
         started = false;
     }
@@ -188,7 +189,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public void sessionFailed(Throwable failure) {
         this.workflowFailure = failure;
         updateAgentInvocationTraceEntry(failure);
-        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_FAILED, null, null, null, null);
+        findAndExecuteBreakpoints(Breakpoint.Type.SESSION_FAILED, null, null, null, null, null);
         resetBreakpoints();
         started = false;
     }
@@ -254,7 +255,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
     }
 
-    protected void findAndExecuteBreakpoints(Breakpoint.Type type, Object agent, Class<?> agentClass, String outputName, Object outputValue) {
+    protected void findAndExecuteBreakpoints(Breakpoint.Type type, Object agent, Class<?> agentClass,
+                                             String outputName, Object outputValue,
+                                             AgentInvocationTraceEntry traceEntry) {
         if (!breakpointsEnabled)
             return;
 
@@ -268,6 +271,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             agenticScopeState.put(outputName, outputValue);
             agenticScopeState.put(KEY_OUTPUT, outputValue);
         }
+        if (traceEntry != null)
+            agenticScopeState.put(KEY_TRACE_ENTRY, traceEntry);
 
         for (Breakpoint breakpoint : breakpointsCopy) {
             if (breakpoint.matches(type, agentClass, outputName)) {
@@ -340,8 +345,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     @Override
     public void stateChanged(Object agent, Class<?> agentClass, String stateName, Object stateValue) {
-        updateAgentInvocationTraceEntry(agent, stateName, stateValue);
-        findAndExecuteBreakpoints(Breakpoint.Type.AGENT_OUTPUT, agent, agentClass != null ? agentClass : Object.class, stateName, stateValue);
+        AgentInvocationTraceEntry traceEntry = updateAgentInvocationTraceEntry(agent, stateName, stateValue);
+        findAndExecuteBreakpoints(Breakpoint.Type.AGENT_OUTPUT, agent, agentClass != null ? agentClass : Object.class,
+                stateName, stateValue, traceEntry);
     }
 
     /**
@@ -358,8 +364,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         agenticScope.writeState(KEY_INPUT, userMessage);
         try {
             Class<?> adjustedAgentClass = agentClass != null ? agentClass : Object.class;
-            addAgentInvocationTraceEntry(agent, adjustedAgentClass, userMessage);
-            findAndExecuteBreakpoints(Breakpoint.Type.AGENT_INPUT, agent, adjustedAgentClass, null, null);
+            AgentInvocationTraceEntry traceEntry = addAgentInvocationTraceEntry(agent, adjustedAgentClass, userMessage);
+            findAndExecuteBreakpoints(Breakpoint.Type.AGENT_INPUT, agent, adjustedAgentClass, null, null, traceEntry);
         } finally {
             agenticScope.writeState(KEY_INPUT, null);
         }
@@ -387,9 +393,11 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         return new ServiceAgent();
     }
 
-    private void addAgentInvocationTraceEntry(Object agent, Class<?> agentClass, Object input) {
-        AgentInvocationTraceEntry traceEntry = new AgentInvocationTraceEntry(agent, agentClass, input);
-        agentInvocationTraceEntries.add(traceEntry);
+    private AgentInvocationTraceEntry addAgentInvocationTraceEntry(Object agent, Class<?> agentClass, Object input) {
+        AgentInvocationTraceEntry result = new AgentInvocationTraceEntry(agent, agentClass, input);
+        agentInvocationTraceEntries.add(result);
+
+        return result;
     }
 
     private void updateAgentInvocationTraceEntry(Throwable failure) {
@@ -409,7 +417,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             traceEntry.setFailure(failure);
     }
 
-    private void updateAgentInvocationTraceEntry(Object agent, String outputName, Object output) {
+    private AgentInvocationTraceEntry updateAgentInvocationTraceEntry(Object agent, String outputName, Object output) {
         ArrayList<AgentInvocationTraceEntry> entries;
         synchronized (agentInvocationTraceEntries) {
             entries = new ArrayList<>(agentInvocationTraceEntries);
@@ -428,6 +436,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             traceEntry.addOutput(outputName, output);
         else
             logger.warn("Unable to update trace entry for agent {}", agent);
+
+        return traceEntry;
     }
 
     /**
@@ -1147,6 +1157,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Represents a single entry in the agent invocation trace, capturing details about an agent's input and output.
      */
     public static class AgentInvocationTraceEntry {
+        private final String uid = UUID.randomUUID().toString();
         private final Object agent;
         private final Class<?> agentClass;
         private final Object input;
@@ -1278,12 +1289,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             if (aO == null || getClass() != aO.getClass()) return false;
 
             AgentInvocationTraceEntry that = (AgentInvocationTraceEntry) aO;
-            return agent.equals(that.agent);
+            return uid.equals(that.uid); // not equals as they are proxies
         }
 
         @Override
         public int hashCode() {
-            return agent.hashCode();
+            return uid.hashCode();
         }
 
         @Override

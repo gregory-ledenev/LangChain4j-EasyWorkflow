@@ -220,12 +220,16 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             return getPreferences().getBoolean(PROP_ALWAYS_EXPAND, false);
         }        private final JTree treeValues = new JTree() {
             @Override
-            public Point getPopupLocation(MouseEvent event) {
-                int row = treeValues.getRowForLocation((int) event.getX(), (int) event.getY());
-                if (row != -1)
-                    treeValues.setSelectionRow(row);
-
-                return super.getPopupLocation(event);
+            protected void processMouseEvent(MouseEvent e) {
+                if (e.isPopupTrigger() || e.getButton() == MouseEvent.BUTTON1) {
+                    int row = getRowForLocation(e.getX(), e.getY());
+                    if (row != -1) {
+                        if (getSelectionCount() != 1 || getSelectionRows()[0] != row) {
+                            setSelectionRow(row);
+                        }
+                    }
+                }
+                super.processMouseEvent(e);
             }
         };
 

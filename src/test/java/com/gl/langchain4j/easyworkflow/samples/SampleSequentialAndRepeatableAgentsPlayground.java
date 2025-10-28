@@ -10,9 +10,6 @@ import java.util.Map;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
-import static com.gl.langchain4j.easyworkflow.Playground.ARG_SHOW_DIALOG;
-
-import com.gl.langchain4j.easyworkflow.gui.inspector.*;
 
 public class SampleSequentialAndRepeatableAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";

@@ -34,11 +34,15 @@ import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileFilter;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.net.URI;
@@ -54,15 +58,20 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
  */
 public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
+    public static final String PROP_FLOW_CHART_FILE = "flow-chart-file";
+    private static final Logger logger = LoggerFactory.getLogger(ChatFrame.class);
     private final ChatPane chatPane = new ChatPane();
     private JEditorPane pnlWorkflowSummaryView;
     private JPanel pnlWorkflowContents;
-    private JPanel pnlWorkflowContentsHost;
-    private JScrollPane pnlWorkflowSummary;
     private WorkflowDebugger workflowDebugger;
     private WorkflowInspectorDetailsPane pnlWorkflowInspectorDetails;
-    private WorkflowInspectorListPane pnlWorkflowInspectorList;
+    private WorkflowInspectorListPane pnlWorkflowInspectorStructure;
+    private WorkflowInspectorListPane pnlWorkflowInspectorExecution;
     private boolean exitOnClose;
+    private Actions.BasicAction copyAction;
+    private FileChooserUtils fileChooserUtils;
+    private boolean summaryGenerated = false;
+    private boolean summaryGenerating = false;
 
     /**
      * Constructs a new ChatFrame.
@@ -81,7 +90,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         if (frameBounds != null) {
             setBounds(frameBounds);
         } else {
-            setSize(workflowDebugger != null ? 1200 : 500, 700);
+            setSize(workflowDebugger != null ? 1080 : 500, 700);
             setLocationRelativeTo(null);
         }
         chatPane.setPreferredSize(new Dimension(400, 700));
@@ -93,13 +102,21 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         }
 
         if (workflowDebugger != null) {
+            setMinimumSize(new Dimension(1080, 700));
+
             JSplitPane contentPane = new JSplitPane();
             contentPane.setResizeWeight(0);
             contentPane.setLeftComponent(chatPane);
-            pnlWorkflowInspectorList = new WorkflowInspectorListPane();
-            pnlWorkflowInspectorList.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
-            pnlWorkflowInspectorList.setPreferredSize(new Dimension(400, 700));
-            pnlWorkflowInspectorList.setWorkflowDebugger(workflowDebugger);
+
+            pnlWorkflowInspectorStructure = new WorkflowInspectorListPane.Structure();
+            pnlWorkflowInspectorStructure.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
+            pnlWorkflowInspectorStructure.setPreferredSize(new Dimension(400, 700));
+            pnlWorkflowInspectorStructure.setWorkflowDebugger(workflowDebugger);
+
+            pnlWorkflowInspectorExecution = new WorkflowInspectorListPane.Execution();
+            pnlWorkflowInspectorExecution.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
+            pnlWorkflowInspectorExecution.setPreferredSize(new Dimension(400, 700));
+            pnlWorkflowInspectorExecution.setWorkflowDebugger(workflowDebugger);
 
             pnlWorkflowSummaryView = new JEditorPane() {
                 @Override
@@ -110,42 +127,21 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             pnlWorkflowSummaryView.setContentType("text/html");
             pnlWorkflowSummaryView.setEditable(false);
             pnlWorkflowSummaryView.setFont(pnlWorkflowSummaryView.getFont().deriveFont(15f));
-            pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, true, false, true, false, true);
+            JScrollPane pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, true, false, true, false, true);
             pnlWorkflowSummary.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
-            pnlWorkflowContentsHost = new JPanel(new BorderLayout());
+            JPanel pnlWorkflowContentsHost = new JPanel(new BorderLayout());
             HeaderPane headerPane = new HeaderPane();
             headerPane.setTitle("Workflow");
 //            headerPane.setSubtitle("Workflow structure, summary, its agents and execution steps");
-
-            final String showGroup = "show";
-            Actions.StateAction showStructureAction = new Actions.StateAction("Structure", new AutoIcon(ICON_FILE_TYPE_CODE), e -> {
-                showWorkflowStructure();
-            });
-            showStructureAction.setCopyName(true);
-            showStructureAction.setShortDescription("Show workflow structure");
-            showStructureAction.setExclusiveGroup(showGroup);
-            showStructureAction.setSelected(true);
-
-            Actions.StateAction showSummaryAction = new Actions.StateAction("Summary", new AutoIcon(ICON_FILE_TYPE_TEXT), e -> {
-                showWorkflowSummary();
-            });
-            showSummaryAction.setCopyName(true);
-            showSummaryAction.setShortDescription("Show workflow summary");
-            showSummaryAction.setExclusiveGroup(showGroup);
-
-            UISupport.setupToolbar(headerPane.getToolbar(),
-                    new Actions.ActionGroup(
-                            showStructureAction,
-                            showSummaryAction
-                    )
-            );
-
             pnlWorkflowContentsHost.add(headerPane, BorderLayout.NORTH);
+            setupToolbar(headerPane.getToolbar());
 
             pnlWorkflowContents = new JPanel(new CardLayout());
-            pnlWorkflowContents.add(pnlWorkflowInspectorList);
-            pnlWorkflowContents.add(pnlWorkflowSummary);
+            pnlWorkflowContents.add(pnlWorkflowInspectorStructure, "structure");
+            pnlWorkflowContents.add(pnlWorkflowInspectorExecution, "execution");
+            pnlWorkflowContents.add(pnlWorkflowSummary, "summary");
+
             pnlWorkflowContentsHost.add(pnlWorkflowContents, BorderLayout.CENTER);
 
             JSplitPane pnlWorkflow = new JSplitPane();
@@ -156,8 +152,13 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             contentPane.setRightComponent(pnlWorkflow);
             setContentPane(contentPane);
 
-            pnlWorkflowInspectorList.getList().addListSelectionListener(e -> {
-                pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorList.getSelectedData());
+            pnlWorkflowInspectorStructure.getList().addListSelectionListener(e -> {
+                if (pnlWorkflowInspectorStructure.isVisible())
+                    pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
+            });
+            pnlWorkflowInspectorExecution.getList().addListSelectionListener(e -> {
+                if (pnlWorkflowInspectorExecution.isVisible())
+                    pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
             });
         } else {
             setContentPane(chatPane);
@@ -172,40 +173,6 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                     System.exit(0);
             }
         });
-    }
-
-    private boolean summaryGenerated = false;
-    private boolean summaryGenerating = false;
-
-    private void showWorkflowSummary() {
-        ((CardLayout) pnlWorkflowContents.getLayout()).last(pnlWorkflowContents);
-        if (! summaryGenerated && ! summaryGenerating) {
-            summaryGenerating = true;
-            pnlWorkflowSummaryView.setText("Generating summary..."); // Set initial text immediately
-            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); // Set cursor immediately
-            CompletableFuture.supplyAsync(() -> workflowDebugger.getAgentWorkflowBuilder().generateAISummary()).
-                    thenAccept(summary -> {
-                        summaryGenerated = true;
-                        SwingUtilities.invokeLater(() -> {
-                            pnlWorkflowSummaryView.setText("<html><body style=\"padding: 5px 10px;\">%s</body></html>".formatted(UISupport.convertMarkdownToHtml(summary)));
-                            pnlWorkflowSummaryView.setCaretPosition(0);
-                            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-                            summaryGenerating = false;
-                        });
-                    }).exceptionally(ex -> {
-                        SwingUtilities.invokeLater(() -> {
-                            pnlWorkflowSummaryView.setText("<html>Error generating summary: %s</html>".formatted(ex.getMessage()));
-                            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
-                            summaryGenerating = false;
-                            ex.printStackTrace();
-                        });
-                        return null; // Return null to complete the exceptionally stage
-            });
-        }
-    }
-
-    private void showWorkflowStructure() {
-        ((CardLayout) pnlWorkflowContents.getLayout()).first(pnlWorkflowContents);
     }
 
     /**
@@ -294,14 +261,155 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         return result;
     }
 
+    private void setupToolbar(JToolBar toolbar) {
+        final String showGroup = "show";
+        Actions.StateAction showStructureAction = new Actions.StateAction("Structure", new AutoIcon(ICON_WORKFLOW), e -> {
+            showWorkflowStructure();
+        });
+//            showStructureAction.setCopyName(true);
+        showStructureAction.setShortDescription("Show workflow structure");
+        showStructureAction.setExclusiveGroup(showGroup);
+        showStructureAction.setSelected(true);
+
+        Actions.StateAction showExecutionAction = new Actions.StateAction("Execution", new AutoIcon(ICON_EXECUTION_FLOW), e -> {
+            showWorkflowExecution();
+        });
+//            showExecutionAction.setCopyName(true);
+        showExecutionAction.setShortDescription("Show workflow execution");
+        showExecutionAction.setExclusiveGroup(showGroup);
+
+        Actions.StateAction showSummaryAction = new Actions.StateAction("Summary", new AutoIcon(ICON_DOCUMENT), e -> {
+            showWorkflowSummary();
+        });
+//            showSummaryAction.setCopyName(true);
+        showSummaryAction.setShortDescription("Show workflow summary");
+        showSummaryAction.setExclusiveGroup(showGroup);
+
+        this.copyAction = new Actions.BasicAction("Copy", new AutoIcon(ICON_COPY), e -> {
+            copy();
+        });
+        copyAction.setShortDescription("Copy");
+
+        Actions.BasicAction shareAction = new Actions.BasicAction("Share", new AutoIcon(ICON_SHARE), e -> {
+            share();
+        });
+        shareAction.setShortDescription("Share");
+
+        UISupport.setupToolbar(toolbar,
+                new Actions.ActionGroup(
+                        new Actions.ActionGroup(
+                                showStructureAction,
+                                showExecutionAction,
+                                showSummaryAction
+                        ),
+                        new Actions.ActionGroup(
+                                copyAction
+                        ),
+                        new Actions.ActionGroup(
+                                shareAction
+                        )
+                )
+        );
+    }
+
+    private void share() {
+        FileChooserUtils fileChooserUtils = getFileChooserUtils();
+
+        String fileStr = getPreferences().get(PROP_FLOW_CHART_FILE, "workflow.html");
+        File file = fileChooserUtils.chooseFileToSave(new File(fileStr), true);
+        if (file != null) {
+            try {
+                getPreferences().put(PROP_FLOW_CHART_FILE, file.getAbsolutePath());
+                workflowDebugger.toHtmlFile(file.getAbsolutePath());
+            } catch (Exception ex) {
+                logger.error("Failed to share flow chart", ex);
+            }
+        }
+    }
+
+    private FileChooserUtils getFileChooserUtils() {
+        if (fileChooserUtils == null) {
+            fileChooserUtils = new FileChooserUtils(this);
+            fileChooserUtils.setChoosableFileFilters(new FileFilter[]{FileChooserUtils.GenericFileFilter.FILE_FILTER_HTML});
+            fileChooserUtils.setUseNativeFileChooser(true);
+        }
+        return fileChooserUtils;
+    }
+
+    /**
+     * Copies the currently selected content to the clipboard.
+     */
+    public void copy() {
+        if (pnlWorkflowInspectorStructure.isVisible()) {
+            pnlWorkflowInspectorStructure.copy();
+        } else if (pnlWorkflowInspectorExecution.isVisible()) {
+            pnlWorkflowInspectorExecution.copy();
+        } else if (pnlWorkflowSummaryView.isVisible()) {
+            UISupport.copy(pnlWorkflowSummaryView);
+        }
+    }
+
+    private void showWorkflowSummary() {
+        ((CardLayout) pnlWorkflowContents.getLayout()).last(pnlWorkflowContents);
+        if (!summaryGenerated && !summaryGenerating) {
+            summaryGenerating = true;
+            updateCopyAction();
+            pnlWorkflowSummaryView.setText("Generating summary..."); // Set initial text immediately
+            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); // Set cursor immediately
+            CompletableFuture.supplyAsync(() -> workflowDebugger.getAgentWorkflowBuilder().generateAISummary()).
+                    thenAccept(summary -> {
+                        summaryGenerated = true;
+                        SwingUtilities.invokeLater(() -> {
+                            pnlWorkflowSummaryView.setText("<html><body style=\"padding: 5px 10px;\">%s</body></html>".formatted(UISupport.convertMarkdownToHtml(summary)));
+                            pnlWorkflowSummaryView.setCaretPosition(0);
+                            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                            summaryGenerating = false;
+                            updateCopyAction();
+                        });
+                    }).exceptionally(ex -> {
+                        SwingUtilities.invokeLater(() -> {
+                            pnlWorkflowSummaryView.setText("<html>Error generating summary: %s</html>".formatted(ex.getMessage()));
+                            pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
+                            summaryGenerating = false;
+                            ex.printStackTrace();
+                            updateCopyAction();
+                        });
+                        return null; // Return null to complete the exceptionally stage
+                    });
+        } else {
+            copyAction.setEnabled(true);
+        }
+    }
+
+    private void updateCopyAction() {
+        boolean e = true;
+        if (pnlWorkflowSummaryView.isVisible())
+            e = !summaryGenerating;
+        copyAction.setEnabled(e);
+    }
+
+    private void showWorkflowStructure() {
+        ((CardLayout) pnlWorkflowContents.getLayout()).first(pnlWorkflowContents);
+        pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
+        pnlWorkflowInspectorStructure.requestFocus();
+        updateCopyAction();
+    }
+
+    private void showWorkflowExecution() {
+        ((CardLayout) pnlWorkflowContents.getLayout()).show(pnlWorkflowContents, "execution");
+        pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
+        pnlWorkflowInspectorExecution.requestFocus();
+        updateCopyAction();
+    }
+
     public WorkflowDebugger getWorkflowDebugger() {
         return workflowDebugger;
     }
 
     public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
         this.workflowDebugger = workflowDebugger;
-        if (pnlWorkflowInspectorList != null)
-            pnlWorkflowInspectorList.setWorkflowDebugger(workflowDebugger);
+        if (pnlWorkflowInspectorStructure != null)
+            pnlWorkflowInspectorStructure.setWorkflowDebugger(workflowDebugger);
     }
 
     /**

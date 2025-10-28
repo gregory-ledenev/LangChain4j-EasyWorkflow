@@ -32,7 +32,7 @@ public class Actions {
     /**
      * An abstract base class for actions that perform a specific task.
      */
-    public abstract static class BasicAction extends AbstractAction {
+    public static class BasicAction extends AbstractAction {
         private final Consumer<ActionEvent> actionListener;
 
         /**

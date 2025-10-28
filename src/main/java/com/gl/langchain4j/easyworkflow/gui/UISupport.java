@@ -38,8 +38,12 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.Border;
+import javax.swing.plaf.UIResource;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
-import java.awt.event.ActionEvent;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
+import java.awt.event.*;
 import java.awt.image.BaseMultiResolutionImage;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,8 +51,9 @@ import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
-import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.Actions.ActionGroup;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.BasicAction.COPY_NAME;
+import static com.gl.langchain4j.easyworkflow.gui.Actions.StateAction;
 
 /**
  * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
@@ -102,10 +107,13 @@ public class UISupport {
     public static final String ICON_ALWAYS_EXPAND = "always-expand";
     public static final String ICON_FILE_TYPE_CODE = "file-type-code";
     public static final String ICON_FILE_TYPE_TEXT = "file-type-text";
+    public static final String ICON_EXECUTION_FLOW = "execution-flow";
+    public static final String ICON_WORKFLOW = "workflow";
+    public static final String ICON_SHARE = "share";
 
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
-    private static final Map<String, Icon> icons = new HashMap<>();
+    private static final Map<String, ImageIcon> icons = new HashMap<>();
     private static Boolean darkAppearance;
     private static Options options;
 
@@ -146,6 +154,9 @@ public class UISupport {
         icons.put(getIconKey(ICON_BOX, false), loadImageIcon("box"));
         icons.put(getIconKey(ICON_BOX, true), loadImageIcon("box-light"));
 
+        icons.put(getIconKey(ICON_STACK, false), loadImageIcon("stack"));
+        icons.put(getIconKey(ICON_STACK, true), loadImageIcon("stack-light"));
+
         icons.put(getIconKey(ICON_TARGET, false), loadImageIcon("target"));
         icons.put(getIconKey(ICON_TARGET, true), loadImageIcon("target-light"));
 
@@ -166,6 +177,15 @@ public class UISupport {
 
         icons.put(getIconKey(ICON_FILE_TYPE_TEXT, false), loadImageIcon("file-type-text"));
         icons.put(getIconKey(ICON_FILE_TYPE_TEXT, true), loadImageIcon("file-type-text-light"));
+
+        icons.put(getIconKey(ICON_EXECUTION_FLOW, false), loadImageIcon("execution-flow"));
+        icons.put(getIconKey(ICON_EXECUTION_FLOW, true), loadImageIcon("execution-flow-light"));
+
+        icons.put(getIconKey(ICON_WORKFLOW, false), loadImageIcon("workflow"));
+        icons.put(getIconKey(ICON_WORKFLOW, true), loadImageIcon("workflow-light"));
+
+        icons.put(getIconKey(ICON_SHARE, false), loadImageIcon("share"));
+        icons.put(getIconKey(ICON_SHARE, true), loadImageIcon("share-light"));
     }
 
     private static ImageIcon loadImageIcon(String name) {
@@ -261,7 +281,7 @@ public class UISupport {
                         (isMac ? new FlatMacLightLaf() : new FlatLightLaf()));
                 if (isMac)
                     UIManager.put("ToggleButton.toolbar.selectedBackground",
-                            darkAppearance ? Color.DARK_GRAY: new Color(232, 232, 232));
+                            darkAppearance ? Color.DARK_GRAY : new Color(232, 232, 232));
             } catch (Exception ex) {
                 System.err.println("Failed to initialize LaF");
             }
@@ -284,8 +304,8 @@ public class UISupport {
      * @param iconKey The base key of the icon (e.g., "copy").
      * @return The appropriate {@link Icon} for the given key and current theme.
      */
-    public static Icon getIcon(String iconKey) {
-        Icon result = icons.get(getIconKey(iconKey));
+    public static ImageIcon getIcon(String iconKey) {
+        ImageIcon result = icons.get(getIconKey(iconKey));
         if (result == null)
             result = icons.get(getIconKey(iconKey, !isDarkAppearance()));
         return result;
@@ -318,6 +338,17 @@ public class UISupport {
      */
     public static OsThemeDetector getDetector() {
         return osThemeDetector;
+    }
+
+    /**
+     * Creates a {@link JScrollPane} with optional border retention based on the current theme.
+     *
+     * @param view         The component to be displayed in the scroll pane. dark/light appearance.
+     * @param retainBorder If true, a line border will be applied to the scroll pane, its color adapting to the current
+     * @return A new {@link JScrollPane} instance.
+     */
+    public static JScrollPane createScrollPane(Component view, boolean retainBorder) {
+        return createScrollPane(view, retainBorder, false, false, false, false);
     }
 
     /**
@@ -384,11 +415,11 @@ public class UISupport {
      */
     public static JButton createToolbarButton(Action action) {
         JButton result = new JButton(action);
-        if (! Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
+        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
             result.setText(null);
 
         boolean hasText = result.getText() != null;
-        result.setMargin(new Insets(4, hasText ? 6  :4, 4, hasText ? 6 : 4));
+        result.setMargin(new Insets(4, hasText ? 6 : 4, 4, hasText ? 6 : 4));
 
         return result;
     }
@@ -411,11 +442,11 @@ public class UISupport {
         JToggleButton result = new JToggleButton(action);
         if (buttonGroup != null)
             buttonGroup.add(result);
-        if (! Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {
+        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {
             result.setText(null);
         }
         boolean hasText = result.getText() != null;
-        result.setMargin(new Insets(4, hasText ? 6  :4, 4, hasText ? 6 : 4));
+        result.setMargin(new Insets(4, hasText ? 6 : 4, 4, hasText ? 6 : 4));
         return result;
     }
 
@@ -514,7 +545,7 @@ public class UISupport {
     /**
      * Sets up a {@link JToolBar} with actions from an {@link ActionGroup}.
      *
-     * @param toolbar The {@link JToolBar} to set up.
+     * @param toolbar     The {@link JToolBar} to set up.
      * @param actionGroup The {@link ActionGroup} containing the actions to add to the toolbar.
      */
     public static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup) {
@@ -537,17 +568,29 @@ public class UISupport {
                 }
             } else {
                 addToolbarItem(toolbar, action, buttonGroupMap);
-            } // Add separator after each top-level ActionGroup or individual action
-            if (addSeparators && i < actionGroup.getActions().length - 1 && action instanceof ActionGroup subGroup && !subGroup.isPopup()) {
-                if (actionGroup.getActions()[i + 1] instanceof ActionGroup nextSubGroup && !nextSubGroup.isPopup()) {
-                    // Don't add a separator between two non-popup action groups
-                }
+            }
+            if (addSeparators && i < actionGroup.getActions().length - 1) {
+                toolbar.addSeparator();
             }
         }
     }
 
     private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
         toolbar.add(action instanceof StateAction ? createToolbarToggleButton(action, false, buttonGroupMap) : createToolbarButton(action));
+    }
+
+    /**
+     * Converts a given Markdown text into HTML format.
+     *
+     * @param text The Markdown text to be converted.
+     * @return The HTML representation of the Markdown text.
+     */
+    public static String convertMarkdownToHtml(String text) {
+        Parser parser = Parser.builder().build();
+        Node document = parser.parse(text);
+        HtmlRenderer renderer = HtmlRenderer.builder().omitSingleParagraphP(true).build();
+
+        return renderer.render(document);
     }
 
     /**
@@ -614,14 +657,19 @@ public class UISupport {
     /**
      * An Icon implementation that automatically loads the correct icon based on the current theme (light/dark).
      */
-    public static class AutoIcon implements Icon {
+    public static class AutoIcon extends ImageIcon {
         private final String key;
 
         public AutoIcon(String aKey) {
             key = aKey;
         }
 
-        public Icon getIcon() {
+        @Override
+        public Image getImage() {
+            return getIcon().getImage();
+        }
+
+        public ImageIcon getIcon() {
             return UISupport.getIcon(key);
         }
 
@@ -641,6 +689,11 @@ public class UISupport {
         }
     }
 
+    private static class ImageIconUIResource extends ImageIcon implements UIResource {
+        ImageIconUIResource(Image image) {
+            super(image);
+        }
+    }
     /**
      * Manages user preferences for the application.
      */
@@ -802,7 +855,7 @@ public class UISupport {
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
             super.paintBorder(c, g, x, y, width, height);
             g.setColor(lineColor);
-            ((Graphics2D)g).setStroke(new BasicStroke(0.5f));
+            ((Graphics2D) g).setStroke(new BasicStroke(0.5f));
             if (paintTop) {
                 g.drawLine(x + insets.left, y, x + width - insets.right, y); // Top
             }
@@ -833,16 +886,28 @@ public class UISupport {
     }
 
     /**
-     * Converts a given Markdown text into HTML format.
-     *
-     * @param text The Markdown text to be converted.
-     * @return The HTML representation of the Markdown text.
+     * Copies the selected text from a {@link JTextComponent} to the system clipboard.
+     * If no text is selected, the entire content of the text component is copied.
+     * @param textComponent The {@link JTextComponent} from which to copy text.
      */
-    public static String convertMarkdownToHtml(String text) {
-        Parser parser = Parser.builder().build();
-        Node document = parser.parse(text);
-        HtmlRenderer renderer = HtmlRenderer.builder().omitSingleParagraphP(true).build();
-
-        return renderer.render(document);
+    public static void copy(JTextComponent textComponent) {
+        String text = textComponent.getSelectedText();
+        if (textComponent instanceof JEditorPane editorPane && "text/html".equals(editorPane.getContentType())) {
+            int caretPosition = -1;
+            if (text == null || text.isEmpty()) {
+                caretPosition = textComponent.getCaretPosition();
+                textComponent.selectAll();
+            }
+            textComponent.copy();
+            if (caretPosition > -1)
+                textComponent.setCaretPosition(caretPosition);
+        } else {
+            if (text == null || text.isEmpty())
+                text = textComponent.getText();
+            if (text != null && !text.isEmpty()) {
+                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                clipboard.setContents(new StringSelection(text), null);
+            }
+        }
     }
 }

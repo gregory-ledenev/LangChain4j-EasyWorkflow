@@ -130,17 +130,17 @@ public class SampleParallelAgents {
                     .build();
 
             // NOTE: to use Playground comment executor shutdown
-//            Playground playground = Playground.createPlayground(BeanListEveningPlannerAgent.class, Playground.Type.GUI);
-//            playground.setup(Map.of(
-//                    Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
-//                    Playground.ARG_SHOW_DIALOG, true));
-//            playground.play(beanListEveningPlannerAgent, null);
+            Playground playground = Playground.createPlayground(BeanListEveningPlannerAgent.class, Playground.Type.GUI);
+            playground.setup(Map.of(
+                    Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
+                    Playground.ARG_SHOW_DIALOG, false));
+            playground.play(beanListEveningPlannerAgent, null);
 
-            System.out.println(beanListEveningPlannerAgent.plan("happy"));
-            System.out.println(genericEveningPlannerAgent.plan("sad"));
+//            System.out.println(beanListEveningPlannerAgent.plan("happy"));
+//            System.out.println(genericEveningPlannerAgent.plan("sad"));
         } finally {
-            executor.shutdownNow();
-            EasyWorkflow.closeSharedExecutorService();
+//            executor.shutdownNow();
+//            EasyWorkflow.closeSharedExecutorService();
         }
     }
 
@@ -171,17 +171,17 @@ public class SampleParallelAgents {
 
     public interface EveningPlannerAgent {
         @Agent
-        List<EveningPlan> plan(@P("mood") String mood);
+        List<EveningPlan> plan(@V("mood") String mood);
     }
 
     public interface GenericEveningPlannerAgent {
         @Agent
-        Map<String, List<String>> plan(@P("mood") String mood);
+        Map<String, List<String>> plan(@V("mood") String mood);
     }
 
     public interface BeanListEveningPlannerAgent {
         @Agent
-        List<EveningPlan> plan(@P("mood") String mood);
+        List<EveningPlan> plan(@V("mood") String mood);
     }
 
     public static final class EveningPlan {

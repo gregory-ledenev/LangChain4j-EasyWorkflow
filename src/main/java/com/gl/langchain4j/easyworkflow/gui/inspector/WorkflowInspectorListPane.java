@@ -28,16 +28,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import com.gl.langchain4j.easyworkflow.gui.HeaderPane;
 import com.gl.langchain4j.easyworkflow.gui.UISupport;
+import dev.langchain4j.data.message.UserMessage;
 
 import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
-import java.util.HashMap;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
+import java.awt.geom.Line2D;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.*;
@@ -57,15 +58,20 @@ public class WorkflowInspectorListPane extends JPanel {
     public static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
     static final String TYPE_START = "start";
     static final String TYPE_END = "end";
-    private final JList<WorkflowItem> list;
-    private final DefaultListModel<WorkflowItem> model;
+    protected final JList<WorkflowItem> list;
+    protected final DefaultListModel<WorkflowItem> model;
+    protected final List<WorkflowItem> listModel = new ArrayList<>();
+    private final Map<String, WorkflowItem> workflowItemsByUID = new HashMap<>();
+    private final Map<String, WorkflowItem> workflowItemsByType = new HashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private WorkflowDebugger workflowDebugger;
+    protected boolean painLinkArrows;
+    protected WorkflowDebugger workflowDebugger;
     private WorkflowDebugger.Breakpoint breakpointSessionStarted;
     private WorkflowDebugger.Breakpoint breakpointSessionStopped;
     private WorkflowDebugger.Breakpoint breakpointSessionFailed;
     private WorkflowDebugger.Breakpoint breakpointAgentStarted;
     private WorkflowDebugger.Breakpoint breakpointAgentFinished;
+    protected AgentWorkflowBuilder<?> workflowBuilder;
 
     /**
      * Constructs a new WorkflowInspectorListPane.
@@ -86,6 +92,23 @@ public class WorkflowInspectorListPane extends JPanel {
         JScrollPane scrollPane = UISupport.createScrollPane(list, true, false, true, false, true);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
+    }
+
+    @Override
+    public void requestFocus() {
+        list.requestFocus();
+    }
+
+    /**
+     * Copies the JSON representation of the current workflow to the system clipboard.
+     * If no workflow is set, this method does nothing.
+     */
+    public void copy() {
+        if (workflowBuilder != null) {
+            String json = workflowBuilder.toJson();
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            clipboard.setContents(new StringSelection(json), null);
+        }
     }
 
     private static String getSimpleClassName(String className) {
@@ -114,6 +137,10 @@ public class WorkflowInspectorListPane extends JPanel {
         frame.setVisible(true);
     }
 
+    protected boolean isPainLinkArrows() {
+        return painLinkArrows;
+    }
+
     /**
      * Returns the JList component displaying the workflow items.
      */
@@ -127,79 +154,99 @@ public class WorkflowInspectorListPane extends JPanel {
      * @param builder The EasyWorkflow.AgentWorkflowBuilder representing the workflow.
      */
     public void setWorkflow(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
+        this.workflowBuilder = builder;
         model.clear();
         try {
-            String jsonString = builder.toJson();
-            List<Map<String, Object>> workflowData = objectMapper.readValue(jsonString, List.class);
-            model.addElement(new WorkflowItem(null, TYPE_START, ICON_PLAY, "Start", null, 0));
-            populateModelFromJson(workflowData, 0);
-            model.addElement(new WorkflowItem(null, TYPE_END, ICON_STOP, "End", null, 0));
+            populateListModel(listModel, builder);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
             model.addElement(new WorkflowItem(null, null, null, "Error parsing workflow", e.getMessage(), 0));
         }
     }
 
-    private void populateModelFromJson(List<Map<String, Object>> nodes, int indentation) {
+    private void populateListModel(List<WorkflowItem> listModel, AgentWorkflowBuilder<?> builder) throws JsonProcessingException {
+        String jsonString = builder.toJson();
+        List<Map<String, Object>> workflowData = objectMapper.readValue(jsonString, List.class);
+        listModel.add(new WorkflowItem(null, TYPE_START, ICON_PLAY, "Start", null, 0));
+        populateListModel(listModel, workflowData, 0);
+        listModel.add(new WorkflowItem(null, TYPE_END, ICON_STOP, "End", null, 0));
+
+        for (WorkflowItem workflowItem : listModel) {
+            workflowItemsByUID.put(workflowItem.getUid(), workflowItem);
+            workflowItemsByType.put(workflowItem.getType(), workflowItem);
+        }
+    }
+
+    private void populateListModel(List<WorkflowItem> listModel, List<Map<String, Object>> nodes, int indentation) {
         for (Map<String, Object> node : nodes) {
             String type = (String) node.get(EasyWorkflow.JSON_KEY_TYPE);
-            String title = type;
-            String subtitle = null;
-            String iconKey = null;
 
-            switch (type) {
-                case JSON_TYPE_AGENT:
-                case JSON_TYPE_NON_AI_AGENT:
-                    title = getAgentTitle(node);
-                    subtitle = getAgentSubtitle(node);
-                    iconKey = UISupport.ICON_EXPERT;
-                    break;
-                case "setState":
-                    title = "Set State";
-                    subtitle = (String) node.get("details");
-                    break;
-                case JSON_TYPE_IF_THEN:
-                    title = "if (%s)".formatted((String) node.getOrDefault(JSON_KEY_CONDITION, "..."));
-                    iconKey = ICON_SIGNPOST;
-                    break;
-                case JSON_TYPE_REPEAT:
-                    title = "repeat (max: %s, until: %s)".formatted(
-                            node.get(JSON_KEY_MAX_ITERATIONS),
-                            node.getOrDefault(JSON_KEY_CONDITION, "..."));
-                    iconKey = ICON_REFRESH;
-                    break;
-                case "doWhen":
-                    title = "when (%s)".formatted((String) node.getOrDefault(JSON_KEY_EXPRESSION, "..."));
-                    iconKey = ICON_SIGNPOST;
-                    break;
-                case "match":
-                    title = "match (%s)".formatted((String) node.getOrDefault(JSON_KEY_VALUE, "..."));
-                    iconKey = ICON_TARGET;
-                    break;
-                case "doParallel":
-                    title = "Do Parallel";
-                    iconKey = ICON_STACK;
-                    break;
-                case "group":
-                    title = "Group";
-                    iconKey = ICON_BOX;
-                    break;
-                case "breakpoint":
-                    title = "Breakpoint";
-                    iconKey = ICON_BREAKPOINT;
-                    break;
-            }
+            WorkflowItem element = createWorkflowItem(indentation, node, type, type);
 
-            model.addElement(new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), iconKey, title, subtitle, indentation));
+            listModel.add(element);
 
             if (node.containsKey("block")) {
-                populateModelFromJson((List<Map<String, Object>>) node.get("block"), indentation + 1);
+                populateListModel(listModel, (List<Map<String, Object>>) node.get("block"), indentation + 1);
             }
             if (node.containsKey("elseBlock")) {
-                model.addElement(new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), null, "else", "", indentation));
-                populateModelFromJson((List<Map<String, Object>>) node.get("elseBlock"), indentation + 1);
+                listModel.add(new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), null, "else", "", indentation));
+                populateListModel(listModel, (List<Map<String, Object>>) node.get("elseBlock"), indentation + 1);
             }
         }
+    }
+
+    private WorkflowItem createWorkflowItem(int indentation, Map<String, Object> node, String type, String title) {
+        String subtitle = null;
+        String iconKey = null;
+        switch (type) {
+            case JSON_TYPE_AGENT:
+            case JSON_TYPE_NON_AI_AGENT:
+                title = getAgentTitle(node);
+                subtitle = getAgentSubtitle(node);
+                iconKey = UISupport.ICON_EXPERT;
+                break;
+            case "setState":
+                title = "Set State";
+                subtitle = (String) node.get("details");
+                break;
+            case JSON_TYPE_IF_THEN:
+                title = "if (%s)".formatted((String) node.getOrDefault(JSON_KEY_CONDITION, "..."));
+                iconKey = ICON_SIGNPOST;
+                break;
+            case JSON_TYPE_REPEAT:
+                title = "repeat (max: %s, until: %s)".formatted(
+                        node.get(JSON_KEY_MAX_ITERATIONS),
+                        node.getOrDefault(JSON_KEY_CONDITION, "..."));
+                iconKey = ICON_REFRESH;
+                break;
+            case "doWhen":
+                title = "when (%s)".formatted((String) node.getOrDefault(JSON_KEY_EXPRESSION, "..."));
+                iconKey = ICON_SIGNPOST;
+                break;
+            case "match":
+                title = "match (%s)".formatted((String) node.getOrDefault(JSON_KEY_VALUE, "..."));
+                iconKey = ICON_TARGET;
+                break;
+            case "doParallel":
+                title = "Do Parallel";
+                iconKey = ICON_STACK;
+                break;
+            case "group":
+                title = "Group";
+                iconKey = ICON_BOX;
+                break;
+            case "breakpoint":
+                title = "Breakpoint";
+                iconKey = ICON_BREAKPOINT;
+                break;
+        }
+
+        WorkflowItem element = new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), iconKey, title, subtitle, indentation);
+        return element;
+    }
+
+    protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
+        return new String[]{workflowItem.getSubtitle()};
     }
 
     private String getAgentSubtitle(Map<String, Object> node) {
@@ -249,18 +296,18 @@ public class WorkflowInspectorListPane extends JPanel {
                 }
                 case JSON_TYPE_AGENT, JSON_TYPE_NON_AI_AGENT -> {
                     String uid = selectedValue.getUid();
-                    List<WorkflowDebugger.AgentInvocationTraceEntry> entries = workflowDebugger.getAgentInvocationTraceEntries().stream()
-                            .filter(e -> workflowDebugger.getAgentMetadata(e.getAgent()).getId().equals(uid))
-                            .toList();
+                    List<WorkflowDebugger.AgentInvocationTraceEntry> entries = selectedValue.getTraceEntries(list.getSelectedIndex());
 
                     Map<String, Object> passResult = result;
-                    for (WorkflowDebugger.AgentInvocationTraceEntry entry : entries) {
-                        if (entries.size() > 1)
-                            result.put("pass [%s]".formatted(entries.indexOf(entry) + 1), passResult = new HashMap<>());
-                        passResult.put("input", valueToMap(entry.getInput()));
-                        passResult.put("output", valueToMap(entry.getOutput()));
-                        if (entry.getFailure() != null) {
-                            passResult.put("failure", valueToMap(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
+                    if (entries != null) {
+                        for (WorkflowDebugger.AgentInvocationTraceEntry entry : entries) {
+                            if (entries.size() > 1)
+                                result.put("pass [%s]".formatted(entries.indexOf(entry)), passResult = new HashMap<>());
+                            passResult.put("input", valueToMap(entry.getInput()));
+                            passResult.put("output", valueToMap(entry.getOutput()));
+                            if (entry.getFailure() != null) {
+                                passResult.put("failure", valueToMap(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
+                            }
                         }
                     }
                 }
@@ -326,20 +373,24 @@ public class WorkflowInspectorListPane extends JPanel {
      */
     public void workflowDebuggerSessionStarted(Map<String, Object> states) {
         SwingUtilities.invokeLater(() -> {
-            for (int i = 0; i < model.getSize(); i++) {
-                model.get(i).setState(WorkflowItem.State.Unknown);
-            }
+            clearItems();
             findItemByType(TYPE_START).ifPresent(item -> item.setState(WorkflowItem.State.Running));
             list.repaint();
             updateSelection();
         });
     }
 
-    private void updateSelection() {
+    protected void updateSelection() {
         int selectedIndex = list.getSelectedIndex();
         list.clearSelection();
         if (selectedIndex > -1)
             list.getSelectionModel().setSelectionInterval(selectedIndex, selectedIndex);
+    }
+
+    protected void clearItems() {
+        for (WorkflowItem aWorkflowItem : listModel) {
+            aWorkflowItem.clear();
+        }
     }
 
     /**
@@ -372,7 +423,7 @@ public class WorkflowInspectorListPane extends JPanel {
         });
     }
 
-    private void markIncompleteItemsAsFailed() {
+    protected void markIncompleteItemsAsFailed() {
         for (WorkflowDebugger.AgentInvocationTraceEntry entry : workflowDebugger.getAgentInvocationTraceEntries()) {
             if (entry.getFailure() != null) {
                 String uid = workflowDebugger.getAgentMetadata(entry.getAgent()).getId();
@@ -393,6 +444,8 @@ public class WorkflowInspectorListPane extends JPanel {
             findItemByUid(uid).ifPresent(currentItem -> {
                 currentItem.setState(WorkflowItem.State.Running);
                 currentItem.setPassCount(currentItem.getPassCount() + 1);
+                currentItem.setTraceEntry(listModel.indexOf(currentItem),
+                        (WorkflowDebugger.AgentInvocationTraceEntry) states.get(WorkflowDebugger.KEY_TRACE_ENTRY));
                 markMissedItemsAsFinished(currentItem);
             });
             findItemByType(TYPE_START).ifPresent(item -> item.setState(WorkflowItem.State.Finished));
@@ -401,7 +454,7 @@ public class WorkflowInspectorListPane extends JPanel {
         });
     }
 
-    private void markMissedItemsAsFinished(WorkflowItem currentItem) {
+    protected void markMissedItemsAsFinished(WorkflowItem currentItem) {
         int index = model.indexOf(currentItem);
         for (int i = index - 1; i >= 0; i--) {
             WorkflowItem item = model.get(i);
@@ -417,7 +470,7 @@ public class WorkflowInspectorListPane extends JPanel {
         }
     }
 
-    private Expression getAgentMetadata(Map<String, Object> states) {
+    protected Expression getAgentMetadata(Map<String, Object> states) {
         return workflowDebugger.getAgentMetadata(states.get(WorkflowDebugger.KEY_AGENT));
     }
 
@@ -462,39 +515,48 @@ public class WorkflowInspectorListPane extends JPanel {
         }
     }
 
-    private Optional<WorkflowItem> findItemByUid(String uid) {
-        for (int i = 0; i < model.getSize(); i++) {
-            WorkflowItem item = model.get(i);
-            if (uid.equals(item.getUid())) {
-                return Optional.of(item);
-            }
-        }
-        return Optional.empty();
+    /**
+     * Finds a {@link WorkflowItem} by its unique identifier (UID).
+     *
+     * @param uid The unique identifier of the workflow item to find.
+     * @return An {@link Optional} containing the {@link WorkflowItem} if found, otherwise an empty {@link Optional}.
+     */
+    protected Optional<WorkflowItem> findItemByUid(String uid) {
+        return Optional.ofNullable(workflowItemsByUID.get(uid));
     }
 
-    private Optional<WorkflowItem> findItemByType(String type) {
-        for (int i = 0; i < model.getSize(); i++) {
-            WorkflowItem item = model.get(i);
-            if (type.equals(item.getType())) {
-                return Optional.of(item);
-            }
-        }
-        return Optional.empty();
+    /**
+     * Finds a {@link WorkflowItem} by its type.
+     * @param type The type of the workflow item to find.
+     * @return An {@link Optional} containing the {@link WorkflowItem} if found, otherwise an empty {@link Optional}.
+     */
+    protected Optional<WorkflowItem> findItemByType(String type) {
+        return Optional.ofNullable(workflowItemsByType.get(type));
+    }
+
+    /**
+     * Checks if the list model contains any elements.
+     *
+     * @return {@code true} if the list model has one or more elements, {@code false} otherwise.
+     */
+    public boolean hasContent() {
+        return model.getSize() > 0;
     }
 
     /**
      * Represents a single item in the workflow list, holding its properties and state.
      */
-    public static class WorkflowItem {
+    public static class WorkflowItem implements Cloneable {
 
         private final String iconKey;
         private final String title;
         private final String subtitle;
-        private final int indentation;
         private final String uid;
         private final String type;
+        private int indentation;
         private State state = State.Unknown;
         private int passCount;
+        private Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> traceEntriesByIndex = new HashMap<>();
 
         public WorkflowItem(String uid, String type, String iconKey, String title, String subtitle, int indentation) {
             this.iconKey = iconKey;
@@ -503,6 +565,25 @@ public class WorkflowInspectorListPane extends JPanel {
             this.indentation = indentation;
             this.uid = uid;
             this.type = type;
+        }
+
+        /**
+         * Retrieves the agent invocation trace entries for a specific pass index.
+         *
+         * @param index The index of the pass.
+         * @return The {@link WorkflowDebugger.AgentInvocationTraceEntry} for the given index, or null if not found.
+         */
+        public List<WorkflowDebugger.AgentInvocationTraceEntry> getTraceEntries(int index) {
+            return traceEntriesByIndex.get(index);
+        }
+
+        /**
+         * Sets the agent invocation trace entry for a specific pass index.
+         * @param index The index of the pass.
+         * @param traceEntry The {@link WorkflowDebugger.AgentInvocationTraceEntry} to set.
+         */
+        public void setTraceEntry(int index, WorkflowDebugger.AgentInvocationTraceEntry traceEntry) {
+            traceEntriesByIndex.computeIfAbsent(index, k -> new ArrayList<>()).add(traceEntry);
         }
 
         /**
@@ -545,6 +626,13 @@ public class WorkflowInspectorListPane extends JPanel {
          */
         public int getIndentation() {
             return indentation;
+        }
+
+        /**
+         * Sets the indentation level of the workflow item.
+         */
+        public void setIndentation(int aIndentation) {
+            indentation = aIndentation;
         }
 
         /**
@@ -610,6 +698,21 @@ public class WorkflowInspectorListPane extends JPanel {
             };
         }
 
+        @Override
+        public WorkflowItem clone() {
+            try {
+                return (WorkflowItem) super.clone();
+            } catch (CloneNotSupportedException e) {
+                throw new AssertionError();
+            }
+        }
+
+        public void clear() {
+            setState(WorkflowItem.State.Unknown);
+            setPassCount(0);
+            traceEntriesByIndex.clear();
+        }
+
         public enum State {
             Unknown,
             Running,
@@ -620,14 +723,20 @@ public class WorkflowInspectorListPane extends JPanel {
 
     private static class WorkflowItemRenderer extends JPanel implements ListCellRenderer<WorkflowItem> {
         public static final Color BORDER_COLOR = Color.DARK_GRAY;
-        private final JLabel iconLabel = new JLabel();
-        private final JLabel titleLabel = new JLabel();
-        private final JLabel subtitleLabel = new JLabel();
+        static final Border INDICATOR_LINE_BORDER = BorderFactory.createCompoundBorder(
+                UISupport.createRoundRectBorder(Color.GRAY),
+                BorderFactory.createEmptyBorder(1, 8, 1, 8));
+        static final Border INDICATOR_BORDER = BorderFactory.createEmptyBorder(1, 5, 1, 5);
+        private final JLabel lblIcon = new JLabel();
+        private final JLabel lblTitle = new JLabel();
+        private final JLabel lblSubTitle = new JLabel() {};
+        private final JLabel lblSubTitle2 = new JLabel() {};
         private final JLabel lblStateIndicator = new JLabel();
         private final JPanel pnlContent;
         private final Box pnlStateIndicator;
         private LinkType linkType;
         private String type;
+        private boolean paintLinkArrows;
 
         public WorkflowItemRenderer() {
             super(new BorderLayout());
@@ -648,8 +757,8 @@ public class WorkflowInspectorListPane extends JPanel {
             add(pnlContent, BorderLayout.CENTER);
 
             // Icon on the left
-            iconLabel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 5));
-            pnlContent.add(iconLabel, BorderLayout.WEST);
+            lblIcon.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 5));
+            pnlContent.add(lblIcon, BorderLayout.WEST);
 
             // Text panel for title and subtitle
             JPanel textPanel = new JPanel();
@@ -661,13 +770,15 @@ public class WorkflowInspectorListPane extends JPanel {
             textPanel.add(Box.createVerticalGlue());
             textPanel.add(Box.createVerticalStrut(5));
 
-            titleLabel.setFont(titleLabel.getFont().deriveFont(Font.BOLD));
-            textPanel.add(titleLabel);
+            lblTitle.setFont(lblTitle.getFont().deriveFont(Font.BOLD));
+            textPanel.add(lblTitle);
 
-            textPanel.add(subtitleLabel);
+            textPanel.add(lblSubTitle);
+            textPanel.add(lblSubTitle2);
 
             textPanel.add(Box.createVerticalStrut(5));
             textPanel.add(Box.createVerticalGlue());
+            textPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 10));
         }
 
         @Override
@@ -679,7 +790,6 @@ public class WorkflowInspectorListPane extends JPanel {
         public void paintComponent(Graphics g) {
             Graphics2D graphics = (Graphics2D) g.create();
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
 
             Rectangle rect = pnlContent.getBounds().getBounds();
             Insets insets = pnlContent.getInsets();
@@ -716,30 +826,63 @@ public class WorkflowInspectorListPane extends JPanel {
                 graphics.setColor(BORDER_COLOR);
                 graphics.drawRect(rect.x, rect.y, rect.width, rect.height);
             }
+
+            if (paintLinkArrows)
+                paintLinkArrows(graphics, rect, insets);
+            else
+                paintLinks(graphics, rect, insets);
+
+            graphics.dispose();
+        }
+
+        private void paintLinkArrows(Graphics2D graphics, Rectangle rect, Insets insets) {
+            graphics.setStroke(new BasicStroke(0.5f));
+            graphics.setColor(new Color(0, 128, 0));
+            int linkX = rect.x + (rect.width + insets.left) / 2 - insets.left;
+            int[] xPoints = {linkX - 3, linkX + 3, linkX};
+            int[] yPoints = {0, 0, 5};
             switch (linkType) {
                 case Top:
-                    graphics.drawLine(getWidth() / 2, 0, getWidth() / 2, 5);
+                    graphics.fillPolygon(xPoints, yPoints, 3); // Arrow pointing down
                     break;
                 case Bottom:
-                    graphics.drawLine(getWidth() / 2, getHeight() - 5, getWidth() / 2, getHeight());
+                    graphics.draw(new Line2D.Double(linkX - 0.5, getHeight() - 5, linkX - 0.5, getHeight()));
+                    graphics.draw(new Line2D.Double(linkX, getHeight() - 5, linkX, getHeight()));
                     break;
                 case Both:
-                    graphics.drawLine(getWidth() / 2, 0, getWidth() / 2, 5);
-                    graphics.drawLine(getWidth() / 2, getHeight() - 5, getWidth() / 2, getHeight());
+                    graphics.draw(new Line2D.Double(linkX - 0.5, getHeight() - 5, linkX - 0.5, getHeight()));
+                    graphics.draw(new Line2D.Double(linkX, getHeight() - 5, linkX, getHeight()));
+                    graphics.fillPolygon(xPoints, yPoints, 3); // Arrow pointing down
                     break;
                 default:
                     // do nothing
             }
-            graphics.dispose();
         }
 
-        static final Border INDICATOR_LINE_BORDER = BorderFactory.createCompoundBorder(
-                UISupport.createRoundRectBorder(Color.GRAY),
-                BorderFactory.createEmptyBorder(1, 8, 1, 8));
-        static final Border INDICATOR_BORDER = BorderFactory.createEmptyBorder(1, 5, 1, 5);
+        private void paintLinks(Graphics2D graphics, Rectangle rect, Insets insets) {
+            int linkX = rect.x + (rect.width + insets.left) / 2 - insets.left;
+            switch (linkType) {
+                case Top:
+                    graphics.drawLine(linkX, 0, linkX, 5);
+                    break;
+                case Bottom:
+                    graphics.drawLine(linkX, getHeight() - 5, linkX, getHeight());
+                    break;
+                case Both:
+                    graphics.drawLine(linkX, 0, linkX, 5);
+                    graphics.drawLine(linkX, getHeight() - 5, linkX, getHeight());
+                    break;
+                default:
+                    // do nothing
+            }
+        }
 
         @Override
         public Component getListCellRendererComponent(JList<? extends WorkflowItem> list, WorkflowItem value, int index, boolean isSelected, boolean cellHasFocus) {
+            WorkflowInspectorListPane listPane = (WorkflowInspectorListPane) SwingUtilities.getAncestorOfClass(WorkflowInspectorListPane.class, list);
+            if (listPane != null)
+                paintLinkArrows = listPane.isPainLinkArrows();
+
             this.type = value.getType();
             int size = list.getModel().getSize();
             if (size == 1)
@@ -755,16 +898,25 @@ public class WorkflowInspectorListPane extends JPanel {
             lblStateIndicator.setText(value.getStateIndicator());
             lblStateIndicator.setBorder(value.getState() == WorkflowItem.State.Failed ||
                     (value.getState() == WorkflowItem.State.Finished &&
-                    (value.getPassCount() > 1 || value.getType().equals(TYPE_END))) ? INDICATOR_LINE_BORDER : INDICATOR_BORDER);
+                            (value.getPassCount() > 1 || value.getType().equals(TYPE_END))) ? INDICATOR_LINE_BORDER : INDICATOR_BORDER);
             pnlStateIndicator.setPreferredSize(new Dimension(50, 0));
 
-            iconLabel.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
-            titleLabel.setText(value.getTitle());
+            lblIcon.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
+            lblTitle.setText(value.getTitle());
 
-            boolean hasSubtitle = value.getSubtitle() != null && !value.getSubtitle().trim().isEmpty();
-            subtitleLabel.setVisible(hasSubtitle);
-            if (hasSubtitle) {
-                subtitleLabel.setText(value.getSubtitle());
+            if (listPane != null) {
+                String[] subTitles = listPane.getSubTitles(value, index);
+                if (subTitles.length > 0) {
+                    lblSubTitle.setVisible(true);
+                    lblSubTitle.setText(subTitles[0]);
+                    if (subTitles.length > 1) {
+                        lblSubTitle2.setVisible(true);
+                        lblSubTitle2.setText(subTitles[1]);
+                    }
+                } else {
+                    lblSubTitle.setVisible(false);
+                    lblSubTitle2.setVisible(false);
+                }
             }
 
             int leftIndent = value.getIndentation() * 20;
@@ -772,12 +924,15 @@ public class WorkflowInspectorListPane extends JPanel {
 
             if (isSelected) {
                 setBackground(list.getSelectionBackground());
-                titleLabel.setForeground(list.getSelectionForeground());
-                subtitleLabel.setForeground(list.getSelectionForeground());
+                lblTitle.setForeground(list.getSelectionForeground());
+                lblSubTitle.setForeground(list.getSelectionForeground());
+                lblSubTitle2.setForeground(list.getSelectionForeground());
             } else {
                 setBackground(value.getColor() != null ? value.getColor() : list.getBackground());
-                titleLabel.setForeground(list.getForeground());
-                subtitleLabel.setForeground(Color.GRAY);
+                lblTitle.setForeground(list.getForeground());
+                Color subTitleForground = UISupport.isDarkAppearance() ? Color.LIGHT_GRAY  :Color.GRAY;
+                lblSubTitle.setForeground(subTitleForground);
+                lblSubTitle2.setForeground(subTitleForground);
             }
 
             return this;
@@ -785,6 +940,111 @@ public class WorkflowInspectorListPane extends JPanel {
 
         private enum LinkType {
             None, Top, Bottom, Both
+        }
+    }
+
+    public static class Structure extends WorkflowInspectorListPane {
+        @Override
+        public void setWorkflow(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
+            super.setWorkflow(builder);
+            for (WorkflowItem workflowItem : listModel)
+                model.addElement(workflowItem);
+        }
+    }
+
+    public static class Execution extends WorkflowInspectorListPane {
+        public Execution() {
+            painLinkArrows = true;
+        }
+
+        @Override
+        public void copy() {
+            if (workflowDebugger != null) {
+                String result = workflowDebugger.toString(true);
+                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                clipboard.setContents(new StringSelection(result), null);
+            } else {
+                super.copy();
+            }
+        }
+
+        @Override
+        public void workflowDebuggerSessionStarted(Map<String, Object> states) {
+            SwingUtilities.invokeLater(() -> {
+                model.clear();
+                clearItems();
+                findItemByType(TYPE_START).ifPresent(item -> {
+                    model.addElement(item);
+                    item.setState(WorkflowItem.State.Finished);
+                });
+                list.repaint();
+                updateSelection();
+            });
+        }
+
+        @Override
+        public void workflowDebuggerSessionStopped(Map<String, Object> states) {
+            SwingUtilities.invokeLater(() -> {
+                findItemByType(TYPE_END).ifPresent(item -> {
+                    model.addElement(item);
+                    item.setState(WorkflowItem.State.Finished);
+                });
+                findItemByType(TYPE_START).ifPresent(item -> item.setState(WorkflowItem.State.Finished));
+                list.repaint();
+                updateSelection();
+            });
+        }
+
+        @Override
+        public void workflowDebuggerSessionFailed(Map<String, Object> states) {
+            SwingUtilities.invokeLater(() -> {
+                findItemByType(TYPE_END).ifPresent(item -> {
+                    model.addElement(item);
+                    item.setState(WorkflowItem.State.Failed);
+                });
+                findItemByType(TYPE_START).ifPresent(item -> item.setState(WorkflowItem.State.Finished));
+                markIncompleteItemsAsFailed();
+                list.repaint();
+                updateSelection();
+            });
+        }
+
+        @Override
+        public void workflowDebuggerAgentStarted(Map<String, Object> states) {
+            String uid = getAgentMetadata(states).getId();
+            SwingUtilities.invokeLater(() -> {
+                findItemByUid(uid).ifPresent(currentItem -> {
+                    currentItem.setIndentation(0);
+                    model.addElement(currentItem);
+                    currentItem.setState(WorkflowItem.State.Running);
+                    currentItem.setTraceEntry(model.size() - 1,
+                            (WorkflowDebugger.AgentInvocationTraceEntry) states.get(WorkflowDebugger.KEY_TRACE_ENTRY));
+                    markMissedItemsAsFinished(currentItem);
+                });
+                findItemByType(TYPE_START).ifPresent(item -> item.setState(WorkflowItem.State.Finished));
+                list.repaint();
+                updateSelection();
+            });
+        }
+
+        @Override
+        protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
+            if (! (workflowItem.getType().equals(JSON_TYPE_AGENT) || workflowItem.getType().equals(JSON_TYPE_NON_AI_AGENT)))
+                return new String[0];
+
+            List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = workflowItem.getTraceEntries(index);
+            String inputStr = "→ ";
+            String outputStr = "← ";
+            if (traceEntries != null && !traceEntries.isEmpty()) {
+                WorkflowDebugger.AgentInvocationTraceEntry traceEntry = traceEntries.get(0);
+                if (traceEntry.getInput() instanceof UserMessage userMessage) {
+                    inputStr += userMessage.singleText();
+                } else if (traceEntry.getInput() != null) {
+                    inputStr += traceEntry.getInput().toString();
+                }
+                outputStr += traceEntry.getOutput() != null ? traceEntry.getOutput().toString() : "";
+            }
+            return new String[]{inputStr, outputStr};
         }
     }
 }
