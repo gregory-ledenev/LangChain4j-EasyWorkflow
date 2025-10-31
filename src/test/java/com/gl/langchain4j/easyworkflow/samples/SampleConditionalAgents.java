@@ -87,8 +87,6 @@ public class SampleConditionalAgents {
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
 
-        WorkflowInspectorListPane.show(builder);
-
         System.out.println(builder.generateAISummary());
 
         try {

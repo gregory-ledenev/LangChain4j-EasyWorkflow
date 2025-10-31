@@ -28,12 +28,13 @@ import com.gl.langchain4j.easyworkflow.gui.UISupport;
 
 import javax.swing.*;
 import java.awt.*;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 
 /**
- * A component that hosts a ChatMessagesPane within a scrollable view and provides a
- * "Scroll to Bottom" button.
+ * A component that hosts a ChatMessagesPane within a scrollable view and provides a "Scroll to Bottom" button.
  */
-public class ChatMessagesHostPane extends JPanel {
+public class ChatMessagesHostPane extends JPanel implements PropertyChangeListener {
     private final ChatMessagesPane chatMessagesPane;
     private final JScrollPane scrollPane;
     private final JButton btnScrollToBottom;
@@ -69,10 +70,12 @@ public class ChatMessagesHostPane extends JPanel {
 
         layeredPane.setLayout(new LayoutManager() {
             @Override
-            public void addLayoutComponent(String name, Component comp) {}
+            public void addLayoutComponent(String name, Component comp) {
+            }
 
             @Override
-            public void removeLayoutComponent(Component comp) {}
+            public void removeLayoutComponent(Component comp) {
+            }
 
             @Override
             public Dimension preferredLayoutSize(Container parent) {
@@ -98,7 +101,7 @@ public class ChatMessagesHostPane extends JPanel {
 
         scrollPane.getVerticalScrollBar().addAdjustmentListener(e -> {
             JScrollBar scrollBar = scrollPane.getVerticalScrollBar();
-            if (scrollBar.isVisible() && ! e.getValueIsAdjusting()) {
+            if (scrollBar.isVisible() && !e.getValueIsAdjusting()) {
                 updateScrollToBottomButtonLater();
                 if (isAtBottom())
                     setHasNewData(false);
@@ -115,8 +118,15 @@ public class ChatMessagesHostPane extends JPanel {
     }
 
     @Override
+    public void addNotify() {
+        super.addNotify();
+        UISupport.addPropertyChangeListener(this);
+    }
+
+    @Override
     public void removeNotify() {
         super.removeNotify();
+        UISupport.removePropertyChangeListener(this);
         if (updateScrollToBottomButtonTimer != null)
             updateScrollToBottomButtonTimer.stop();
         if (scrollToBottomTimer != null)
@@ -145,8 +155,7 @@ public class ChatMessagesHostPane extends JPanel {
     }
 
     /**
-     * Adds a new chat message to the ChatMessagesPane.
-     * If the view is already at the bottom, it will auto-scroll.
+     * Adds a new chat message to the ChatMessagesPane. If the view is already at the bottom, it will auto-scroll.
      *
      * @param chatMessage The ChatMessage to add.
      */
@@ -165,8 +174,8 @@ public class ChatMessagesHostPane extends JPanel {
     }
 
     /**
-     * Removes the typing indicator from the ChatMessagesPane.
-     * If the view is already at the bottom, it will auto-scroll.
+     * Removes the typing indicator from the ChatMessagesPane. If the view is already at the bottom, it will
+     * auto-scroll.
      */
     public void removeTypingIndicator() {
         boolean wasAtBottom = isAtBottom();
@@ -175,8 +184,7 @@ public class ChatMessagesHostPane extends JPanel {
     }
 
     /**
-     * Adds a typing indicator to the ChatMessagesPane.
-     * If the view is already at the bottom, it will auto-scroll.
+     * Adds a typing indicator to the ChatMessagesPane. If the view is already at the bottom, it will auto-scroll.
      */
     public void addTypingIndicator() {
         boolean wasAtBottom = isAtBottom();
@@ -208,14 +216,41 @@ public class ChatMessagesHostPane extends JPanel {
         SwingUtilities.invokeLater(() -> verticalScrollBar.setValue(verticalScrollBar.getMaximum()));
     }
 
+    /**
+     * Checks if there is new data that has caused the scroll position to move away from the bottom.
+     *
+     * @return {@code true} if there is new data and the scrollbar is not at the bottom, {@code false} otherwise.
+     */
     public boolean isHasNewData() {
         return hasNewData;
     }
 
+    /**
+     * Sets the flag indicating whether there is new data. If the value changes, it updates the "Scroll to Bottom"
+     * button's foreground color.
+     *
+     * @param aHasNewData {@code true} if there is new data, {@code false} otherwise.
+     */
     public void setHasNewData(boolean aHasNewData) {
         if (hasNewData != aHasNewData) {
             hasNewData = aHasNewData;
             btnScrollToBottom.setForeground(hasNewData ? Color.GREEN : null);
         }
     }
+
+    private void appearanceChanged() {
+        int value = scrollPane.getVerticalScrollBar().getValue();
+        SwingUtilities.invokeLater(() -> {
+            getChatMessagesPane().updateRenderers();
+            SwingUtilities.invokeLater(() -> scrollPane.getVerticalScrollBar().setValue(value));
+            ;
+        });
+    }
+
+    @Override
+    public void propertyChange(PropertyChangeEvent evt) {
+        if (evt.getPropertyName().equals(UISupport.Options.PROP_APPEARANCE_DARK))
+            appearanceChanged();
+    }
 }
+

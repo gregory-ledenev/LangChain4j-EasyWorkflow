@@ -28,6 +28,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.gui.Actions;
 import com.gl.langchain4j.easyworkflow.gui.UISupport;
 import dev.langchain4j.data.message.UserMessage;
 
@@ -36,6 +37,7 @@ import javax.swing.border.Border;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
+import java.awt.event.KeyEvent;
 import java.awt.geom.Line2D;
 import java.util.*;
 import java.util.List;
@@ -48,7 +50,7 @@ import static javax.swing.BoxLayout.Y_AXIS;
 /**
  * A panel that displays a hierarchical view of a workflow, allowing for inspection and debugging.
  */
-public class WorkflowInspectorListPane extends JPanel {
+public abstract class WorkflowInspectorListPane extends JPanel {
     public static final Color BACKGROUND_AGENT = new Color(255, 255, 153);
     public static final Color BACKGROUND_AGENT_NONAI = new Color(245, 245, 245);
     public static final Color BACKGROUND_STATEMENT = new Color(236, 236, 255);
@@ -66,18 +68,19 @@ public class WorkflowInspectorListPane extends JPanel {
     private final ObjectMapper objectMapper = new ObjectMapper();
     protected boolean painLinkArrows;
     protected WorkflowDebugger workflowDebugger;
+    protected AgentWorkflowBuilder<?> workflowBuilder;
     private WorkflowDebugger.Breakpoint breakpointSessionStarted;
     private WorkflowDebugger.Breakpoint breakpointSessionStopped;
     private WorkflowDebugger.Breakpoint breakpointSessionFailed;
     private WorkflowDebugger.Breakpoint breakpointAgentStarted;
     private WorkflowDebugger.Breakpoint breakpointAgentFinished;
-    protected AgentWorkflowBuilder<?> workflowBuilder;
 
     /**
      * Constructs a new WorkflowInspectorListPane.
      */
     public WorkflowInspectorListPane() {
         setLayout(new BorderLayout());
+
         setMinimumSize(new Dimension(400, 300));
         model = new DefaultListModel<>();
         list = new JList<>(model) {
@@ -92,23 +95,15 @@ public class WorkflowInspectorListPane extends JPanel {
         JScrollPane scrollPane = UISupport.createScrollPane(list, true, false, true, false, true);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         add(scrollPane, BorderLayout.CENTER);
+
+        list.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_C, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()), "copy");
+        list.getActionMap().put("copy", new Actions.BasicAction("Copy", null, e -> copy()));
     }
 
     @Override
-    public void requestFocus() {
-        list.requestFocus();
-    }
-
-    /**
-     * Copies the JSON representation of the current workflow to the system clipboard.
-     * If no workflow is set, this method does nothing.
-     */
-    public void copy() {
-        if (workflowBuilder != null) {
-            String json = workflowBuilder.toJson();
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            clipboard.setContents(new StringSelection(json), null);
-        }
+    public void setComponentPopupMenu(JPopupMenu popup) {
+        super.setComponentPopupMenu(popup);
+        list.setComponentPopupMenu(popup);
     }
 
     private static String getSimpleClassName(String className) {
@@ -121,21 +116,12 @@ public class WorkflowInspectorListPane extends JPanel {
         return ((String) node.get(JSON_KEY_NAME)).replaceAll("(?<=[a-z])(?=[A-Z])", " ");
     }
 
-    /**
-     * Displays the Workflow Inspector in a new JFrame.
-     *
-     * @param builder The EasyWorkflow.AgentWorkflowBuilder to inspect.
-     */
-    public static void show(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
-        JFrame frame = new JFrame("Workflow Inspector");
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-        WorkflowInspectorListPane pane = new WorkflowInspectorListPane();
-        pane.setWorkflow(builder);
-        frame.setLocationRelativeTo(null);
-        frame.add(pane);
-        frame.pack();
-        frame.setVisible(true);
+    @Override
+    public void requestFocus() {
+        list.requestFocus();
     }
+
+    public abstract void copy();
 
     protected boolean isPainLinkArrows() {
         return painLinkArrows;
@@ -144,7 +130,7 @@ public class WorkflowInspectorListPane extends JPanel {
     /**
      * Returns the JList component displaying the workflow items.
      */
-    public JList<WorkflowItem> getList() {
+    public JList<WorkflowItem> getListView() {
         return list;
     }
 
@@ -160,16 +146,16 @@ public class WorkflowInspectorListPane extends JPanel {
             populateListModel(listModel, builder);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
-            model.addElement(new WorkflowItem(null, null, null, "Error parsing workflow", e.getMessage(), 0));
+            model.addElement(new WorkflowItem(null, null, null, null, "Error parsing workflow", e.getMessage(), 0));
         }
     }
 
     private void populateListModel(List<WorkflowItem> listModel, AgentWorkflowBuilder<?> builder) throws JsonProcessingException {
         String jsonString = builder.toJson();
         List<Map<String, Object>> workflowData = objectMapper.readValue(jsonString, List.class);
-        listModel.add(new WorkflowItem(null, TYPE_START, ICON_PLAY, "Start", null, 0));
+        listModel.add(new WorkflowItem(null, TYPE_START, null, ICON_PLAY, "Start", null, 0));
         populateListModel(listModel, workflowData, 0);
-        listModel.add(new WorkflowItem(null, TYPE_END, ICON_STOP, "End", null, 0));
+        listModel.add(new WorkflowItem(null, TYPE_END, null, ICON_STOP, "End", null, 0));
 
         for (WorkflowItem workflowItem : listModel) {
             workflowItemsByUID.put(workflowItem.getUid(), workflowItem);
@@ -177,6 +163,7 @@ public class WorkflowInspectorListPane extends JPanel {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private void populateListModel(List<WorkflowItem> listModel, List<Map<String, Object>> nodes, int indentation) {
         for (Map<String, Object> node : nodes) {
             String type = (String) node.get(EasyWorkflow.JSON_KEY_TYPE);
@@ -189,7 +176,7 @@ public class WorkflowInspectorListPane extends JPanel {
                 populateListModel(listModel, (List<Map<String, Object>>) node.get("block"), indentation + 1);
             }
             if (node.containsKey("elseBlock")) {
-                listModel.add(new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), null, "else", "", indentation));
+                listModel.add(new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), null, null, "else", "", indentation));
                 populateListModel(listModel, (List<Map<String, Object>>) node.get("elseBlock"), indentation + 1);
             }
         }
@@ -198,11 +185,13 @@ public class WorkflowInspectorListPane extends JPanel {
     private WorkflowItem createWorkflowItem(int indentation, Map<String, Object> node, String type, String title) {
         String subtitle = null;
         String iconKey = null;
+        String outputName = null;
         switch (type) {
             case JSON_TYPE_AGENT:
             case JSON_TYPE_NON_AI_AGENT:
                 title = getAgentTitle(node);
                 subtitle = getAgentSubtitle(node);
+                outputName = (String) node.get(JSON_KEY_OUTPUT_NAME);
                 iconKey = UISupport.ICON_EXPERT;
                 break;
             case "setState":
@@ -241,8 +230,7 @@ public class WorkflowInspectorListPane extends JPanel {
                 break;
         }
 
-        WorkflowItem element = new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), iconKey, title, subtitle, indentation);
-        return element;
+        return new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), outputName, iconKey, title, subtitle, indentation);
     }
 
     protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
@@ -304,7 +292,7 @@ public class WorkflowInspectorListPane extends JPanel {
                             if (entries.size() > 1)
                                 result.put("pass [%s]".formatted(entries.indexOf(entry)), passResult = new HashMap<>());
                             passResult.put("input", valueToMap(entry.getInput()));
-                            passResult.put("output", valueToMap(entry.getOutput()));
+                            passResult.put("output (%s)".formatted(selectedValue.getOutputName()), valueToMap(entry.getOutput()));
                             if (entry.getFailure() != null) {
                                 passResult.put("failure", valueToMap(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
                             }
@@ -323,7 +311,7 @@ public class WorkflowInspectorListPane extends JPanel {
         if (value == null)
             return null;
 
-        if (value.getClass().isPrimitive() || value instanceof String || value instanceof Number)
+        if (value.getClass().isPrimitive() || value instanceof String || value instanceof Number || value.getClass().isEnum())
             return value;
         else if (value.getClass().isArray() || value instanceof List)
             return OBJECT_MAPPER.convertValue(value, List.class);
@@ -455,14 +443,21 @@ public class WorkflowInspectorListPane extends JPanel {
     }
 
     protected void markMissedItemsAsFinished(WorkflowItem currentItem) {
+        Set<Integer> processedMatches = new HashSet<>();
         int index = model.indexOf(currentItem);
         for (int i = index - 1; i >= 0; i--) {
             WorkflowItem item = model.get(i);
-            if (item.getState() == WorkflowItem.State.Unknown) {
+            if (item.getState() == WorkflowItem.State.Unknown && item.getIndentation() <= currentItem.getIndentation()) {
                 switch (item.type) {
-                    case JSON_TYPE_IF_THEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_WHEN, JSON_TYPE_MATCH,
+                    case JSON_TYPE_IF_THEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_WHEN,
                          JSON_TYPE_GROUP, JSON_TYPE_DO_PARALLEL:
                         item.setState(WorkflowItem.State.Finished);
+                        break;
+                    case JSON_TYPE_MATCH:
+                        if (!processedMatches.contains(item.getIndentation())) {
+                            processedMatches.add(item.getIndentation());
+                            item.setState(WorkflowItem.State.Finished);
+                        }
                         break;
                     default:
                 }
@@ -527,6 +522,7 @@ public class WorkflowInspectorListPane extends JPanel {
 
     /**
      * Finds a {@link WorkflowItem} by its type.
+     *
      * @param type The type of the workflow item to find.
      * @return An {@link Optional} containing the {@link WorkflowItem} if found, otherwise an empty {@link Optional}.
      */
@@ -553,18 +549,32 @@ public class WorkflowInspectorListPane extends JPanel {
         private final String subtitle;
         private final String uid;
         private final String type;
+        private final String outputName;
+        private final Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> traceEntriesByIndex = new HashMap<>();
         private int indentation;
         private State state = State.Unknown;
         private int passCount;
-        private Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> traceEntriesByIndex = new HashMap<>();
-
-        public WorkflowItem(String uid, String type, String iconKey, String title, String subtitle, int indentation) {
+        public WorkflowItem(String uid, String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
             this.iconKey = iconKey;
             this.title = title;
             this.subtitle = subtitle;
             this.indentation = indentation;
             this.uid = uid;
             this.type = type;
+            this.outputName = outputName;
+        }
+
+        public Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> getTraceEntriesByIndex() {
+            return traceEntriesByIndex;
+        }
+
+        /**
+         * Returns the output name of the workflow item.
+         *
+         * @return The output name.
+         */
+        public String getOutputName() {
+            return outputName;
         }
 
         /**
@@ -579,7 +589,8 @@ public class WorkflowInspectorListPane extends JPanel {
 
         /**
          * Sets the agent invocation trace entry for a specific pass index.
-         * @param index The index of the pass.
+         *
+         * @param index      The index of the pass.
          * @param traceEntry The {@link WorkflowDebugger.AgentInvocationTraceEntry} to set.
          */
         public void setTraceEntry(int index, WorkflowDebugger.AgentInvocationTraceEntry traceEntry) {
@@ -729,8 +740,10 @@ public class WorkflowInspectorListPane extends JPanel {
         static final Border INDICATOR_BORDER = BorderFactory.createEmptyBorder(1, 5, 1, 5);
         private final JLabel lblIcon = new JLabel();
         private final JLabel lblTitle = new JLabel();
-        private final JLabel lblSubTitle = new JLabel() {};
-        private final JLabel lblSubTitle2 = new JLabel() {};
+        private final JLabel lblSubTitle = new JLabel() {
+        };
+        private final JLabel lblSubTitle2 = new JLabel() {
+        };
         private final JLabel lblStateIndicator = new JLabel();
         private final JPanel pnlContent;
         private final Box pnlStateIndicator;
@@ -781,6 +794,12 @@ public class WorkflowInspectorListPane extends JPanel {
             textPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 10));
         }
 
+        private static void paintStartEndShape(Graphics2D graphics, Rectangle rect) {
+            graphics.fillRoundRect(rect.x, rect.y, rect.width, rect.height, rect.height, rect.height);
+            graphics.setColor(Color.DARK_GRAY);
+            graphics.drawRoundRect(rect.x, rect.y, rect.width, rect.height, rect.height, rect.height);
+        }
+
         @Override
         public boolean isOpaque() {
             return false;
@@ -799,32 +818,12 @@ public class WorkflowInspectorListPane extends JPanel {
             rect.height -= (insets.top + insets.bottom);
 
             graphics.setColor(getBackground());
-            if (type.equals(TYPE_START) || type.equals(TYPE_END)) {
-                graphics.fillRoundRect(rect.x, rect.y, rect.width, rect.height, rect.height, rect.height);
-                graphics.setColor(Color.DARK_GRAY);
-                graphics.drawRoundRect(rect.x, rect.y, rect.width, rect.height, rect.height, rect.height);
-
-            } else if (type.equals(JSON_TYPE_IF_THEN) || type.equals(JSON_TYPE_DO_WHEN) || type.equals(JSON_TYPE_REPEAT)
-                    || type.equals("doParallel") || type.equals("group")) {
-                // A more subtle hexagon shape (closer to a rectangle with clipped corners)
-                int cornerSize = rect.height / 2;
-                int[] xPoints = {rect.x + cornerSize, rect.x + rect.width - cornerSize, rect.x + rect.width, rect.x + rect.width - cornerSize, rect.x + cornerSize, rect.x};
-                int[] yPoints = {rect.y, rect.y, rect.y + rect.height / 2, rect.y + rect.height, rect.y + rect.height, rect.y + rect.height / 2};
-                graphics.fillPolygon(xPoints, yPoints, 6);
-                graphics.setColor(BORDER_COLOR);
-                graphics.drawPolygon(xPoints, yPoints, 6);
-
-            } else if (type.equals(JSON_TYPE_MATCH)) {
-                int cornerSize = rect.height / 3;
-                int[] xPoints = {rect.x, rect.x + rect.width - cornerSize, rect.x + rect.width, rect.x + rect.width - cornerSize, rect.x};
-                int[] yPoints = {rect.y, rect.y, rect.y + rect.height / 2, rect.y + rect.height, rect.y + rect.height};
-                graphics.fillPolygon(xPoints, yPoints, 5);
-                graphics.setColor(BORDER_COLOR);
-                graphics.drawPolygon(xPoints, yPoints, 5);
-            } else {
-                graphics.fillRect(rect.x, rect.y, rect.width, rect.height);
-                graphics.setColor(BORDER_COLOR);
-                graphics.drawRect(rect.x, rect.y, rect.width, rect.height);
+            switch (type) {
+                case TYPE_START, TYPE_END -> paintStartEndShape(graphics, rect);
+                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, "doParallel", "group" ->
+                        paintControlFlowShape(rect, graphics);
+                case JSON_TYPE_MATCH -> paintMatchShape(rect, graphics);
+                default -> paintAgentShape(graphics, rect);
             }
 
             if (paintLinkArrows)
@@ -833,6 +832,66 @@ public class WorkflowInspectorListPane extends JPanel {
                 paintLinks(graphics, rect, insets);
 
             graphics.dispose();
+        }
+
+        private void paintAgentShape(Graphics2D graphics, Rectangle rect) {
+            graphics.fillRoundRect(rect.x, rect.y, rect.width, rect.height, 5, 5);
+            graphics.setColor(BORDER_COLOR);
+            graphics.drawRoundRect(rect.x, rect.y, rect.width, rect.height, 5, 5);
+        }
+
+        private void paintMatchShape(Rectangle rect, Graphics2D graphics) {
+            int cornerSize = rect.height / 2;
+            int arc = 3; // Radius for rounded corners
+
+            // Create a GeneralPath to draw the rounded pentagon
+            java.awt.geom.GeneralPath pentagon = new java.awt.geom.GeneralPath();
+
+            // Start at the top-left corner (flat vertical side)
+            pentagon.moveTo(rect.x, rect.y + arc);
+            pentagon.lineTo(rect.x, rect.y + rect.height - arc);
+            pentagon.quadTo(rect.x, rect.y + rect.height, rect.x + arc, rect.y + rect.height);
+            pentagon.lineTo(rect.x + rect.width - cornerSize - arc, rect.y + rect.height);
+            pentagon.quadTo(rect.x + rect.width - cornerSize, rect.y + rect.height, rect.x + rect.width - cornerSize + arc, rect.y + rect.height - arc);
+            pentagon.lineTo(rect.x + rect.width - arc, rect.y + rect.height / 2 + arc);
+            pentagon.quadTo(rect.x + rect.width, rect.y + rect.height / 2, rect.x + rect.width - arc, rect.y + rect.height / 2 - arc);
+            pentagon.lineTo(rect.x + rect.width - cornerSize + arc, rect.y + arc);
+            pentagon.quadTo(rect.x + rect.width - cornerSize, rect.y, rect.x + rect.width - cornerSize - arc, rect.y);
+            pentagon.lineTo(rect.x + arc, rect.y);
+            pentagon.quadTo(rect.x, rect.y, rect.x, rect.y + arc);
+            pentagon.closePath();
+
+            graphics.fill(pentagon);
+            graphics.setColor(BORDER_COLOR);
+            graphics.draw(pentagon);
+        }
+
+        private void paintControlFlowShape(Rectangle rect, Graphics2D graphics) {
+            int cornerSize = rect.height / 2;
+            int arc = 3; // Radius for rounded corners
+
+            // Create a GeneralPath to draw the rounded hexagon
+            java.awt.geom.GeneralPath hexagon = new java.awt.geom.GeneralPath();
+
+            // Start at the top-left rounded corner
+            hexagon.moveTo(rect.x + cornerSize + arc, rect.y);
+            hexagon.lineTo(rect.x + rect.width - cornerSize - arc, rect.y);
+            hexagon.quadTo(rect.x + rect.width - cornerSize, rect.y, rect.x + rect.width - cornerSize + arc, rect.y + arc);
+            hexagon.lineTo(rect.x + rect.width - arc, rect.y + rect.height / 2 - arc);
+            hexagon.quadTo(rect.x + rect.width, rect.y + rect.height / 2, rect.x + rect.width - arc, rect.y + rect.height / 2 + arc);
+            hexagon.lineTo(rect.x + rect.width - cornerSize + arc, rect.y + rect.height - arc);
+            hexagon.quadTo(rect.x + rect.width - cornerSize, rect.y + rect.height, rect.x + rect.width - cornerSize - arc, rect.y + rect.height);
+            hexagon.lineTo(rect.x + cornerSize + arc, rect.y + rect.height);
+            hexagon.quadTo(rect.x + cornerSize, rect.y + rect.height, rect.x + cornerSize - arc, rect.y + rect.height - arc);
+            hexagon.lineTo(rect.x + arc, rect.y + rect.height / 2 + arc);
+            hexagon.quadTo(rect.x, rect.y + rect.height / 2, rect.x + arc, rect.y + rect.height / 2 - arc);
+            hexagon.lineTo(rect.x + cornerSize - arc, rect.y + arc);
+            hexagon.quadTo(rect.x + cornerSize, rect.y, rect.x + cornerSize + arc, rect.y);
+            hexagon.closePath();
+
+            graphics.fill(hexagon);
+            graphics.setColor(BORDER_COLOR);
+            graphics.draw(hexagon);
         }
 
         private void paintLinkArrows(Graphics2D graphics, Rectangle rect, Insets insets) {
@@ -930,7 +989,7 @@ public class WorkflowInspectorListPane extends JPanel {
             } else {
                 setBackground(value.getColor() != null ? value.getColor() : list.getBackground());
                 lblTitle.setForeground(list.getForeground());
-                Color subTitleForground = UISupport.isDarkAppearance() ? Color.LIGHT_GRAY  :Color.GRAY;
+                Color subTitleForground = UISupport.isDarkAppearance() ? Color.LIGHT_GRAY : Color.GRAY;
                 lblSubTitle.setForeground(subTitleForground);
                 lblSubTitle2.setForeground(subTitleForground);
             }
@@ -950,6 +1009,15 @@ public class WorkflowInspectorListPane extends JPanel {
             for (WorkflowItem workflowItem : listModel)
                 model.addElement(workflowItem);
         }
+
+        @Override
+        public void copy() {
+            if (workflowBuilder != null) {
+                String json = workflowBuilder.toJson();
+                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                clipboard.setContents(new StringSelection(json), null);
+            }
+        }
     }
 
     public static class Execution extends WorkflowInspectorListPane {
@@ -963,8 +1031,6 @@ public class WorkflowInspectorListPane extends JPanel {
                 String result = workflowDebugger.toString(true);
                 Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
                 clipboard.setContents(new StringSelection(result), null);
-            } else {
-                super.copy();
             }
         }
 
@@ -1029,7 +1095,7 @@ public class WorkflowInspectorListPane extends JPanel {
 
         @Override
         protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
-            if (! (workflowItem.getType().equals(JSON_TYPE_AGENT) || workflowItem.getType().equals(JSON_TYPE_NON_AI_AGENT)))
+            if (!(workflowItem.getType().equals(JSON_TYPE_AGENT) || workflowItem.getType().equals(JSON_TYPE_NON_AI_AGENT)))
                 return new String[0];
 
             List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = workflowItem.getTraceEntries(index);

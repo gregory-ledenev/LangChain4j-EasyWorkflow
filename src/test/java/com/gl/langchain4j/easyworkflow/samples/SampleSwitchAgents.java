@@ -28,6 +28,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
+import com.gl.langchain4j.easyworkflow.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import dev.langchain4j.agentic.Agent;
@@ -92,25 +93,28 @@ public class SampleSwitchAgents {
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
 
-        WorkflowInspectorListPane.show(builder);
-
-        System.out.println(builder.generateAISummary());
-
-        try {
-            out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
-        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
-        try {
-            workflowDebugger.toHtmlFile("workflow.html", true);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-        out.println(expertRouterAgent.ask("What is the meaning of life?"));
-        out.println(workflowDebugger.toString(true));
+        Playground playground = Playground.createPlayground(ExpertRouterAgent.class, Playground.Type.GUI);
+        playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
+        playground.play(expertRouterAgent, Map.of("request", "I broke my leg, what should I do?"));
+//        WorkflowInspectorListPane.show(builder);
+//
+//        System.out.println(builder.generateAISummary());
+//
+//        try {
+//            out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
+//        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
+//        try {
+//            workflowDebugger.toHtmlFile("workflow.html", true);
+//        } catch (IOException ex) {
+//            ex.printStackTrace();
+//        }
+//        out.println(expertRouterAgent.ask("What is the meaning of life?"));
+//        out.println(workflowDebugger.toString(true));
     }
 
     public enum RequestCategory {

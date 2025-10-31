@@ -109,6 +109,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title);
+//        System.setProperty("apple.laf.useScreenMenuBar", "true");
 
         WorkflowDebugger workflowDebugger;
         if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER))
@@ -145,13 +146,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
             if (chatFrame != null) {
                 ChatPane chatPane = chatFrame.getChatPane();
                 chatPane.setUserMessage(userMessage);
-                if (workflowDebugger != null) {
-                    Action action = new WorkflowExpertAction(new UISupport.AutoIcon(UISupport.ICON_EXPERT),
-                            chatFrame,
-                            agentClass, workflowDebugger
-                    );
-                    chatFrame.getChatPane().setupToolActions(new Action[]{action});
-                }
             }
         });
     }
@@ -229,13 +223,13 @@ public class GUIPlayground extends Playground.BasicPlayground {
         return result != null ? result : "canceled";
     }
 
-    private static class WorkflowExpertAction extends AbstractAction {
+    public static class WorkflowExpertAction extends AbstractAction {
         private final WorkflowDebugger workflowDebugger;
         private final Class<?> agentClass;
         private final ChatFrame chatFrame;
 
         public WorkflowExpertAction(Icon icon, ChatFrame aChatFrame, Class<?> aAgentClass, WorkflowDebugger aWorkflowDebugger) {
-            super(null, icon);
+            super("Workflow Expert...", icon);
             chatFrame = aChatFrame;
             workflowDebugger = aWorkflowDebugger;
             agentClass = aAgentClass;

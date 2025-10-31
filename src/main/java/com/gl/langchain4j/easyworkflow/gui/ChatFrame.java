@@ -26,6 +26,8 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.WorkflowExpert;
@@ -40,16 +42,22 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
+import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
@@ -59,8 +67,14 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
     public static final String PROP_FLOW_CHART_FILE = "flow-chart-file";
+    public static final String PROP_STRUCTURE_FILE = "structure-file";
+    public static final String PROP_EXECUTION_FILE = "execution-file";
+    public static final String PROP_SUMMARY_FILE = "summary-file";
+    public static final String PROP_CHAT_FILE = "chat-file";
+
     private static final Logger logger = LoggerFactory.getLogger(ChatFrame.class);
     private final ChatPane chatPane = new ChatPane();
+    private JScrollPane pnlWorkflowSummary;
     private JEditorPane pnlWorkflowSummaryView;
     private JPanel pnlWorkflowContents;
     private WorkflowDebugger workflowDebugger;
@@ -68,10 +82,21 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     private WorkflowInspectorListPane pnlWorkflowInspectorStructure;
     private WorkflowInspectorListPane pnlWorkflowInspectorExecution;
     private boolean exitOnClose;
-    private Actions.BasicAction copyAction;
+    private BasicAction copyAction;
     private FileChooserUtils fileChooserUtils;
     private boolean summaryGenerated = false;
     private boolean summaryGenerating = false;
+    private StateAction showExecutionAction;
+    private StateAction showStructureAction;
+    private StateAction showSummaryAction;
+    private BasicAction shareAction;
+    private GUIPlayground.WorkflowExpertAction workflowExpertAction;
+    private ActionGroup menuBarViewActionGroup;
+    private ActionGroup menuBarOptionsActionGroup;
+    private ActionGroup menuBarActionGroup;
+    private ActionGroup menuBarFileActionGroup;
+    private ActionGroup menuBarHelpActionGroup;
+    private ActionGroup menuBarEditActionGroup;
 
     /**
      * Constructs a new ChatFrame.
@@ -118,6 +143,17 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             pnlWorkflowInspectorExecution.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorExecution.setWorkflowDebugger(workflowDebugger);
 
+            BasicAction focusInspectorAction = new BasicAction("focusInspector", null, e -> pnlWorkflowInspectorDetails.requestFocus());
+            KeyStroke keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
+            UISupport.bindAction(pnlWorkflowInspectorStructure.getListView(),
+                    "focusInspector",
+                    keyStroke,
+                    focusInspectorAction);
+            UISupport.bindAction(pnlWorkflowInspectorExecution.getListView(),
+                    "focusInspector",
+                    keyStroke,
+                    focusInspectorAction);
+
             pnlWorkflowSummaryView = new JEditorPane() {
                 @Override
                 public boolean getScrollableTracksViewportWidth() {
@@ -127,7 +163,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             pnlWorkflowSummaryView.setContentType("text/html");
             pnlWorkflowSummaryView.setEditable(false);
             pnlWorkflowSummaryView.setFont(pnlWorkflowSummaryView.getFont().deriveFont(15f));
-            JScrollPane pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, true, false, true, false, true);
+            pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, true, false, true, false, true);
             pnlWorkflowSummary.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
             JPanel pnlWorkflowContentsHost = new JPanel(new BorderLayout());
@@ -135,7 +171,10 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             headerPane.setTitle("Workflow");
 //            headerPane.setSubtitle("Workflow structure, summary, its agents and execution steps");
             pnlWorkflowContentsHost.add(headerPane, BorderLayout.NORTH);
+            setupActions();
+            setupMenuBar();
             setupToolbar(headerPane.getToolbar());
+            setupPopupMenu();
 
             pnlWorkflowContents = new JPanel(new CardLayout());
             pnlWorkflowContents.add(pnlWorkflowInspectorStructure, "structure");
@@ -147,16 +186,17 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             JSplitPane pnlWorkflow = new JSplitPane();
             pnlWorkflow.setLeftComponent(pnlWorkflowContentsHost);
             pnlWorkflowInspectorDetails = new WorkflowInspectorDetailsPane();
+
             pnlWorkflow.setRightComponent(pnlWorkflowInspectorDetails);
             pnlWorkflow.setResizeWeight(0.5);
             contentPane.setRightComponent(pnlWorkflow);
             setContentPane(contentPane);
 
-            pnlWorkflowInspectorStructure.getList().addListSelectionListener(e -> {
+            pnlWorkflowInspectorStructure.getListView().addListSelectionListener(e -> {
                 if (pnlWorkflowInspectorStructure.isVisible())
                     pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
             });
-            pnlWorkflowInspectorExecution.getList().addListSelectionListener(e -> {
+            pnlWorkflowInspectorExecution.getListView().addListSelectionListener(e -> {
                 if (pnlWorkflowInspectorExecution.isVisible())
                     pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
             });
@@ -173,6 +213,204 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                     System.exit(0);
             }
         });
+    }
+
+    private void setupMenuBar() {
+        JMenuBar menuBar = new JMenuBar();
+
+        String exclusiveGroup = "appearance";
+
+        menuBarFileActionGroup = new ActionGroup("File", null, true,
+                new ActionGroup("Share", new AutoIcon(ICON_SHARE), true,
+                        new ActionGroup(null, null, false,
+                                new BasicAction("Chat", null,
+                                        e -> shareChat(),
+                                        a -> a.setEnabled(! chatPane.getChatMessages().isEmpty()))
+                        ),
+                        new ActionGroup(null, null, false,
+                        new BasicAction("Structure", null, e -> shareStructure()),
+                        new BasicAction("Execution", null,
+                                e -> shareExecution(),
+                                a -> a.setEnabled(pnlWorkflowInspectorExecution.hasContent())),
+                        new BasicAction("Summary", null,
+                                e -> shareSummary(),
+                                a -> a.setEnabled(summaryGenerated))
+                        ),
+                        new ActionGroup(null, null, false,
+                            new BasicAction("Flow Chart", null, e -> shareFlowChart())
+                        )
+                ),
+                isMac() ? null :
+                        new ActionGroup(null, null, false,
+                                new BasicAction("Exit", null, e -> System.exit(0))
+                        )
+        );
+
+        BasicAction cutAction = new BasicAction("Cut", null, aActionEvent -> cut());
+        cutAction.setMnemonic('x');
+        cutAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+        cutAction.setEnabled(false);
+
+        BasicAction copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY), aActionEvent -> copy());
+        copyAction.setMnemonic('c');
+        copyAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+
+        BasicAction pasteAction = new BasicAction("Paste", new AutoIcon(ICON_PASTE), aActionEvent -> paste());
+        pasteAction.setMnemonic('v');
+        pasteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+        pasteAction.setEnabled(false);
+
+        BasicAction deleteAction = new BasicAction("Delete", null, aActionEvent -> delete());
+        deleteAction.setMnemonic('d');
+        deleteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0));
+        deleteAction.setEnabled(false);
+
+        menuBarEditActionGroup = new ActionGroup("Edit", null, true,
+                cutAction,
+                copyAction,
+                pasteAction,
+                deleteAction
+        );
+
+        ActionGroup toolActionGroup = workflowExpertAction != null ? new ActionGroup(workflowExpertAction)  : null;
+
+        BasicAction chatAction = new BasicAction("Chat", new AutoIcon(ICON_CHAT),e -> chatPane.requestFocus());
+        chatAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+        BasicAction inspectorAction = new BasicAction("Inspector", null,e -> pnlWorkflowInspectorDetails.requestFocus());
+        inspectorAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_5,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+
+        menuBarViewActionGroup = new ActionGroup("View", null, true,
+                new ActionGroup(null, null, false,
+                        chatAction                ),
+                new ActionGroup(null, null, false,
+                        showStructureAction,
+                        showExecutionAction,
+                        showSummaryAction
+                ),
+                new ActionGroup(null, null, false,
+                        inspectorAction                ),
+                toolActionGroup
+        );
+        menuBarOptionsActionGroup = new ActionGroup("Options", null, true,
+                new ActionGroup("Chat", new AutoIcon(ICON_CHAT), true,
+                        chatPane.getRenderMarkdownAction(),
+                        chatPane.getClearAfterSendingAction()
+                ),
+                new ActionGroup(),
+                new ActionGroup("Appearance", new AutoIcon(ICON_BULB), true,
+                        new StateAction("Light", null, exclusiveGroup,
+                                e -> applyAppearance(Appearance.Light),
+                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Light)),
+                        new StateAction("Dark", null, exclusiveGroup,
+                                e -> applyAppearance(Appearance.Dark),
+                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Dark)),
+                        new StateAction("Auto", null, exclusiveGroup,
+                                e -> applyAppearance(Appearance.Auto),
+                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Auto))
+                )
+        );
+        menuBarHelpActionGroup = new ActionGroup("Help", null, true,
+                new ActionGroup(null, null, false,
+                        new BasicAction("EasyWorkflow for LangChain4j", null, e -> visitSite()),
+                        new BasicAction("LangChain4j", null, e -> visitSite("https://docs.langchain4j.dev/"))
+                ),
+                new ActionGroup(null, null, false,
+                        new BasicAction("About...", new AutoIcon(ICON_HELP), e -> showAbout(chatPane))
+                )
+        );
+        menuBarActionGroup = new ActionGroup(
+                menuBarFileActionGroup,
+                menuBarEditActionGroup,
+                menuBarViewActionGroup,
+                menuBarOptionsActionGroup,
+                menuBarHelpActionGroup
+        );
+        UISupport.setupMenuBar(menuBar, menuBarActionGroup);
+        setJMenuBar(menuBar);
+    }
+
+    private void paste() {
+    }
+
+    private void delete() {
+        
+    }
+
+    private void cut() {
+
+    }
+
+    /**
+     * Copies the currently selected content to the clipboard.
+     */
+    public void copy() {
+        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
+        if (focusOwner != null && SwingUtilities.getAncestorOfClass(ChatPane.class, focusOwner) != null) {
+            chatPane.copy();
+        } else if (focusOwner instanceof  JComponent c) {
+            Action action = c.getActionMap().get("copy");
+            if (action != null)
+                action.actionPerformed(new ActionEvent(c, 0, null));
+        }
+    }
+
+    private void shareChat() {
+        if (chatPane.getChatMessages().isEmpty())
+            return;
+
+        try {
+            shareContent(ChatPane.OBJECT_MAPPER.
+                            enable(SerializationFeature.INDENT_OUTPUT).
+                            writeValueAsString(chatPane.getChatMessages()),
+                    PROP_CHAT_FILE,
+                    "chat.json");
+        } catch (JsonProcessingException ex) {
+            logger.error("Failed to share chat", ex);
+        }
+    }
+
+    private void shareSummary() {
+        shareContent(pnlWorkflowSummaryView.getText(),
+                PROP_SUMMARY_FILE,
+                "workflow-summary.html");
+    }
+
+    private void shareExecution() {
+        shareContent(workflowDebugger.toString(true),
+                PROP_EXECUTION_FILE,
+                "workflow-execution.txt");
+    }
+
+    private void shareStructure() {
+        shareContent(workflowDebugger.getAgentWorkflowBuilder().toJson(),
+                PROP_STRUCTURE_FILE,
+                "workflow-structure.json");
+    }
+
+    private void shareFlowChart() {
+        shareContent(workflowDebugger.toHtml(true),
+                PROP_FLOW_CHART_FILE,
+                "workflow.html");
+    }
+
+    private void shareContent(String content, String fileNameProperty, String defaultFileName) {
+        FileChooserUtils fileChooserUtils = getFileChooserUtils();
+
+        String fileStr = getPreferences().get(fileNameProperty, defaultFileName);
+        File file = fileChooserUtils.chooseFileToSave(new File(fileStr), true);
+        if (file != null) {
+            try {
+                getPreferences().put(fileNameProperty, file.getAbsolutePath());
+                Files.write(Paths.get(file.getAbsolutePath()), content.getBytes());
+            } catch (Exception ex) {
+                logger.error("Failed to share flow chart", ex);
+            }
+        }
     }
 
     /**
@@ -225,6 +463,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         String title = "Chat with Workflow";
         System.setProperty("apple.awt.application.name", title);
         System.setProperty("apple.awt.application.appearance", "system");
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
         final WorkflowExpert workflowExpert = WorkflowExpertSupport.getWorkflowExpert(workflowDebugger);
         ChatFrame result = ChatFrame.showChat(title,
                 new ImageIcon(ChatFrame.class.getResource("logo.png")),
@@ -261,70 +500,83 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         return result;
     }
 
-    private void setupToolbar(JToolBar toolbar) {
+    private void setupActions() {
         final String showGroup = "show";
-        Actions.StateAction showStructureAction = new Actions.StateAction("Structure", new AutoIcon(ICON_WORKFLOW), e -> {
-            showWorkflowStructure();
-        });
-//            showStructureAction.setCopyName(true);
+        showStructureAction = new StateAction("Structure", new AutoIcon(ICON_WORKFLOW), showGroup,
+                e -> showWorkflowStructure(),
+                a -> a.setSelected(pnlWorkflowInspectorStructure.isVisible()));
         showStructureAction.setShortDescription("Show workflow structure");
-        showStructureAction.setExclusiveGroup(showGroup);
-        showStructureAction.setSelected(true);
+        showStructureAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_2,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
 
-        Actions.StateAction showExecutionAction = new Actions.StateAction("Execution", new AutoIcon(ICON_EXECUTION_FLOW), e -> {
-            showWorkflowExecution();
-        });
-//            showExecutionAction.setCopyName(true);
+        showExecutionAction = new StateAction("Execution", new AutoIcon(ICON_EXECUTION_FLOW), showGroup,
+                e -> showWorkflowExecution(),
+                a -> {
+                    a.setEnabled(pnlWorkflowInspectorExecution.hasContent());
+                    a.setSelected(pnlWorkflowInspectorExecution.isVisible());
+                });
         showExecutionAction.setShortDescription("Show workflow execution");
-        showExecutionAction.setExclusiveGroup(showGroup);
+        showExecutionAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_3,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
 
-        Actions.StateAction showSummaryAction = new Actions.StateAction("Summary", new AutoIcon(ICON_DOCUMENT), e -> {
-            showWorkflowSummary();
-        });
-//            showSummaryAction.setCopyName(true);
+        showSummaryAction = new StateAction("Summary", new AutoIcon(ICON_DOCUMENT), showGroup,
+                e -> showWorkflowSummary(),
+                a -> a.setSelected(pnlWorkflowSummary.isVisible()));
         showSummaryAction.setShortDescription("Show workflow summary");
-        showSummaryAction.setExclusiveGroup(showGroup);
+        showSummaryAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_4,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
 
-        this.copyAction = new Actions.BasicAction("Copy", new AutoIcon(ICON_COPY), e -> {
-            copy();
-        });
+        this.copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY),
+                e -> copy(),
+                aBasicAction -> {
+                    boolean e = true;
+                    if (pnlWorkflowSummaryView.isVisible())
+                        e = !summaryGenerating;
+                    setEnabled(e);
+                });
         copyAction.setShortDescription("Copy");
 
-        Actions.BasicAction shareAction = new Actions.BasicAction("Share", new AutoIcon(ICON_SHARE), e -> {
-            share();
+        shareAction = new BasicAction("Share", new AutoIcon(ICON_SHARE), e -> {
+            shareFlowChart();
         });
         shareAction.setShortDescription("Share");
 
-        UISupport.setupToolbar(toolbar,
-                new Actions.ActionGroup(
-                        new Actions.ActionGroup(
-                                showStructureAction,
-                                showExecutionAction,
-                                showSummaryAction
-                        ),
-                        new Actions.ActionGroup(
-                                copyAction
-                        ),
-                        new Actions.ActionGroup(
-                                shareAction
-                        )
-                )
-        );
+        if (workflowDebugger != null) {
+            workflowExpertAction = new GUIPlayground.WorkflowExpertAction(new AutoIcon(UISupport.ICON_EXPERT),
+                    this,
+                    workflowDebugger.getAgentWorkflowBuilder().getAgentClass(), workflowDebugger
+            );
+            workflowExpertAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_E,
+                    KeyEvent.SHIFT_DOWN_MASK | Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+            chatPane.setupToolActions(workflowExpertAction);
+        }
     }
 
-    private void share() {
-        FileChooserUtils fileChooserUtils = getFileChooserUtils();
+    private void setupToolbar(JToolBar toolbar) {
+        ActionGroup actionGroup = new ActionGroup(
+                showStructureAction,
+                showExecutionAction,
+                showSummaryAction
+        );
+        UISupport.setupToolbar(toolbar, actionGroup);
+    }
 
-        String fileStr = getPreferences().get(PROP_FLOW_CHART_FILE, "workflow.html");
-        File file = fileChooserUtils.chooseFileToSave(new File(fileStr), true);
-        if (file != null) {
-            try {
-                getPreferences().put(PROP_FLOW_CHART_FILE, file.getAbsolutePath());
-                workflowDebugger.toHtmlFile(file.getAbsolutePath());
-            } catch (Exception ex) {
-                logger.error("Failed to share flow chart", ex);
-            }
-        }
+    private void setupPopupMenu() {
+        ActionGroup actionGroup = new ActionGroup(
+                new ActionGroup(
+                        showStructureAction,
+                        showExecutionAction,
+                        showSummaryAction
+                ),
+                new ActionGroup(
+                        copyAction
+                )
+        );
+        JPopupMenu popupMenu = new JPopupMenu();
+        UISupport.setupPopupMenu(popupMenu, actionGroup);
+        pnlWorkflowInspectorStructure.setComponentPopupMenu(popupMenu);
+        pnlWorkflowInspectorExecution.setComponentPopupMenu(popupMenu);
+        pnlWorkflowSummaryView.setComponentPopupMenu(popupMenu);
     }
 
     private FileChooserUtils getFileChooserUtils() {
@@ -336,24 +588,11 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         return fileChooserUtils;
     }
 
-    /**
-     * Copies the currently selected content to the clipboard.
-     */
-    public void copy() {
-        if (pnlWorkflowInspectorStructure.isVisible()) {
-            pnlWorkflowInspectorStructure.copy();
-        } else if (pnlWorkflowInspectorExecution.isVisible()) {
-            pnlWorkflowInspectorExecution.copy();
-        } else if (pnlWorkflowSummaryView.isVisible()) {
-            UISupport.copy(pnlWorkflowSummaryView);
-        }
-    }
-
     private void showWorkflowSummary() {
         ((CardLayout) pnlWorkflowContents.getLayout()).last(pnlWorkflowContents);
+        pnlWorkflowSummaryView.requestFocus();
         if (!summaryGenerated && !summaryGenerating) {
             summaryGenerating = true;
-            updateCopyAction();
             pnlWorkflowSummaryView.setText("Generating summary..."); // Set initial text immediately
             pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); // Set cursor immediately
             CompletableFuture.supplyAsync(() -> workflowDebugger.getAgentWorkflowBuilder().generateAISummary()).
@@ -364,50 +603,49 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                             pnlWorkflowSummaryView.setCaretPosition(0);
                             pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
                             summaryGenerating = false;
-                            updateCopyAction();
                         });
                     }).exceptionally(ex -> {
                         SwingUtilities.invokeLater(() -> {
                             pnlWorkflowSummaryView.setText("<html>Error generating summary: %s</html>".formatted(ex.getMessage()));
                             pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
                             summaryGenerating = false;
-                            ex.printStackTrace();
-                            updateCopyAction();
+                            logger.error("Failed to generate summary", ex);
                         });
                         return null; // Return null to complete the exceptionally stage
                     });
-        } else {
-            copyAction.setEnabled(true);
         }
-    }
-
-    private void updateCopyAction() {
-        boolean e = true;
-        if (pnlWorkflowSummaryView.isVisible())
-            e = !summaryGenerating;
-        copyAction.setEnabled(e);
     }
 
     private void showWorkflowStructure() {
         ((CardLayout) pnlWorkflowContents.getLayout()).first(pnlWorkflowContents);
         pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
         pnlWorkflowInspectorStructure.requestFocus();
-        updateCopyAction();
     }
 
     private void showWorkflowExecution() {
         ((CardLayout) pnlWorkflowContents.getLayout()).show(pnlWorkflowContents, "execution");
         pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
         pnlWorkflowInspectorExecution.requestFocus();
-        updateCopyAction();
     }
 
     public WorkflowDebugger getWorkflowDebugger() {
         return workflowDebugger;
     }
 
+    private final Breakpoint sessionStartedBreakpoint = Breakpoint.builder(
+            Breakpoint.Type.SESSION_STARTED,
+            (b, m) -> SwingUtilities.invokeLater(() -> showExecutionAction.setEnabled(true)))
+            .build();
+
     public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
+        if (this.workflowDebugger != null)
+            this.workflowDebugger.removeBreakpoint(sessionStartedBreakpoint);
+
         this.workflowDebugger = workflowDebugger;
+
+        if (this.workflowDebugger != null)
+            this.workflowDebugger.addBreakpoint(sessionStartedBreakpoint);
+
         if (pnlWorkflowInspectorStructure != null)
             pnlWorkflowInspectorStructure.setWorkflowDebugger(workflowDebugger);
     }
@@ -450,10 +688,15 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
     @Override
     public void visitSite() {
+        String url = "https://github.com/gregory-ledenev/LangChain4j-EasyWorkflow";
+        visitSite(url);
+    }
+
+    private static void visitSite(String url) {
         Desktop desktop = Desktop.getDesktop();
         if (desktop.isSupported(Desktop.Action.BROWSE)) {
             try {
-                desktop.browse(new URI("https://github.com/gregory-ledenev/LangChain4j-EasyWorkflow"));
+                desktop.browse(new URI(url));
             } catch (Exception e) {
                 e.printStackTrace();
             }

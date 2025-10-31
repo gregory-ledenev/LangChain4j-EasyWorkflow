@@ -66,7 +66,6 @@ public class ChatDialog extends JDialog {
 
     private void init(ChatPane.ChatEngine chatEngine) {
         chatPane.setChatEngine(chatEngine);
-        chatPane.setShowSystemOptions(false);
         setModal(true);
         setSize(500, 700);
         setLocationRelativeTo(getParent());

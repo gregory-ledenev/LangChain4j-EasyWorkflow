@@ -64,7 +64,8 @@ import java.util.function.*;
 import java.util.stream.Collectors;
 
 import static com.gl.langchain4j.easyworkflow.BreakpointActions.log;
-import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.LineBreakpoint;
 import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
 
 /**
@@ -76,14 +77,6 @@ public class EasyWorkflow {
 
     public static final String VERSION = "v0.9.22";
     public static final String FULL_VERSION = "EasyWorkflow for LangChain4j " + VERSION;
-
-    /**
-     * A shared {@link ExecutorService} used for parallel agent execution. It is initialized on first use and can be
-     * explicitly closed.
-     */
-    private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
-    private static final Logger logger = LoggerFactory.getLogger(EasyWorkflow.class);
-
     public static final String JSON_TYPE_AGENT = "agent";
     public static final String JSON_TYPE_NON_AI_AGENT = "nonAiAgent";
     public static final String JSON_TYPE_REPEAT = "repeat";
@@ -92,7 +85,6 @@ public class EasyWorkflow {
     public static final String JSON_TYPE_MATCH = "match";
     public static final String JSON_TYPE_GROUP = "group";
     public static final String JSON_TYPE_DO_PARALLEL = "doParallel";
-
     public static final String JSON_KEY_UID = "uid";
     public static final String JSON_KEY_AGENT_CLASS_NAME = "className";
     public static final String JSON_KEY_OUTPUT_NAME = "outputName";
@@ -110,14 +102,21 @@ public class EasyWorkflow {
     public static final String JSON_KEY_EXPRESSION = "expression";
     public static final String JSON_KEY_MAX_ITERATIONS = "maxIterations";
     public static final String JSON_KEY_VALUE = "value";
+    /**
+     * A shared {@link ExecutorService} used for parallel agent execution. It is initialized on first use and can be
+     * explicitly closed.
+     */
+    private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
+    private static final Logger logger = LoggerFactory.getLogger(EasyWorkflow.class);
 
     private EasyWorkflow() {
     }
 
     /**
-     * Creates a {@link Predicate} that can be used in conditional workflow statements (e.g., {@code ifThen})
-     * and provides a textual representation for visualization in diagrams.
-     * @param condition The actual predicate logic.
+     * Creates a {@link Predicate} that can be used in conditional workflow statements (e.g., {@code ifThen}) and
+     * provides a textual representation for visualization in diagrams.
+     *
+     * @param condition       The actual predicate logic.
      * @param conditionString A string representation of the condition, used for debugging and diagrams.
      * @return A {@link Predicate} with an overridden {@code toString()} method.
      */
@@ -136,9 +135,10 @@ public class EasyWorkflow {
     }
 
     /**
-     * Creates a {@link Function} that can be used in workflow statements (e.g., {@code doWhen})
-     * and provides a textual representation for visualization in diagrams.
-     * @param expression The actual function logic.
+     * Creates a {@link Function} that can be used in workflow statements (e.g., {@code doWhen}) and provides a textual
+     * representation for visualization in diagrams.
+     *
+     * @param expression       The actual function logic.
      * @param expressionString A string representation of the expression, used for debugging and diagrams.
      * @return A {@link Function} with an overridden {@code toString()} method.
      */
@@ -250,9 +250,10 @@ public class EasyWorkflow {
     }
 
     /**
-     * Retrieves the name of an agent by its class. If the agent class has a method annotated with {@link Agent} and
-     * its {@code name} attribute is not blank, that name is returned. Otherwise, the simple name of the
-     * agent's class is returned.
+     * Retrieves the name of an agent by its class. If the agent class has a method annotated with {@link Agent} and its
+     * {@code name} attribute is not blank, that name is returned. Otherwise, the simple name of the agent's class is
+     * returned.
+     *
      * @param agentClass The class of the agent.
      * @return The name of the agent.
      */
@@ -269,6 +270,83 @@ public class EasyWorkflow {
         }
 
         return result;
+    }
+
+    /**
+     * Retrieves the method annotated with {@link Agent} from the given class.
+     *
+     * @param clazz The class to inspect.
+     * @return The method annotated with {@link Agent}, or {@code null} if no such method is found.
+     */
+    public static Method getAgentMethod(Class<?> clazz) {
+        for (Method method : clazz.getDeclaredMethods()) {
+            Agent annotation = method.getAnnotation(Agent.class);
+            if (annotation != null)
+                return method;
+        }
+        return null;
+    }
+
+    /**
+     * Expands the {@link UserMessage} template of an agent method with the provided states.
+     *
+     * @param clazz  The class of the agent.
+     * @param states The map of states to use for template expansion.
+     * @return The expanded user message, or {@code null} if no {@link UserMessage} annotation is found or an error
+     * occurs.
+     */
+    public static String expandUserMessage(Class<?> clazz, Map<String, Object> states) {
+        String template = getUserMessageTemplate(clazz);
+        return template != null ? EasyWorkflow.expandTemplate(template, states) : null;
+    }
+
+    /**
+     * Retrieves the {@link UserMessage} template from the method annotated with {@link Agent} in the given class.
+     *
+     * @param clazz The class of the agent.
+     * @return The user message template string, or {@code null} if no {@link UserMessage} annotation is found or an
+     * error occurs.
+     */
+    public static String getUserMessageTemplate(Class<?> clazz) {
+        Method agentMethod = getAgentMethod(clazz);
+        if (agentMethod != null) {
+            UserMessage annotation = agentMethod.getAnnotation(UserMessage.class);
+            if (annotation != null)
+                return getUserMessageTemplate(clazz, annotation.value(), annotation.delimiter(), annotation.fromResource());
+        }
+        return null;
+    }
+
+    /**
+     * Retrieves the {@link SystemMessage} template from the method annotated with {@link Agent} in the given class.
+     *
+     * @param clazz The class of the agent.
+     * @return The system message template string, or {@code null} if no {@link SystemMessage} annotation is found or an
+     * error occurs.
+     */
+    public static String getSystemMessageTemplate(Class<?> clazz) {
+        Method agentMethod = getAgentMethod(clazz);
+        if (agentMethod != null) {
+            SystemMessage annotation = agentMethod.getAnnotation(SystemMessage.class);
+            if (annotation != null)
+                return getUserMessageTemplate(clazz, annotation.value(), annotation.delimiter(), annotation.fromResource());
+        }
+        return null;
+    }
+
+    private static String getUserMessageTemplate(Class<?> clazz, String[] value, String delimiter, String fromResource) {
+        String template = null;
+        if (!fromResource.isEmpty()) {
+            try (InputStream is = clazz.getResourceAsStream("/" + fromResource)) {
+                if (is != null)
+                    template = new String(is.readAllBytes());
+            } catch (IOException e) {
+                logger.warn("Failed to load User Message from resource: {}", fromResource, e);
+            }
+        } else {
+            template = String.join(delimiter, value);
+        }
+        return template;
     }
 
     /**
@@ -292,20 +370,25 @@ public class EasyWorkflow {
      */
     public static class AgentWorkflowBuilder<T> {
 
+        public static final String FLOW_CHART_NODE_START = "startNode";
+        public static final String FLOW_CHART_NODE_END = "endNode";
+        public static final String FLOW_CHART_GRAPH_DEFINITION = "graphDefinition";
+        public static final String FLOW_CHART_NODE_DATA = "nodeData";
+        public static final String FLOW_CHART_NODE_NAMES = "nodeNames";
+        public static final String FLOW_CHART_COMPLETED_NODES = "completedNodes";
+        public static final String FLOW_CHART_TITLE = "title";
+        public static final String FLOW_CHART_SUB_TITLE = "subTitle";
+        public static final String FLOW_CHART_WORKFLOW_SUMMARY_MARKDOWN = "workflowSummaryMarkdown";
         private final AgentWorkflowBuilder<T> parentBuilder;
         private final Class<T> agentClass;
         private Block block;
-
         private String outputName;
         private Function<AgenticScope, Object> outputComposer;
-
         private ChatModel chatModel;
         private ChatMemory chatMemory;
         private Boolean logInput;
         private Boolean logOutput;
-
         private ExecutorService executor;
-
         private WorkflowDebugger workflowDebugger;
 
         AgentWorkflowBuilder(AgentWorkflowBuilder<T> aParentBuilder) {
@@ -327,6 +410,14 @@ public class EasyWorkflow {
             this.parentBuilder = null;
             this.block = new Block();
             this.agentClass = agentClass;
+        }
+
+        private static String mermaidInspectorLink(String node) {
+            return "click %s call showInspector(\"%s\")\n".formatted(node, node);
+        }
+
+        public Class<T> getAgentClass() {
+            return agentClass;
         }
 
         void setBlock(Block block) {
@@ -628,8 +719,8 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds a breakpoint to the workflow that logs a message when hit. The message is a template that
-         * can use workflow context variables with the `{{variable}}` notation.
+         * Adds a breakpoint to the workflow that logs a message when hit. The message is a template that can use
+         * workflow context variables with the `{{variable}}` notation.
          *
          * @param template The message template to log.
          * @return This builder instance.
@@ -639,10 +730,10 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds a conditional breakpoint to the workflow that logs a message when hit and the condition is met.
-         * The message is a template that can use workflow context variables with the `{{variable}}` notation.
-         *          *
-         * @param template The message template to log.
+         * Adds a conditional breakpoint to the workflow that logs a message when hit and the condition is met. The
+         * message is a template that can use workflow context variables with the `{{variable}}` notation. *
+         *
+         * @param template  The message template to log.
          * @param condition The condition that must be true for the breakpoint to trigger.
          * @return This builder instance.
          */
@@ -661,9 +752,10 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds a conditional breakpoint to the workflow that executes a custom action when hit and the condition is met.
+         * Adds a conditional breakpoint to the workflow that executes a custom action when hit and the condition is
+         * met.
          *
-         * @param action The action to execute when the breakpoint is hit.
+         * @param action    The action to execute when the breakpoint is hit.
          * @param condition The condition that must be true for the breakpoint to trigger.
          * @return This builder instance.
          */
@@ -693,11 +785,12 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts an "else" block, which must follow an {@code ifThen} statement. The agents added after this call
-         * and before the matching {@code end()} will execute if the condition of the preceding {@code ifThen}
-         * statement is false.
+         * Starts an "else" block, which must follow an {@code ifThen} statement. The agents added after this call and
+         * before the matching {@code end()} will execute if the condition of the preceding {@code ifThen} statement is
+         * false.
          *
-         * @return A new builder instance representing the "else" block. Call {@code end()} to return to the parent builder.
+         * @return A new builder instance representing the "else" block. Call {@code end()} to return to the parent
+         * builder.
          */
         public AgentWorkflowBuilder<T> elseIf() {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
@@ -721,14 +814,13 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements,
-         * where each match statement's agents will execute if its condition (based on the function's
-         * result) is met.
+         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements, where
+         * each match statement's agents will execute if its condition (based on the function's result) is met.
          *
-         * @param function A function that provides a value to be matched against in subsequent
-         *                 {@code match} statements.
+         * @param function A function that provides a value to be matched against in subsequent {@code match}
+         *                 statements.
          * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen"
-         *         return to the parent builder.
+         * return to the parent builder.
          * @see #match(Object)
          */
         public AgentWorkflowBuilder<T> doWhen(Function<AgenticScope, Object> function) {
@@ -740,25 +832,25 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements,
-         * where each match statement's agents will execute if its condition (based on the state variable's
-         * value) is met.
+         * Starts a "do when" or a switch conditional block. This block allows for multiple "match" statements, where
+         * each match statement's agents will execute if its condition (based on the state variable's value) is met.
          *
-         * @param stateName The name of the state variable to read from the {@link AgenticScope}.
+         * @param stateName    The name of the state variable to read from the {@link AgenticScope}.
          * @param defaultValue The default value to use if the state variable is not found.
-         * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen" return to the parent builder.
+         * @return A new builder instance representing the "do when" block. Call {@code end()} to close the "doWhen"
+         * return to the parent builder.
          */
         public AgentWorkflowBuilder<T> doWhen(String stateName, Object defaultValue) {
             return doWhen(expression(agenticScope -> agenticScope.readState(stateName, defaultValue), stateName));
         }
 
         /**
-         * Adds a "match" statement to a {@code doWhen} block. The agents within this match statement will execute
-         * if the value provided here matches the value returned by the {@code doWhen} function.
+         * Adds a "match" statement to a {@code doWhen} block. The agents within this match statement will execute if
+         * the value provided here matches the value returned by the {@code doWhen} function.
          *
          * @param value The value to match against.
-         * @return A new builder instance representing the "match" block. Call {@code end()} to close the "match"
-         *         and return to the parent builder.
+         * @return A new builder instance representing the "match" block. Call {@code end()} to close the "match" and
+         * return to the parent builder.
          */
         public AgentWorkflowBuilder<T> match(Object value) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
@@ -769,12 +861,12 @@ public class EasyWorkflow {
         }
 
         /**
-         * Adds a "match" statement to a {@code doWhen} block. The agents within this match statement will execute
-         * if the value provided by the supplier here matches the value returned by the {@code doWhen} function.
+         * Adds a "match" statement to a {@code doWhen} block. The agents within this match statement will execute if
+         * the value provided by the supplier here matches the value returned by the {@code doWhen} function.
          *
          * @param supplier A supplier that provides the value to match against.
-         * @return A new builder instance representing the "match" block. Call {@code end()} to close the "match"
-         *         and return to the parent builder.
+         * @return A new builder instance representing the "match" block. Call {@code end()} to close the "match" and
+         * return to the parent builder.
          */
         public AgentWorkflowBuilder<T> match(Supplier<Object> supplier) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
@@ -939,30 +1031,6 @@ public class EasyWorkflow {
             return summaryProvider.getSummary(json);
         }
 
-        /**
-         * An AI agent interface for generating a summary of a workflow based on its JSON representation.
-         */
-        public interface WorkflowSummaryProvider {
-
-            /**
-             * Generates a summary of the workflow based on its JSON representation.
-             * @param jsonRepresentation The JSON string representing the workflow.
-             * @return A string containing the summary of the workflow.
-             */
-            @UserMessage("""
-                         Prepare a summary for a workflow according to its JSON representation.
-                         Keep it readable and user friendly.
-                         Don't include anything is not related to the workflow (offer to continue conversation etc.).
-                         Don't mention:
-                         - It's generated based on JSON
-                         - UID's
-                         The JSON representation is: '{{jsonRepresentation}}'.
-                         """)
-            @Agent(value = "prepares summary for a workflow", outputName = "summary")
-            public String getSummary(String jsonRepresentation);
-
-        }
-
         @SuppressWarnings("unchecked")
         private T proxy(T agent) {
             assert agentClass != null;
@@ -1016,7 +1084,8 @@ public class EasyWorkflow {
         }
 
         /**
-         * Generates an HTML representation of the workflow diagram using Mermaid.js and writes it to the specified file.
+         * Generates an HTML representation of the workflow diagram using Mermaid.js and writes it to the specified
+         * file.
          *
          * @param filePath The path to the file where the HTML should be written.
          * @throws IOException If an I/O error occurs.
@@ -1034,31 +1103,14 @@ public class EasyWorkflow {
             return toHtml(new HtmlConfiguration());
         }
 
-        public record HtmlConfiguration(String title, String subTitle,
-                                        boolean isIncludeSummary, Map<String, Object> workflowResults,
-                                        List<String> completedAgents,
-                                        Set<String> failedAgents,
-                                        Set<String> runningAgents,
-                                        Map<String, String> agentNames) {
-
-
-            public HtmlConfiguration(String aTitle, String aSubTitle) {
-                this(aTitle, aSubTitle, false, Map.of(), List.of(), Set.of(), Set.of(), Map.of());
-            }
-
-            public HtmlConfiguration() {
-                this(null, null);
-            }
-        }
-
         String toHtml(HtmlConfiguration htmlConfiguration) {
             try {
                 ObjectMapper objectMapper = new ObjectMapper();
                 return expandTemplate(getHtmlTemplate(), Map.of(
                         FLOW_CHART_GRAPH_DEFINITION, toMermaid(htmlConfiguration.completedAgents(), htmlConfiguration.failedAgents(), htmlConfiguration.runningAgents()),
                         FLOW_CHART_NODE_DATA, objectMapper.writeValueAsString(htmlConfiguration.workflowResults()),
-                        FLOW_CHART_NODE_NAMES,objectMapper.writeValueAsString(htmlConfiguration.agentNames()),
-                        FLOW_CHART_COMPLETED_NODES,objectMapper.writeValueAsString(htmlConfiguration.completedAgents()),
+                        FLOW_CHART_NODE_NAMES, objectMapper.writeValueAsString(htmlConfiguration.agentNames()),
+                        FLOW_CHART_COMPLETED_NODES, objectMapper.writeValueAsString(htmlConfiguration.completedAgents()),
                         FLOW_CHART_TITLE, htmlConfiguration.title() != null ? htmlConfiguration.title() : "Workflow Diagram",
                         FLOW_CHART_SUB_TITLE, htmlConfiguration.subTitle() != null ? htmlConfiguration.subTitle() : "",
                         FLOW_CHART_WORKFLOW_SUMMARY_MARKDOWN, generateAISummary(htmlConfiguration)
@@ -1095,20 +1147,6 @@ public class EasyWorkflow {
             return htmlTemplate;
         }
 
-        public static final String FLOW_CHART_NODE_START = "startNode";
-        public static final String FLOW_CHART_NODE_END = "endNode";
-        public static final String FLOW_CHART_GRAPH_DEFINITION = "graphDefinition";
-        public static final String FLOW_CHART_NODE_DATA = "nodeData";
-        public static final String FLOW_CHART_NODE_NAMES = "nodeNames";
-        public static final String FLOW_CHART_COMPLETED_NODES = "completedNodes";
-        public static final String FLOW_CHART_TITLE = "title";
-        public static final String FLOW_CHART_SUB_TITLE = "subTitle";
-        public static final String FLOW_CHART_WORKFLOW_SUMMARY_MARKDOWN = "workflowSummaryMarkdown";
-
-        private static String mermaidInspectorLink(String node) {
-            return "click %s call showInspector(\"%s\")\n".formatted(node, node);
-        }
-
         private String toMermaid(List<String> completedNodes, Set<String> failedNodes, Set<String> runningNodes) {
             StringBuilder mermaid = new StringBuilder();
             mermaid.append("graph TD\n");
@@ -1132,6 +1170,48 @@ public class EasyWorkflow {
             mermaid.append(String.format("    %s --> %s\n", lastId, endId));
 
             return mermaid.toString();
+        }
+
+        /**
+         * An AI agent interface for generating a summary of a workflow based on its JSON representation.
+         */
+        public interface WorkflowSummaryProvider {
+
+            /**
+             * Generates a summary of the workflow based on its JSON representation.
+             *
+             * @param jsonRepresentation The JSON string representing the workflow.
+             * @return A string containing the summary of the workflow.
+             */
+            @UserMessage("""
+                         Prepare a summary for a workflow according to its JSON representation.
+                         Keep it readable and user friendly.
+                         Don't include anything is not related to the workflow (offer to continue conversation etc.).
+                         Don't mention:
+                         - It's generated based on JSON
+                         - UID's
+                         The JSON representation is: '{{jsonRepresentation}}'.
+                         """)
+            @Agent(value = "prepares summary for a workflow", outputName = "summary")
+            public String getSummary(String jsonRepresentation);
+
+        }
+
+        public record HtmlConfiguration(String title, String subTitle,
+                                        boolean isIncludeSummary, Map<String, Object> workflowResults,
+                                        List<String> completedAgents,
+                                        Set<String> failedAgents,
+                                        Set<String> runningAgents,
+                                        Map<String, String> agentNames) {
+
+
+            public HtmlConfiguration(String aTitle, String aSubTitle) {
+                this(aTitle, aSubTitle, false, Map.of(), List.of(), Set.of(), Set.of(), Map.of());
+            }
+
+            public HtmlConfiguration() {
+                this(null, null);
+            }
         }
     }
 
@@ -1226,8 +1306,8 @@ public class EasyWorkflow {
     }
 
     static abstract class Statement implements Expression {
-        private final String id = UUID.randomUUID().toString();
         final AgentWorkflowBuilder<?> agentWorkflowBuilder;
+        private final String id = UUID.randomUUID().toString();
         private final List<Block> blocks;
 
         public Statement(AgentWorkflowBuilder<?> agentWorkflowBuilder) {
@@ -1325,11 +1405,6 @@ public class EasyWorkflow {
 
     static class IfThenStatement extends Statement {
         private final Predicate<AgenticScope> condition;
-
-        public String getConditionExpression() {
-            return conditionExpression;
-        }
-
         private final String conditionExpression;
 
         public IfThenStatement(AgentWorkflowBuilder<?> builder, Predicate<AgenticScope> condition) {
@@ -1343,6 +1418,10 @@ public class EasyWorkflow {
 
             this.condition = condition;
             this.conditionExpression = conditionExpression;
+        }
+
+        public String getConditionExpression() {
+            return conditionExpression;
         }
 
         @Override
@@ -1441,7 +1520,7 @@ public class EasyWorkflow {
             String switchNodeId = getId();
             mermaid.append(String.format("    %s{{\"doWhen (%s)\"}}\n",
                     switchNodeId,
-                    whenExpression != null && ! whenExpression.isEmpty() ? whenExpression : "..."));
+                    whenExpression != null && !whenExpression.isEmpty() ? whenExpression : "..."));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, switchNodeId) :
                     String.format("    %s --> %s\n", entryNodeId, switchNodeId);
@@ -1458,7 +1537,6 @@ public class EasyWorkflow {
             return endSwitchNodeId;
         }
     }
-
 
     static class MatchStatement extends Statement {
         private final Object value;
@@ -1673,10 +1751,6 @@ public class EasyWorkflow {
             this.configurator = configurator;
         }
 
-        public String getId() {
-            return id;
-        }
-
         protected static String getOutputName(Class<?> agentClass) {
             String result = "response";
 
@@ -1690,6 +1764,10 @@ public class EasyWorkflow {
             }
 
             return result;
+        }
+
+        public String getId() {
+            return id;
         }
 
         public Class<?> getAgentClass() {
@@ -1763,14 +1841,14 @@ public class EasyWorkflow {
                     UserMessage userAnn = method.getAnnotation(UserMessage.class);
                     if (userAnn != null) {
                         String userMessage = getUserMessageTemplate(clazz, userAnn.value(), userAnn.delimiter(), userAnn.fromResource());
-                        if (userMessage != null && ! userMessage.isEmpty())
+                        if (userMessage != null && !userMessage.isEmpty())
                             json.put(JSON_KEY_USER_MESSAGE, userMessage);
                     }
 
                     SystemMessage sysAnn = method.getAnnotation(SystemMessage.class);
                     if (sysAnn != null) {
                         String systemMessage = getUserMessageTemplate(clazz, sysAnn.value(), sysAnn.delimiter(), sysAnn.fromResource());
-                        if (systemMessage != null && ! systemMessage.isEmpty())
+                        if (systemMessage != null && !systemMessage.isEmpty())
                             json.put(JSON_KEY_SYSTEM_MESSAGE, systemMessage);
                     }
 
@@ -1823,7 +1901,7 @@ public class EasyWorkflow {
                     nodeId,
                     getMermaidNodeColor(),
                     completedNodes.contains(nodeId) ? 3 : 1,
-                    ! failedNodes.contains(nodeId) ? "" : ",stroke:#ff0000"));
+                    !failedNodes.contains(nodeId) ? "" : ",stroke:#ff0000"));
             String edge = edgeLabel != null && !edgeLabel.isEmpty() ?
                     String.format("    %s-- %s -->%s\n", entryNodeId, edgeLabel, nodeId) :
                     String.format("    %s --> %s\n", entryNodeId, nodeId);
@@ -1841,8 +1919,6 @@ public class EasyWorkflow {
         protected String getMermaidNodeColor() {
             return "#ffff99";
         }
-
-        record WorkflowContextConfig(WorkflowContext.Input input, WorkflowContext.Output output) {}
 
         private WorkflowContextConfig setupWorkflowDebugger(AgentBuilder<?> agentBuilder, WorkflowDebugger workflowDebugger, String outputName) {
             if (workflowDebugger == null)
@@ -1919,7 +1995,7 @@ public class EasyWorkflow {
                 public AgentBuilder<?> inputGuardrailClasses(Class... inputGuardrailClasses) {
                     inputGuardrailClassesLocal = inputGuardrailClassesLocal == null ?
                             inputGuardrailClasses : mergeInputGuardrailClasses(inputGuardrailClassesLocal, inputGuardrailClasses);
-	
+
                     return super.inputGuardrailClasses(inputGuardrailClassesLocal);
                 }
 
@@ -1993,6 +2069,9 @@ public class EasyWorkflow {
         public String getOutputName() {
             return outputName != null ? outputName : getOutputName(agentClass);
         }
+
+        record WorkflowContextConfig(WorkflowContext.Input input, WorkflowContext.Output output) {
+        }
     }
 
     static class NonAIAgentExpression extends AgentExpression {
@@ -2014,6 +2093,10 @@ public class EasyWorkflow {
     }
 
     static class SetStateAgentExpression extends NonAIAgentExpression {
+        public SetStateAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent) {
+            super(agentWorkflowBuilder, agent, null, null);
+        }
+
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
@@ -2024,10 +2107,6 @@ public class EasyWorkflow {
         @Override
         protected String getMermaidNodeLabel() {
             return ((SetStateAgents.SetStateAgent) getAgent()).getAgentName();
-        }
-
-        public SetStateAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent) {
-            super(agentWorkflowBuilder, agent, null, null);
         }
     }
 
@@ -2129,79 +2208,5 @@ public class EasyWorkflow {
             mermaid.append(edge);
             return nodeId;
         }
-    }
-
-    /**
-     * Retrieves the method annotated with {@link Agent} from the given class.
-     *
-     * @param clazz The class to inspect.
-     * @return The method annotated with {@link Agent}, or {@code null} if no such method is found.
-     */
-    public static Method getAgentMethod(Class<?> clazz) {
-        for (Method method : clazz.getDeclaredMethods()) {
-            Agent annotation = method.getAnnotation(Agent.class);
-            if (annotation != null)
-                return method;
-        }
-        return null;
-    }
-
-    /**
-     * Expands the {@link UserMessage} template of an agent method with the provided states.
-     *
-     * @param clazz The class of the agent.
-     * @param states The map of states to use for template expansion.
-     * @return The expanded user message, or {@code null} if no {@link UserMessage} annotation is found or an error occurs.
-     */
-    public static String expandUserMessage(Class<?> clazz, Map<String, Object> states) {
-        String template = getUserMessageTemplate(clazz);
-        return template != null ? EasyWorkflow.expandTemplate(template, states) : null;
-    }
-
-    /**
-     * Retrieves the {@link UserMessage} template from the method annotated with {@link Agent} in the given class.
-     *
-     * @param clazz The class of the agent.
-     * @return The user message template string, or {@code null} if no {@link UserMessage} annotation is found or an error occurs.
-     */
-    public static String getUserMessageTemplate(Class<?> clazz) {
-        Method agentMethod = getAgentMethod(clazz);
-        if (agentMethod != null) {
-            UserMessage annotation = agentMethod.getAnnotation(UserMessage.class);
-            if (annotation != null)
-                return getUserMessageTemplate(clazz, annotation.value(), annotation.delimiter(), annotation.fromResource());
-        }
-        return null;
-    }
-
-    /**
-     * Retrieves the {@link SystemMessage} template from the method annotated with {@link Agent} in the given class.
-     *
-     * @param clazz The class of the agent.
-     * @return The system message template string, or {@code null} if no {@link SystemMessage} annotation is found or an error occurs.
-     */
-    public static String getSystemMessageTemplate(Class<?> clazz) {
-        Method agentMethod = getAgentMethod(clazz);
-        if (agentMethod != null) {
-            SystemMessage annotation = agentMethod.getAnnotation(SystemMessage.class);
-            if (annotation != null)
-                return getUserMessageTemplate(clazz, annotation.value(), annotation.delimiter(), annotation.fromResource());
-        }
-        return null;
-    }
-
-    private static String getUserMessageTemplate(Class<?> clazz, String[] value, String delimiter, String fromResource) {
-        String template = null;
-        if (! fromResource.isEmpty()) {
-            try (InputStream is = clazz.getResourceAsStream("/" + fromResource)) {
-                if (is != null)
-                    template = new String(is.readAllBytes());
-            } catch (IOException e) {
-                logger.warn("Failed to load User Message from resource: {}", fromResource, e);
-            }
-        } else {
-            template = String.join(delimiter, value);
-        }
-        return template;
     }
 }

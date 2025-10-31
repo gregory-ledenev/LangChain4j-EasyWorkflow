@@ -24,6 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
+import com.gl.langchain4j.easyworkflow.gui.Actions;
 import com.gl.langchain4j.easyworkflow.gui.HeaderPane;
 import com.gl.langchain4j.easyworkflow.gui.UISupport;
 
@@ -33,7 +34,7 @@ import javax.swing.event.TreeSelectionListener;
 import javax.swing.tree.*;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.MouseEvent;
+import java.awt.event.KeyEvent;
 import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
@@ -72,6 +73,11 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
         setResizeWeight(0.7);
     }
 
+    @Override
+    public void requestFocus() {
+        pnlValues.requestFocus();
+    }
+
     /**
      * Returns the currently displayed values.
      *
@@ -92,6 +98,10 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             pnlValueDetails.setValue(null);
         if (pnlValues != null)
             pnlValues.setValues(values);
+    }
+
+    public JComponent getTreeView() {
+        return pnlValues.getTree();
     }
 
     /**
@@ -152,6 +162,23 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
      */
     class ValuesPane extends JPanel implements TreeSelectionListener {
         private static final String PROP_ALWAYS_EXPAND = "alwaysExpand";
+        private final HeaderPane headerPane;
+        private final JTree treeValues = new JTree();
+        private final Action actionCopy = createAction("Copy",
+                null,
+                e -> copy(true, true));
+        private final Action actionCopyName = createAction("Copy Name",
+                null,
+                e -> copy(true, false));
+        private final Action actionCopyValue = createAction("Copy Value",
+                null,
+                e -> copy(false, true));
+        private final Action actionExpandAll = createAction("Expand All",
+                new AutoIcon(ICON_EXPAND),
+                e -> expandAllValues(true));
+        private final Action actionCollapseAll = createAction("Collapse All",
+                new AutoIcon(ICON_COLLAPSE),
+                e -> collapseAllValues());
         private Map<String, Object> values;
 
         /**
@@ -162,7 +189,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             setMinimumSize(new Dimension(200, 100));
             setOpaque(false);
             setLayout(new BorderLayout());
-            HeaderPane headerPane = new HeaderPane(false);
+            headerPane = new HeaderPane(false);
             add(headerPane, BorderLayout.NORTH);
             JScrollPane scrollPane = UISupport.createScrollPane(treeValues, true, false, true, true, false);
             headerPane.setTitle("Inspector");
@@ -179,28 +206,55 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             actionAlwaysExpand.putValue(Action.SELECTED_KEY, isAlwaysExpandValues());
             actionAlwaysExpand.putValue(Action.SHORT_DESCRIPTION, "Always Expand All");
 
-            setupToolbar(headerPane);
-            setupPopupMenu();
+            UISupport.bindAction(treeValues,
+                    "copy",
+                    KeyStroke.getKeyStroke(KeyEvent.VK_C, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()),
+                    new BasicAction("Copy", null, e -> copy()));
 
+            setupActions();
             updateActions();
+        }
+
+        @Override
+        public void requestFocus() {
+            treeValues.requestFocus();
+        }
+
+        @Override
+        public void setComponentPopupMenu(JPopupMenu popup) {
+            super.setComponentPopupMenu(popup);
         }
 
         private static Preferences getPreferences() {
             return UISupport.getPreferences().node("Inspector.ValuesPane");
         }
 
-        private void setupToolbar(HeaderPane headerPane) {
-            UISupport.setupToolbar(headerPane.getToolbar(), new ActionGroup(actionAlwaysExpand));
+        private static NamedValue createNamedValue(String icon, String name, Object value) {
+            int openParen = name.indexOf('(');
+            int closeParen = name.indexOf(')');
+            if (openParen != -1 && closeParen != -1 && closeParen > openParen) {
+                String actualName = name.substring(0, openParen);
+                String actualSubName = name.substring(openParen + 1, closeParen);
+                return new NamedValue(icon, actualName, actualSubName, value);
+            }
+            return new NamedValue(icon, name, null, value);
         }
 
-        private void setupPopupMenu() {
+        public HeaderPane getHeaderPane() {
+            return headerPane;
+        }
+
+        private void setupActions() {
+            actionExpandAll.putValue(Action.SHORT_DESCRIPTION, "Expand All");
+            actionCollapseAll.putValue(Action.SHORT_DESCRIPTION, "Collapse All");
+
             ActionGroup actionGroup = new ActionGroup(
                     new ActionGroup("Copy", new AutoIcon(ICON_COPY), true,
                             actionCopy,
                             actionCopyName,
                             actionCopyValue
                     ),
-                    new ActionGroup(new Action[]{}),
+                    new ActionGroup(),
                     new ActionGroup(
                             actionExpandAll,
                             actionCollapseAll
@@ -212,26 +266,13 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
 
             JPopupMenu popupMenu = new JPopupMenu();
             UISupport.setupPopupMenu(popupMenu, actionGroup);
-
             treeValues.setComponentPopupMenu(popupMenu);
+            UISupport.setupToolbar(headerPane.getToolbar(), actionGroup);
         }
 
         public boolean isAlwaysExpandValues() {
             return getPreferences().getBoolean(PROP_ALWAYS_EXPAND, false);
-        }        private final JTree treeValues = new JTree() {
-            @Override
-            protected void processMouseEvent(MouseEvent e) {
-                if (e.isPopupTrigger() || e.getButton() == MouseEvent.BUTTON1) {
-                    int row = getRowForLocation(e.getX(), e.getY());
-                    if (row != -1) {
-                        if (getSelectionCount() != 1 || getSelectionRows()[0] != row) {
-                            setSelectionRow(row);
-                        }
-                    }
-                }
-                super.processMouseEvent(e);
-            }
-        };
+        }
 
         public void setAlwaysExpandValues(boolean alwaysExpand) {
             if (isAlwaysExpandValues() == alwaysExpand)
@@ -276,14 +317,19 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             }
         }
 
+        public void copy() {
+            copy(true, true);
+        }
+
         private void copy(boolean copyName, boolean copyValue) {
             NamedValue namedValue = getSelectedValue();
             if (namedValue != null) {
                 String text;
+                String subName = namedValue.subName() != null ? " (%s)".formatted(namedValue.subName()) : "";
                 if (copyName && copyValue)
-                    text = "%s = %s".formatted(namedValue.name(), namedValue.value() != null ? namedValue.value() : "null");
+                    text = "%s%s = %s".formatted(namedValue.name(), subName, namedValue.value() != null ? namedValue.value() : "null");
                 else if (copyName)
-                    text = namedValue.name();
+                    text = "%s%s".formatted(namedValue.name(), subName);
                 else
                     text = namedValue.value() != null ? namedValue.value().toString() : "null";
                 Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new StringSelection(text), null);
@@ -320,17 +366,17 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
         /**
          * Sets the values to be displayed in the tree view.
          *
-         * @param aValues A {@code Map} containing the values to display.
+         * @param values A {@code Map} containing the values to display.
          */
-        public void setValues(Map<String, Object> aValues) {
-            values = aValues;
-            if (values == null) {
+        public void setValues(Map<String, Object> values) {
+            this.values = values;
+            if (this.values == null) {
                 treeValues.setModel(null);
                 return;
             }
 
             DefaultMutableTreeNode root = new DefaultMutableTreeNode("Values");
-            buildTree(root, values);
+            buildTree(root, this.values);
             DefaultTreeModel model = new DefaultTreeModel(root);
             treeValues.setModel(model);
 
@@ -345,6 +391,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
 
         private void buildTree(DefaultMutableTreeNode parent, Object data) {
             if (data instanceof Map) {
+                @SuppressWarnings("unchecked")
                 Map<String, Object> map = (Map<String, Object>) data;
                 map.entrySet().stream()
                         .sorted(Map.Entry.comparingByKey())
@@ -353,22 +400,22 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
                             Object value = entry.getValue();
                             if (value instanceof Map || value instanceof List) {
                                 DefaultMutableTreeNode node = new DefaultMutableTreeNode(
-                                        new NamedValue(value instanceof Map ? "❖" : "≡", key, value));
+                                        createNamedValue(value instanceof Map ? "❖" : "≡", key, value));
                                 parent.add(node);
                                 buildTree(node, value);
                             } else {
-                                parent.add(new DefaultMutableTreeNode(new NamedValue("•", key, value)));
+                                parent.add(new DefaultMutableTreeNode(createNamedValue("•", key, value)));
                             }
                         });
             } else if (data instanceof List<?> list) {
                 for (int i = 0; i < list.size(); i++) {
                     Object item = list.get(i);
                     if (item instanceof Map || item instanceof List) {
-                        DefaultMutableTreeNode node = new DefaultMutableTreeNode(new NamedValue(item instanceof Map ? "❖" : "≡", "[" + i + "]", item));
+                        DefaultMutableTreeNode node = new DefaultMutableTreeNode(createNamedValue(item instanceof Map ? "❖" : "≡", "[" + i + "]", item));
                         parent.add(node);
                         buildTree(node, item);
                     } else {
-                        parent.add(new DefaultMutableTreeNode(new NamedValue("•", "[" + i + "]", item)));
+                        parent.add(new DefaultMutableTreeNode(createNamedValue("•", "[" + i + "]", item)));
                     }
                 }
             }
@@ -397,27 +444,11 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
          * @param name  The name of the value.
          * @param value The actual value.
          */
-        record NamedValue(String icon, String name, Object value) {
+        record NamedValue(String icon, String name, String subName, Object value) {
         }
-
-        private final Action actionCopy = createAction("Copy",
-                null,
-                e -> copy(true, true));
-        private final Action actionCopyName = createAction("Copy Name",
-                null,
-                e -> copy(true, false));
-        private final Action actionCopyValue = createAction("Copy Value",
-                null,
-                e -> copy(false, true));
-        private final Action actionExpandAll = createAction("Expand All",
-                null,
-                e -> expandAllValues(true));
-        private final Action actionCollapseAll = createAction("Collapse All",
-                null,
-                e -> collapseAllValues());
         private final Action actionAlwaysExpand = new StateAction("Always Expand All",
                 new AutoIcon(ICON_ALWAYS_EXPAND),
-                e -> setAlwaysExpandValues(!isAlwaysExpandValues()));
+                null, e -> setAlwaysExpandValues(!isAlwaysExpandValues()));
     }
 
     /**
@@ -436,18 +467,30 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             Object userObject = node.getUserObject();
 
             if (userObject instanceof ValuesPane.NamedValue namedValue) {
+                String subName = namedValue.subName != null ? " (%s)".formatted(namedValue.subName) : "";
                 if (namedValue.value() instanceof Map || namedValue.value() instanceof List) {
                     if (!expanded) {
                         String color = selected ?
                                 String.format("#%06x", ((hasFocus ? getTextSelectionColor() : getTextNonSelectionColor()).getRGB() & 0xFFFFFF)) :
                                 "gray";
-                        setText("<html>%s <b>%s</b>: <span style=\"color: %s;\">%s</span></html>".
-                                formatted(namedValue.icon(), namedValue.name(), color, namedValue.value()));
+                        setText("<html>%s <b>%s</b><i>%s</i>: <span style=\"color: %s;\">%s</span></html>".
+                                formatted(namedValue.icon(),
+                                        namedValue.name(),
+                                        subName,
+                                        color,
+                                        namedValue.value()));
                     } else {
-                        setText("<html>%s <b>%s</b></html>".formatted(namedValue.icon(), namedValue.name()));
+                        setText("<html>%s <b>%s</b><i>%s</i></html>".formatted(
+                                namedValue.icon(),
+                                namedValue.name(),
+                                subName));
                     }
                 } else {
-                    setText("<html>%s <b>%s</b>: %s</html>".formatted(namedValue.icon(), namedValue.name(), namedValue.value()));
+                    setText("<html>%s <b>%s</b><i>%s</i>: %s</html>".formatted(
+                            namedValue.icon(),
+                            namedValue.name(),
+                            subName,
+                            namedValue.value()));
                 }
             }
 

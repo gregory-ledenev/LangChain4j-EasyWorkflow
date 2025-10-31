@@ -38,13 +38,17 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.Border;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.swing.plaf.UIResource;
 import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.*;
+import java.awt.event.ActionEvent;
 import java.awt.image.BaseMultiResolutionImage;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -110,6 +114,9 @@ public class UISupport {
     public static final String ICON_EXECUTION_FLOW = "execution-flow";
     public static final String ICON_WORKFLOW = "workflow";
     public static final String ICON_SHARE = "share";
+    public static final String ICON_EXPAND = "expand";
+    public static final String ICON_COLLAPSE = "collapse";
+    public static final String ICON_CHAT = "chat";
 
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
@@ -172,6 +179,12 @@ public class UISupport {
         icons.put(getIconKey(ICON_ALWAYS_EXPAND, false), loadImageIcon("always-expand"));
         icons.put(getIconKey(ICON_ALWAYS_EXPAND, true), loadImageIcon("always-expand-light"));
 
+        icons.put(getIconKey(ICON_EXPAND, false), loadImageIcon("expand"));
+        icons.put(getIconKey(ICON_EXPAND, true), loadImageIcon("expand-light"));
+
+        icons.put(getIconKey(ICON_COLLAPSE, false), loadImageIcon("collapse"));
+        icons.put(getIconKey(ICON_COLLAPSE, true), loadImageIcon("collapse-light"));
+
         icons.put(getIconKey(ICON_FILE_TYPE_CODE, false), loadImageIcon("file-type-code"));
         icons.put(getIconKey(ICON_FILE_TYPE_CODE, true), loadImageIcon("file-type-code-light"));
 
@@ -186,6 +199,9 @@ public class UISupport {
 
         icons.put(getIconKey(ICON_SHARE, false), loadImageIcon("share"));
         icons.put(getIconKey(ICON_SHARE, true), loadImageIcon("share-light"));
+
+        icons.put(getIconKey(ICON_CHAT, false), loadImageIcon("chat"));
+        icons.put(getIconKey(ICON_CHAT, true), loadImageIcon("chat-light"));
     }
 
     private static ImageIcon loadImageIcon(String name) {
@@ -202,17 +218,9 @@ public class UISupport {
      * @param actionListener The consumer to be called when the action is performed.
      * @return A new {@link Action} instance.
      */
-    public static Action createAction(String title, Icon icon,
-                                      Consumer<ActionEvent> actionListener) {
-        return new AbstractAction(title, icon) {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (actionListener != null)
-                    actionListener.accept(e);
-            }
-        };
-
+    public static Actions.BasicAction createAction(String title, Icon icon,
+                                                   Consumer<ActionEvent> actionListener) {
+        return new Actions.BasicAction(title, icon, actionListener);
     }
 
     /**
@@ -245,16 +253,45 @@ public class UISupport {
             case Dark -> setDarkAppearance(true);
             case Auto -> setDarkAppearance(osThemeDetector.isDark());
         }
+
+        for (Window window : Window.getWindows())
+            SwingUtilities.updateComponentTreeUI(window);
+    }
+
+    private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
+
+    /**
+     * Adds a {@link PropertyChangeListener} to the listener list. The listener is registered for all properties.
+     *
+     * @param listener The {@link PropertyChangeListener} to be added.
+     */
+    public static void addPropertyChangeListener(PropertyChangeListener listener) {
+        propertyChangeSupport.addPropertyChangeListener(listener);
+    }
+
+    /**
+     * Removes a {@link PropertyChangeListener} from the listener list.
+     *
+     * @param listener The {@link PropertyChangeListener} to be removed.
+     */
+    public static void removePropertyChangeListener(PropertyChangeListener listener) {
+        propertyChangeSupport.removePropertyChangeListener(listener);
+    }
+
+    private static void firePropertyChange(String propertyName, Object oldValue, Object newValue) {
+        propertyChangeSupport.firePropertyChange(propertyName, oldValue, newValue);
     }
 
     /**
      * Applies a specific appearance setting and updates the options.
      *
-     * @param darkAppearance The desired {@link Appearance} to apply.
+     * @param appearance The desired {@link Appearance} to apply.
      */
-    public static void applyAppearance(Appearance darkAppearance) {
-        getOptions().setAppearance(darkAppearance);
+    public static void applyAppearance(Appearance appearance) {
+        getOptions().setAppearance(appearance);
         applyAppearance();
+        boolean dark = osThemeDetector.isDark();
+        firePropertyChange(Options.PROP_APPEARANCE_DARK, ! dark, dark);
     }
 
     /**
@@ -421,6 +458,9 @@ public class UISupport {
         boolean hasText = result.getText() != null;
         result.setMargin(new Insets(4, hasText ? 6 : 4, 4, hasText ? 6 : 4));
 
+        if (action instanceof ActionGroup)
+            result.setText(hasText ? result.getText() + " ▾" : "▾");
+
         return result;
     }
 
@@ -497,8 +537,26 @@ public class UISupport {
     }
 
     private static void setupPopupMenu(JPopupMenu popupMenu, ActionGroup actionGroup, Map<String, ButtonGroup> buttonGroupMap) {
+        popupMenu.addPopupMenuListener(new PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                for (Action action : actionGroup.getActions()) {
+                    if (action instanceof Actions.BasicAction basicAction)
+                        basicAction.update();
+                }
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {}
+
+            @Override
+            public void popupMenuCanceled(PopupMenuEvent e) {}
+        });
         int i = 0;
         for (Action action : actionGroup.getActions()) {
+            if (action == null)
+                continue;
+
             if (action instanceof ActionGroup subGroup) {
                 if (subGroup.isPopup()) {
                     JMenu subMenu = new JMenu(subGroup.getValue(Action.NAME).toString());
@@ -510,7 +568,7 @@ public class UISupport {
                     for (Action subAction : subGroup.getActions()) {
                         addMenuItem(popupMenu, subAction, buttonGroupMap);
                     }
-                    if (i < actionGroup.getActions().length - 1)
+                    if (i < actionGroup.getActions().size() - 1)
                         popupMenu.addSeparator(); // Separator after a non-popup action group's items
                 }
             } else {
@@ -518,6 +576,8 @@ public class UISupport {
             }
             i++;
         }
+        if (popupMenu.getComponent(popupMenu.getComponentCount() - 1) instanceof JSeparator)
+            popupMenu.remove(popupMenu.getComponentCount() - 1);
     }
 
     private static void addMenuItem(JPopupMenu popupMenu, Action action, Map<String, ButtonGroup> buttonGroupMap) {
@@ -543,6 +603,40 @@ public class UISupport {
     }
 
     /**
+     * Sets up a {@link JMenuBar} with actions from an {@link ActionGroup}.
+     *
+     * @param menuBar     The {@link JMenuBar} to set up.
+     * @param actionGroup The {@link ActionGroup} containing the actions to add to the menu bar.
+     */
+    public static void setupMenuBar(JMenuBar menuBar, ActionGroup actionGroup) {
+        setupMenuBar(menuBar, actionGroup, new HashMap<>());
+    }
+
+    private static void setupMenuBar(JMenuBar menuBar, ActionGroup actionGroup, Map<String, ButtonGroup> buttonGroupMap) {
+        for (Action action : actionGroup.getActions()) {
+            if (action == null)
+                continue;
+
+            if (action instanceof ActionGroup subGroup) {
+                JMenu menu = new JMenu(subGroup.getValue(Action.NAME).toString());
+                menu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null);
+                setupPopupMenu(menu.getPopupMenu(), subGroup, buttonGroupMap);
+                menuBar.add(menu);
+            } else {
+                // Top-level actions in a menu bar are typically JMenus, not direct JMenuItems.
+                // If a direct action is encountered here, it's usually an error in the ActionGroup structure
+                // for a menu bar, or it implies a single menu item at the top level, which is uncommon.
+                // For now, we'll add it as a JMenu with a single item, or you might choose to log an error.
+                logger.warn("Direct action '{}' found at top level of JMenuBar setup. Consider wrapping it in an ActionGroup for a JMenu.", action.getValue(Action.NAME));
+                JMenu menu = new JMenu(action.getValue(Action.NAME).toString());
+                menu.setIcon(action.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) action.getValue(Action.SMALL_ICON) : null);
+                addMenuItem(menu.getPopupMenu(), action, buttonGroupMap);
+                menuBar.add(menu);
+            }
+        }
+    }
+
+    /**
      * Sets up a {@link JToolBar} with actions from an {@link ActionGroup}.
      *
      * @param toolbar     The {@link JToolBar} to set up.
@@ -554,13 +648,16 @@ public class UISupport {
 
     private static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup, boolean addSeparators,
                                      Map<String, ButtonGroup> buttonGroupMap) {
-        for (int i = 0; i < actionGroup.getActions().length; ++i) {
-            Action action = actionGroup.getActions()[i];
+        for (int i = 0; i < actionGroup.getActions().size(); ++i) {
+            Action action = actionGroup.getActions().get(i);
+            if (action == null)
+                continue;
+
             if (action instanceof ActionGroup subGroup) {
                 if (subGroup.isPopup()) {
                     JButton popupButton = createToolbarButton(subGroup);
                     JPopupMenu subPopupMenu = new JPopupMenu();
-                    setupPopupMenu(subPopupMenu, subGroup);
+                    setupPopupMenu(subPopupMenu, subGroup, buttonGroupMap);
                     popupButton.addActionListener(e -> subPopupMenu.show(popupButton, 0, popupButton.getHeight()));
                     toolbar.add(popupButton); // Add the popup button to the toolbar
                 } else { // Not a popup, so add its actions directly to the current toolbar
@@ -569,7 +666,10 @@ public class UISupport {
             } else {
                 addToolbarItem(toolbar, action, buttonGroupMap);
             }
-            if (addSeparators && i < actionGroup.getActions().length - 1) {
+
+            // Add separator only if it's not the last item and the previous item was not a separator
+            if (addSeparators && i < actionGroup.getActions().size() - 1 &&
+                    ! (toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
                 toolbar.addSeparator();
             }
         }
@@ -591,6 +691,33 @@ public class UISupport {
         HtmlRenderer renderer = HtmlRenderer.builder().omitSingleParagraphP(true).build();
 
         return renderer.render(document);
+    }
+
+    /**
+     * Copies the selected text from a {@link JTextComponent} to the system clipboard. If no text is selected, the
+     * entire content of the text component is copied.
+     *
+     * @param textComponent The {@link JTextComponent} from which to copy text.
+     */
+    public static void copy(JTextComponent textComponent) {
+        String text = textComponent.getSelectedText();
+        if (textComponent instanceof JEditorPane editorPane && "text/html".equals(editorPane.getContentType())) {
+            int caretPosition = -1;
+            if (text == null || text.isEmpty()) {
+                caretPosition = textComponent.getCaretPosition();
+                textComponent.selectAll();
+            }
+            textComponent.copy();
+            if (caretPosition > -1)
+                textComponent.setCaretPosition(caretPosition);
+        } else {
+            if (text == null || text.isEmpty())
+                text = textComponent.getText();
+            if (text != null && !text.isEmpty()) {
+                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+                clipboard.setContents(new StringSelection(text), null);
+            }
+        }
     }
 
     /**
@@ -694,14 +821,16 @@ public class UISupport {
             super(image);
         }
     }
+
     /**
      * Manages user preferences for the application.
      */
     public static class Options {
-        static final String PROP_RENDER_MARKDOWN = "renderMarkdown";
-        static final String PROP_APPEARANCE = "appearance";
-        static final String PROP_FRAME_BOUNDS = "frameBounds";
-        static final String PROP_CLEAR_AFTER_SENDING = "clearAfterSending";
+        public static final String PROP_RENDER_MARKDOWN = "renderMarkdown";
+        public static final String PROP_APPEARANCE = "appearance";
+        public static final String PROP_APPEARANCE_DARK = "appearanceDark";
+        public static final String PROP_FRAME_BOUNDS = "frameBounds";
+        public static final String PROP_CLEAR_AFTER_SENDING = "clearAfterSending";
 
         /**
          * Checks if markdown rendering is enabled.
@@ -886,28 +1015,16 @@ public class UISupport {
     }
 
     /**
-     * Copies the selected text from a {@link JTextComponent} to the system clipboard.
-     * If no text is selected, the entire content of the text component is copied.
-     * @param textComponent The {@link JTextComponent} from which to copy text.
+     * Binds an {@link Action} to a {@link KeyStroke} for a given {@link JComponent}.
+     * This method associates a keystroke with an action key in the component's input map,
+     * and then associates the action key with the actual {@link Action} in the component's action map.
+     * @param c The {@link JComponent} to which the action will be bound.
+     * @param actionKey A unique string identifier for the action.
+     * @param keyStroke The {@link KeyStroke} that will trigger the action.
+     * @param action The {@link Action} to be performed when the key stroke is pressed.
      */
-    public static void copy(JTextComponent textComponent) {
-        String text = textComponent.getSelectedText();
-        if (textComponent instanceof JEditorPane editorPane && "text/html".equals(editorPane.getContentType())) {
-            int caretPosition = -1;
-            if (text == null || text.isEmpty()) {
-                caretPosition = textComponent.getCaretPosition();
-                textComponent.selectAll();
-            }
-            textComponent.copy();
-            if (caretPosition > -1)
-                textComponent.setCaretPosition(caretPosition);
-        } else {
-            if (text == null || text.isEmpty())
-                text = textComponent.getText();
-            if (text != null && !text.isEmpty()) {
-                Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-                clipboard.setContents(new StringSelection(text), null);
-            }
-        }
+    public static void bindAction(JComponent c, String actionKey, KeyStroke keyStroke, Action action) {
+        c.getInputMap().put(keyStroke, actionKey);
+        c.getActionMap().put(actionKey, action);
     }
 }

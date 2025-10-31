@@ -26,6 +26,10 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 
 public class Actions {
@@ -34,6 +38,8 @@ public class Actions {
      */
     public static class BasicAction extends AbstractAction {
         private final Consumer<ActionEvent> actionListener;
+        private final Consumer<? extends BasicAction> actionUpdater;
+
 
         /**
          * Constructs a new BasicAction.
@@ -43,14 +49,38 @@ public class Actions {
          * @param actionListener The consumer that will be invoked when the action is performed.
          */
         public BasicAction(String name, Icon icon, Consumer<ActionEvent> actionListener) {
+            this(name, icon, actionListener, null);
+        }
+
+        /**
+         * Constructs a new BasicAction.
+         *
+         * @param name           The name of the action, used for display purposes.
+         * @param icon           The icon to be displayed with the action.
+         * @param actionListener The consumer that will be invoked when the action is performed.
+         * @param actionUpdater  The consumer that will be invoked when the action needs to be updated.
+         */
+        public BasicAction(String name, Icon icon, Consumer<ActionEvent> actionListener, Consumer<? extends BasicAction> actionUpdater) {
             super(name, icon);
             this.actionListener = actionListener;
+            this.actionUpdater = actionUpdater;
         }
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            if (actionListener != null)
+            if (actionListener != null) {
                 actionListener.accept(e);
+                update();
+            }
+        }
+
+        /**
+         * Updates the action by invoking its action updater
+         */
+        public void update() {
+            if (actionUpdater != null)
+                //noinspection unchecked
+                ((Consumer<BasicAction>) actionUpdater).accept(this);
         }
 
         /**
@@ -80,6 +110,43 @@ public class Actions {
         public void setCopyName(boolean isCopyName) {
             putValue(COPY_NAME, isCopyName);
         }
+
+        /**
+         * Returns the mnemonic (keyboard shortcut) for the action.
+         *
+         * @return The mnemonic key code.
+         */
+        public int getMnemonic() {
+            Object value = getValue(Action.MNEMONIC_KEY);
+            return (value instanceof Integer) ? (Integer) value : 0;
+        }
+
+        /**
+         * Sets the mnemonic (keyboard shortcut) for the action.
+         *
+         * @param mnemonic The mnemonic key code.
+         */
+        public void setMnemonic(int mnemonic) {
+            putValue(Action.MNEMONIC_KEY, mnemonic);
+        }
+
+        /**
+         * Returns the accelerator (keyboard shortcut) for the action.
+         *
+         * @return The {@link KeyStroke} representing the accelerator.
+         */
+        public KeyStroke getAccelerator() {
+            return (KeyStroke) getValue(Action.ACCELERATOR_KEY);
+        }
+
+        /**
+         * Sets the accelerator (keyboard shortcut) for the action.
+         *
+         * @param accelerator The {@link KeyStroke} representing the accelerator.
+         */
+        public void setAccelerator(KeyStroke accelerator) {
+            putValue(Action.ACCELERATOR_KEY, accelerator);
+        }
     }
 
     /**
@@ -93,10 +160,25 @@ public class Actions {
          *
          * @param name           The name of the action, used for display purposes.
          * @param icon           The icon to be displayed with the action.
+         * @param exclusiveGroup The name of the exclusive group this action belongs to.
          * @param actionListener The consumer that will be invoked when the action is performed.
          */
-        public StateAction(String name, Icon icon, Consumer<ActionEvent> actionListener) {
-            super(name, icon, actionListener);
+        public StateAction(String name, Icon icon, String exclusiveGroup, Consumer<ActionEvent> actionListener) {
+            this(name, icon, exclusiveGroup, actionListener, null);
+        }
+
+        /**
+         * Constructs a new StateAction.
+         *
+         * @param name           The name of the action, used for display purposes.
+         * @param icon           The icon to be displayed with the action.
+         * @param exclusiveGroup The name of the exclusive group this action belongs to.
+         * @param actionListener The consumer that will be invoked when the action is performed.
+         * @param actionUpdater  The consumer that will be invoked when the action needs to be updated.
+         */
+        public StateAction(String name, Icon icon, String exclusiveGroup, Consumer<ActionEvent> actionListener, Consumer<StateAction> actionUpdater) {
+            super(name, icon, actionListener, actionUpdater);
+            this.exclusiveGroup = exclusiveGroup;
         }
 
         /**
@@ -143,7 +225,7 @@ public class Actions {
      * A class that represents a group of actions.
      */
     public static class ActionGroup extends BasicAction {
-        private final Action[] actions;
+        private final List<Action> actions;
         private final boolean popup;
 
         /**
@@ -165,17 +247,41 @@ public class Actions {
          */
         public ActionGroup(String name, Icon icon, boolean popup, Action... actions) {
             super(name, icon, null);
-            this.actions = actions;
+            this.actions = new ArrayList<>(Arrays.asList(actions));
             this.popup = popup;
         }
 
+        public ActionGroup() {
+            super(null, null, null);
+            this.actions = List.of();
+            this.popup = false;
+        }
+
         /**
-         * Returns the array of actions in this group.
+         * Returns the list of actions in this group.
          *
-         * @return An array of {@link Action} objects.
+         * @return A list of {@link Action} objects.
          */
-        public Action[] getActions() {
-            return actions;
+        public List<Action> getActions() {
+            return Collections.unmodifiableList(actions);
+        }
+
+        /**
+         * Adds an action to this group.
+         *
+         * @param action The action to add.
+         */
+        public void addAction(Action action) {
+            actions.add(action);
+        }
+
+        /**
+         * Removes an action from this group.
+         *
+         * @param action The action to remove.
+         */
+        public void removeAction(Action action) {
+            actions.remove(action);
         }
 
         /**
@@ -185,6 +291,14 @@ public class Actions {
          */
         public boolean isPopup() {
             return popup;
+        }
+
+        @Override
+        public void update() {
+            super.update();
+            for (Action action : actions)
+                if (action instanceof BasicAction basicAction)
+                    basicAction.update();
         }
     }
 }

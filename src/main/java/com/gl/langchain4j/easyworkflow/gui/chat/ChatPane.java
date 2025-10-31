@@ -24,7 +24,9 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.FormEditorType;
@@ -44,6 +46,8 @@ import javax.swing.border.AbstractBorder;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseAdapter;
@@ -56,6 +60,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
@@ -68,8 +73,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
     private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton("➤");
-    private final JButton btnOptions;
     private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
+        //todo fix me
         if (UISupport.getOptions().getAppearance() == Appearance.Auto)
             SwingUtilities.invokeLater(() -> applyAppearance(Appearance.Auto, this));
     };
@@ -82,7 +87,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g.create();
             Color color = UIManager.getColor("Panel.background");
-            g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(),240));
+            g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 240));
             g2.fillRect(0, 0, getWidth(), getHeight());
             g2.dispose();
         }
@@ -92,7 +97,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private boolean waitingForResponse;
     private boolean waitState;
     private Timer waitStateTimer;
-    private boolean showSystemOptions = true;
+    private StateAction renderMarkdownAction;
+    private StateAction clearAfterSendingAction;
 
     /**
      * Constructs a new ChatPane.
@@ -168,11 +174,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         pnlButtons = new Box(BoxLayout.Y_AXIS);
         pnlButtons.setAlignmentX(RIGHT_ALIGNMENT);
 
-        btnOptions = new ToolButton(new AutoIcon(ICON_SETTINGS));
-        btnOptions.setToolTipText("Options");
-        btnOptions.addActionListener(e -> showOptions());
-        pnlButtons.add(btnOptions);
-
         pnlButtons.add(Box.createVerticalStrut(10));
         pnlButtons.add(Box.createVerticalGlue());
 
@@ -184,6 +185,13 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         pnlButtons.add(btnSend);
 
         inputPanel.add(pnlButtons, BorderLayout.EAST);
+
+        setupActions();
+    }
+
+    @Override
+    public void requestFocus() {
+        edtMessage.requestFocus();
     }
 
     /**
@@ -210,18 +218,25 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     public static void applyAppearance(Appearance darkAppearance, ChatPane chatPane) {
         UISupport.applyAppearance(darkAppearance);
         SwingUtilities.updateComponentTreeUI(chatPane.getParent());
-        chatPane.chatMessagesHostPane.getChatMessagesPane().updateRenderers();
     }
 
-    public void setupToolActions(Action[] actions) {
+    public StateAction getRenderMarkdownAction() {
+        return renderMarkdownAction;
+    }
+
+    public StateAction getClearAfterSendingAction() {
+        return clearAfterSendingAction;
+    }
+
+    public void setupToolActions(Action... actions) {
         pnlButtons.removeAll();
-        pnlButtons.add(btnOptions);
 
         for (Action action : actions) {
-            pnlButtons.add(Box.createVerticalStrut(10));
             JButton button = new ToolButton(action);
+            button.setText(null);
             button.setToolTipText((String) action.getValue(Action.SHORT_DESCRIPTION));
             pnlButtons.add(button);
+            pnlButtons.add(Box.createVerticalStrut(10));
         }
 
         pnlButtons.add(Box.createVerticalStrut(10));
@@ -286,71 +301,13 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             sendMessage();
     }
 
-    /**
-     * Returns whether system options (like appearance, about) should be shown in the Options menu.
-     *
-     * @return {@code true} if system options are shown, {@code false} otherwise.
-     */
-    public boolean isShowSystemOptions() {
-        return showSystemOptions;
-    }
-
-    /**
-     * Sets whether system options (like appearance, about) should be shown in the Options menu.
-     *
-     * @param showSystemOptions {@code true} to show system options, {@code false} to hide them.
-     */
-    public void setShowSystemOptions(boolean showSystemOptions) {
-        this.showSystemOptions = showSystemOptions;
-    }
-
-    private void showOptions() {
-        JPopupMenu popupMenu = new JPopupMenu();
-
-        if (isShowSystemOptions()) {
-            JMenu appearanceMenu = new JMenu("Appearance");
-            appearanceMenu.setIcon(new AutoIcon(ICON_BULB));
-
-            JRadioButtonMenuItem mniLight = new JRadioButtonMenuItem(createAction("Light", null,
-                    e -> applyAppearance(Appearance.Light, this)));
-            mniLight.setSelected(getOptions().getAppearance() == Appearance.Light);
-            appearanceMenu.add(mniLight);
-
-            JRadioButtonMenuItem mniDark = new JRadioButtonMenuItem(createAction("Dark", null,
-                    e -> applyAppearance(Appearance.Dark, this)));
-            mniDark.setSelected(getOptions().getAppearance() == Appearance.Dark);
-            appearanceMenu.add(mniDark);
-
-            JRadioButtonMenuItem mniAuto = new JRadioButtonMenuItem(createAction("Auto", null,
-                    e -> applyAppearance(Appearance.Auto, this)));
-            mniAuto.setSelected(getOptions().getAppearance() == Appearance.Auto);
-            appearanceMenu.add(mniAuto);
-
-            popupMenu.add(appearanceMenu);
-            popupMenu.add(new JSeparator());
-        }
-
-        JMenuItem mniRenderMarkdown = new JCheckBoxMenuItem(createAction("Render Markdown", new AutoIcon(ICON_DOCUMENT),
-                e -> getChatMessagesPane().setRenderMarkdown(!getChatMessagesPane().isRenderMarkdown())));
-        mniRenderMarkdown.setSelected(getChatMessagesPane().isRenderMarkdown());
-        popupMenu.add(mniRenderMarkdown);
-
-        JMenuItem mniClearAfterSending = new JCheckBoxMenuItem(createAction("Clear After Sending", new AutoIcon(ICON_CLEAR),
-                e -> UISupport.getOptions().setClearAfterSending(!UISupport.getOptions().isClearAfterSending())));
-        mniClearAfterSending.setSelected(UISupport.getOptions().isClearAfterSending());
-        popupMenu.add(mniClearAfterSending);
-
-        if (isShowSystemOptions()) {
-            final AboutProvider aboutProvider = (AboutProvider) SwingUtilities.getAncestorOfClass(AboutProvider.class, this);
-            if (aboutProvider != null) {
-                popupMenu.add(new JSeparator());
-                popupMenu.add(new JCheckBoxMenuItem(createAction("About", new AutoIcon(ICON_HELP), e -> aboutProvider.showAbout(this))));
-            }
-        }
-
-        popupMenu.pack();
-        Dimension size = popupMenu.getPreferredSize();
-        popupMenu.show(btnOptions, btnSend.getWidth() - size.width, -size.height);
+    private void setupActions() {
+        renderMarkdownAction = new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT), null,
+                e -> getChatMessagesPane().setRenderMarkdown(!getChatMessagesPane().isRenderMarkdown()),
+                a -> a.setSelected(getChatMessagesPane().isRenderMarkdown()));
+        clearAfterSendingAction = new StateAction("Clear After Sending", new AutoIcon(ICON_CLEAR), null,
+                e -> getOptions().setClearAfterSending(!getOptions().isClearAfterSending()),
+                a -> a.setSelected(getOptions().isClearAfterSending()));
     }
 
     /**
@@ -434,7 +391,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
     private void addSystemChatMessage(Map<String, Object> message) {
         String systemMessageTemplate = chatEngine.getSystemMessageTemplate();
-        if (systemMessageTemplate != null && ! systemMessageTemplate.isEmpty())
+        if (systemMessageTemplate != null && !systemMessageTemplate.isEmpty())
             addChatMessage(new ChatMessage(null, EasyWorkflow.expandTemplate(systemMessageTemplate, message), null, ChatMessage.Type.System));
     }
 
@@ -444,7 +401,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
         if (response instanceof List<?> list) {
             StringBuilder result = new StringBuilder();
-            for (int i = 0; i <list.size(); i++) {
+            for (int i = 0; i < list.size(); i++) {
                 if (result.length() > 0)
                     result.append("\n");
                 Object element = list.get(i);
@@ -485,7 +442,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         String userMessage = null;
         if (isFromUser) {
             String template = chatEngine.getUserMessageTemplate();
-            if (template != null && ! template.isEmpty()) {
+            if (template != null && !template.isEmpty()) {
                 try {
                     //noinspection unchecked
                     userMessage = EasyWorkflow.expandTemplate(template, (Map<String, Object>) message);
@@ -502,10 +459,10 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             isSimplified = userMessage == null || text.equals(userMessage);
         }
 
-        if (! isSimplified) {
+        if (!isSimplified) {
             StringBuilder markdown = new StringBuilder();
             final String format = "**%s**: %s<br>";
-            if (userMessage != null && ! userMessage.isEmpty())
+            if (userMessage != null && !userMessage.isEmpty())
                 markdown.append(String.format(format, "userMessage", userMessage));
             message.forEach((key, value) -> markdown.append(String.format(format, key, value)));
             text = markdown.toString();
@@ -637,13 +594,43 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     /**
+     * Returns the chat messages as a JSON string.
+     *
+     * @return A JSON string representation of the chat messages, or {@code null} if there are no messages or an error occurs during serialization.
+     */
+    public String getChatMessagesAsJson() {
+        if (getChatMessages().isEmpty())
+            return null;
+
+        try {
+            return OBJECT_MAPPER.writeValueAsString(getChatMessages());
+        } catch (JsonProcessingException ex) {
+            logger.error("Failed to serialize chat messages", ex);
+        }
+        return null;
+    }
+
+    /**
+     * Copies the chat messages as a JSON string to the system clipboard.
+     */
+    public void copy() {
+        String content = getChatMessagesAsJson();
+        if (content != null) {
+            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+            clipboard.setContents(new StringSelection(content), null);
+        }
+    }
+
+    /**
      * Interface for defining a chat engine that can send messages and provide parameter information.
      */
     public interface ChatEngine {
         Object send(Map<String, Object> message);
 
         Parameter[] getMessageParameters();
+
         String getUserMessageTemplate();
+
         String getSystemMessageTemplate();
 
         default String title() {
