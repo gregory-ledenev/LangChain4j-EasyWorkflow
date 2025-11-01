@@ -74,7 +74,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton("➤");
     private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
-        //todo fix me
         if (UISupport.getOptions().getAppearance() == Appearance.Auto)
             SwingUtilities.invokeLater(() -> applyAppearance(Appearance.Auto, this));
     };

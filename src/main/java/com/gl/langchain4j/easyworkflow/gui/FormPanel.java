@@ -38,6 +38,7 @@ import java.awt.*;
 import java.util.List;
 import java.util.*;
 
+import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
@@ -259,20 +260,14 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     }
     
     private void setupPopupMenu(JTextComponent textComponent) {
-        JPopupMenu popupMenu = new JPopupMenu();
-        popupMenu.add(createAction("Copy", new AutoIcon(ICON_COPY), e -> textComponent.copy()));
-        popupMenu.add(createAction("Paste", new AutoIcon(ICON_PASTE), e -> textComponent.paste()));
-        popupMenu.add(new JSeparator());
-        if (formElements.size() == 1) {
-            popupMenu.add(createAction("Clear", new AutoIcon(ICON_CLEAR), e -> textComponent.setText("")));
-        } else {
-            JMenu mnuCLear = new JMenu(createAction("Clear", new AutoIcon(ICON_CLEAR), null));
-            mnuCLear.add(createAction("Clear", null, e -> textComponent.setText("")));
-            mnuCLear.add(createAction("Clear All", null, e -> clearContent()));
-            popupMenu.add(mnuCLear);
-        }
+        UISupport.setupPopupMenu(textComponent);
 
-        textComponent.setComponentPopupMenu(popupMenu);
+        if (formElements.size() > 1) {
+            JPopupMenu popupMenu = textComponent.getComponentPopupMenu();
+            popupMenu.add(new JSeparator());
+            popupMenu.add(UISupport.createMenuItem(
+                    new BasicAction("Clear All", new AutoIcon(ICON_CLEAR), e -> clearContent())));
+        }
     }
 
     private void setupShortcuts(JTextComponent c) {

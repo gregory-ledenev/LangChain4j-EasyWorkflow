@@ -24,7 +24,6 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
-import com.gl.langchain4j.easyworkflow.gui.Actions;
 import com.gl.langchain4j.easyworkflow.gui.HeaderPane;
 import com.gl.langchain4j.easyworkflow.gui.UISupport;
 
@@ -248,7 +247,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             actionExpandAll.putValue(Action.SHORT_DESCRIPTION, "Expand All");
             actionCollapseAll.putValue(Action.SHORT_DESCRIPTION, "Collapse All");
 
-            ActionGroup actionGroup = new ActionGroup(
+            ActionGroup menuActionGroup = new ActionGroup(
                     new ActionGroup("Copy", new AutoIcon(ICON_COPY), true,
                             actionCopy,
                             actionCopyName,
@@ -265,9 +264,19 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             );
 
             JPopupMenu popupMenu = new JPopupMenu();
-            UISupport.setupPopupMenu(popupMenu, actionGroup);
+            UISupport.setupPopupMenu(popupMenu, menuActionGroup);
             treeValues.setComponentPopupMenu(popupMenu);
-            UISupport.setupToolbar(headerPane.getToolbar(), actionGroup);
+
+            ActionGroup toolbarActionGroup = new ActionGroup(
+                    new ActionGroup(
+                            actionExpandAll,
+                            actionCollapseAll
+                    ),
+                    new ActionGroup(
+                            actionAlwaysExpand
+                    )
+            );
+            UISupport.setupToolbar(headerPane.getToolbar(), toolbarActionGroup);
         }
 
         public boolean isAlwaysExpandValues() {

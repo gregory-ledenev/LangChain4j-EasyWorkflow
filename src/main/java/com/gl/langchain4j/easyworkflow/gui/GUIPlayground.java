@@ -77,6 +77,11 @@ public class GUIPlayground extends Playground.BasicPlayground {
         return null;
     }
 
+    static {
+        System.setProperty("apple.awt.application.appearance", "system");
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
+    }
+
     /**
      * Initiates the chat interface for the playground.
      *
@@ -99,8 +104,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
             showDialog = Boolean.valueOf(true).equals(arguments.get(ARG_SHOW_DIALOG));
         }
 
-        System.setProperty("apple.awt.application.appearance", "system");
-
         if (!showDialog)
             showChatFrame(agent, userMessage, title);
         else
@@ -109,7 +112,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title);
-//        System.setProperty("apple.laf.useScreenMenuBar", "true");
 
         WorkflowDebugger workflowDebugger;
         if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER))
@@ -140,14 +142,15 @@ public class GUIPlayground extends Playground.BasicPlayground {
                         return EasyWorkflow.getSystemMessageTemplate(agentClass);
                     }
                 },
-                workflowDebugger,
-                true);
+                workflowDebugger);
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
+                Application.getSharedApplication().launch(chatFrame);
                 ChatPane chatPane = chatFrame.getChatPane();
                 chatPane.setUserMessage(userMessage);
             }
         });
+        Application.getSharedApplication().launch(chatFrame);
     }
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {

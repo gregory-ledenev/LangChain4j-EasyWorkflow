@@ -810,6 +810,8 @@ public abstract class WorkflowInspectorListPane extends JPanel {
             Graphics2D graphics = (Graphics2D) g.create();
             graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+            graphics.setStroke(new BasicStroke(1f));
+
             Rectangle rect = pnlContent.getBounds().getBounds();
             Insets insets = pnlContent.getInsets();
             rect.x += insets.left;

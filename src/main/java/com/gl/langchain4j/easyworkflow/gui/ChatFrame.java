@@ -64,7 +64,7 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
  * A frame that provides a chat interface. It can be used to display a chat conversation and interact with a chat
  * engine.
  */
-public class ChatFrame extends JFrame implements UISupport.AboutProvider {
+public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
 
     public static final String PROP_FLOW_CHART_FILE = "flow-chart-file";
     public static final String PROP_STRUCTURE_FILE = "structure-file";
@@ -81,7 +81,6 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     private WorkflowInspectorDetailsPane pnlWorkflowInspectorDetails;
     private WorkflowInspectorListPane pnlWorkflowInspectorStructure;
     private WorkflowInspectorListPane pnlWorkflowInspectorExecution;
-    private boolean exitOnClose;
     private BasicAction copyAction;
     private FileChooserUtils fileChooserUtils;
     private boolean summaryGenerated = false;
@@ -97,6 +96,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     private ActionGroup menuBarFileActionGroup;
     private ActionGroup menuBarHelpActionGroup;
     private ActionGroup menuBarEditActionGroup;
+    private ActionGroup inspectorToolbarActionGroup;
 
     /**
      * Constructs a new ChatFrame.
@@ -106,18 +106,16 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
      * @param chatEngine A function that takes a user message and returns a chat engine's response.
      */
     public ChatFrame(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger) {
+        super("chatFrame");
+
         setWorkflowDebugger(workflowDebugger);
         this.chatPane.setChatEngine(chatEngine);
 
         setTitle(title);
 
-        Rectangle frameBounds = getOptions().getFrameBounds();
-        if (frameBounds != null) {
-            setBounds(frameBounds);
-        } else {
-            setSize(workflowDebugger != null ? 1080 : 500, 700);
-            setLocationRelativeTo(null);
-        }
+        setSize(workflowDebugger != null ? 1080 : 500, 700);
+        setLocationRelativeTo(null);
+
         chatPane.setPreferredSize(new Dimension(400, 700));
         setMinimumSize(new Dimension(500, 700));
 
@@ -209,8 +207,6 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
             public void windowClosing(WindowEvent e) {
                 super.windowClosing(e);
                 getOptions().setFrameBounds(getBounds());
-                if (exitOnClose)
-                    System.exit(0);
             }
         });
     }
@@ -218,8 +214,111 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     private void setupMenuBar() {
         JMenuBar menuBar = new JMenuBar();
 
+        setupMenuBarFileActionGroup();
+        setupMenuBarEditActionGroup();
+        setupMenuBarViewActionGroup();
+        setupMenuBarOptionsActionGroup();
+        setupMenuBarHelpActionGroup();
+
+        menuBarActionGroup = new ActionGroup(
+                menuBarFileActionGroup,
+                menuBarEditActionGroup,
+                menuBarViewActionGroup,
+                menuBarOptionsActionGroup,
+                menuBarHelpActionGroup
+        );
+        UISupport.setupMenuBar(menuBar, menuBarActionGroup);
+        setJMenuBar(menuBar);
+    }
+
+    private void setupMenuBarHelpActionGroup() {
+        menuBarHelpActionGroup = new ActionGroup("Help", null, true,
+                new ActionGroup(null, null, false,
+                        new BasicAction("Visit 'EasyWorkflow for LangChain4j'", new AutoIcon(ICON_COMPASS), e -> visitSite()),
+                        new BasicAction("Visit 'LangChain4j'", new AutoIcon(ICON_COMPASS), e -> visitSite("https://docs.langchain4j.dev/"))
+                ),
+                new ActionGroup(null, null, false,
+                        new BasicAction("About...", new AutoIcon(ICON_HELP), e -> showAbout(chatPane))
+                )
+        );
+    }
+
+    private void setupMenuBarOptionsActionGroup() {
         String exclusiveGroup = "appearance";
 
+        menuBarOptionsActionGroup = new ActionGroup("Options", null, true,
+                new ActionGroup("Chat", new AutoIcon(ICON_CHAT), true,
+                        chatPane.getRenderMarkdownAction(),
+                        chatPane.getClearAfterSendingAction()
+                ),
+                new ActionGroup(),
+                new ActionGroup("Appearance", new AutoIcon(ICON_BULB), true,
+                        new StateAction("Light", null, exclusiveGroup,
+                                e -> applyAppearance(Appearance.Light),
+                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Light)),
+                        new StateAction("Dark", null, exclusiveGroup,
+                                e -> applyAppearance(Appearance.Dark),
+                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Dark)),
+                        new StateAction("Auto", null, exclusiveGroup,
+                                e -> applyAppearance(Appearance.Auto),
+                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Auto))
+                )
+        );
+    }
+
+    private void setupMenuBarViewActionGroup() {
+        ActionGroup toolActionGroup = workflowExpertAction != null ? new ActionGroup(workflowExpertAction)  : null;
+
+        BasicAction chatAction = new BasicAction("Chat", new AutoIcon(ICON_CHAT),e -> chatPane.requestFocus());
+        chatAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+        BasicAction inspectorAction = new BasicAction("Inspector", new AutoIcon(ICON_INFO),e -> pnlWorkflowInspectorDetails.requestFocus());
+        inspectorAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_5,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+
+        menuBarViewActionGroup = new ActionGroup("View", null, true,
+                new ActionGroup(null, null, false,
+                        chatAction                ),
+                new ActionGroup(null, null, false,
+                        showStructureAction,
+                        showExecutionAction,
+                        showSummaryAction
+                ),
+                new ActionGroup(null, null, false,
+                        inspectorAction                ),
+                toolActionGroup
+        );
+    }
+
+    private void setupMenuBarEditActionGroup() {
+        BasicAction cutAction = new BasicAction("Cut", new AutoIcon(ICON_CUT), aActionEvent -> cut());
+        cutAction.setMnemonic('x');
+        cutAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+
+        BasicAction copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY), aActionEvent -> copy());
+        copyAction.setMnemonic('c');
+        copyAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+
+        BasicAction pasteAction = new BasicAction("Paste", new AutoIcon(ICON_PASTE), aActionEvent -> paste());
+        pasteAction.setMnemonic('v');
+        pasteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V,
+                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
+
+        BasicAction deleteAction = new BasicAction("Delete", new AutoIcon(ICON_SPACER), aActionEvent -> delete());
+        deleteAction.setMnemonic('d');
+        deleteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0));
+
+        menuBarEditActionGroup = new ActionGroup("Edit", null, true,
+                cutAction,
+                copyAction,
+                pasteAction,
+                deleteAction
+        );
+    }
+
+    private void setupMenuBarFileActionGroup() {
         menuBarFileActionGroup = new ActionGroup("File", null, true,
                 new ActionGroup("Share", new AutoIcon(ICON_SHARE), true,
                         new ActionGroup(null, null, false,
@@ -245,104 +344,33 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                                 new BasicAction("Exit", null, e -> System.exit(0))
                         )
         );
-
-        BasicAction cutAction = new BasicAction("Cut", null, aActionEvent -> cut());
-        cutAction.setMnemonic('x');
-        cutAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X,
-                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
-        cutAction.setEnabled(false);
-
-        BasicAction copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY), aActionEvent -> copy());
-        copyAction.setMnemonic('c');
-        copyAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C,
-                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
-
-        BasicAction pasteAction = new BasicAction("Paste", new AutoIcon(ICON_PASTE), aActionEvent -> paste());
-        pasteAction.setMnemonic('v');
-        pasteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V,
-                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
-        pasteAction.setEnabled(false);
-
-        BasicAction deleteAction = new BasicAction("Delete", null, aActionEvent -> delete());
-        deleteAction.setMnemonic('d');
-        deleteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0));
-        deleteAction.setEnabled(false);
-
-        menuBarEditActionGroup = new ActionGroup("Edit", null, true,
-                cutAction,
-                copyAction,
-                pasteAction,
-                deleteAction
-        );
-
-        ActionGroup toolActionGroup = workflowExpertAction != null ? new ActionGroup(workflowExpertAction)  : null;
-
-        BasicAction chatAction = new BasicAction("Chat", new AutoIcon(ICON_CHAT),e -> chatPane.requestFocus());
-        chatAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_1,
-                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
-        BasicAction inspectorAction = new BasicAction("Inspector", null,e -> pnlWorkflowInspectorDetails.requestFocus());
-        inspectorAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_5,
-                Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
-
-        menuBarViewActionGroup = new ActionGroup("View", null, true,
-                new ActionGroup(null, null, false,
-                        chatAction                ),
-                new ActionGroup(null, null, false,
-                        showStructureAction,
-                        showExecutionAction,
-                        showSummaryAction
-                ),
-                new ActionGroup(null, null, false,
-                        inspectorAction                ),
-                toolActionGroup
-        );
-        menuBarOptionsActionGroup = new ActionGroup("Options", null, true,
-                new ActionGroup("Chat", new AutoIcon(ICON_CHAT), true,
-                        chatPane.getRenderMarkdownAction(),
-                        chatPane.getClearAfterSendingAction()
-                ),
-                new ActionGroup(),
-                new ActionGroup("Appearance", new AutoIcon(ICON_BULB), true,
-                        new StateAction("Light", null, exclusiveGroup,
-                                e -> applyAppearance(Appearance.Light),
-                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Light)),
-                        new StateAction("Dark", null, exclusiveGroup,
-                                e -> applyAppearance(Appearance.Dark),
-                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Dark)),
-                        new StateAction("Auto", null, exclusiveGroup,
-                                e -> applyAppearance(Appearance.Auto),
-                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Auto))
-                )
-        );
-        menuBarHelpActionGroup = new ActionGroup("Help", null, true,
-                new ActionGroup(null, null, false,
-                        new BasicAction("EasyWorkflow for LangChain4j", null, e -> visitSite()),
-                        new BasicAction("LangChain4j", null, e -> visitSite("https://docs.langchain4j.dev/"))
-                ),
-                new ActionGroup(null, null, false,
-                        new BasicAction("About...", new AutoIcon(ICON_HELP), e -> showAbout(chatPane))
-                )
-        );
-        menuBarActionGroup = new ActionGroup(
-                menuBarFileActionGroup,
-                menuBarEditActionGroup,
-                menuBarViewActionGroup,
-                menuBarOptionsActionGroup,
-                menuBarHelpActionGroup
-        );
-        UISupport.setupMenuBar(menuBar, menuBarActionGroup);
-        setJMenuBar(menuBar);
     }
 
     private void paste() {
+        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
+        if (focusOwner instanceof JComponent c) {
+            Action action = c.getActionMap().get("paste");
+            if (action != null)
+                action.actionPerformed(new ActionEvent(c, 0, null));
+        }
     }
 
     private void delete() {
-        
+        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
+        if (focusOwner instanceof JComponent c) {
+            Action action = c.getActionMap().get("delete");
+            if (action != null)
+                action.actionPerformed(new ActionEvent(c, 0, null));
+        }
     }
 
     private void cut() {
-
+        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
+        if (focusOwner instanceof JComponent c) {
+            Action action = c.getActionMap().get("cut");
+            if (action != null)
+                action.actionPerformed(new ActionEvent(c, 0, null));
+        }
     }
 
     /**
@@ -352,7 +380,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
         Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
         if (focusOwner != null && SwingUtilities.getAncestorOfClass(ChatPane.class, focusOwner) != null) {
             chatPane.copy();
-        } else if (focusOwner instanceof  JComponent c) {
+        } else if (focusOwner instanceof JComponent c) {
             Action action = c.getActionMap().get("copy");
             if (action != null)
                 action.actionPerformed(new ActionEvent(c, 0, null));
@@ -422,7 +450,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
      * @param exitOnClose If true, the application will exit when this frame is closed.
      * @return The created ChatFrame instance.
      */
-    public static ChatFrame showChat(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger, boolean exitOnClose) {
+    public static ChatFrame showChat(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger) {
         applyAppearance();
 
         ChatFrame chatFrame = new ChatFrame(title,
@@ -430,23 +458,6 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                 chatEngine,
                 workflowDebugger
         );
-        chatFrame.exitOnClose = exitOnClose;
-        chatFrame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-
-        SwingUtilities.invokeLater(() -> {
-            Desktop desktop = Desktop.getDesktop();
-            if (desktop.isSupported(Desktop.Action.APP_QUIT_HANDLER)) {
-                desktop.setQuitHandler((e, response) -> {
-                    getOptions().setFrameBounds(chatFrame.getBounds());
-                    response.performQuit();
-                });
-            }
-
-            if (desktop.isSupported(Desktop.Action.APP_ABOUT)) {
-                desktop.setAboutHandler(e -> chatFrame.showAbout(chatFrame.getChatPane()));
-            }
-            chatFrame.setVisible(true);
-        });
 
         return chatFrame;
     }
@@ -493,8 +504,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                     }
                 }
                 ,
-                workflowDebugger,
-                true);
+                workflowDebugger);
         SwingUtilities.invokeLater(() -> result.getChatPane().setUserMessage(userMessage));
 
         return result;
@@ -553,12 +563,12 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     }
 
     private void setupToolbar(JToolBar toolbar) {
-        ActionGroup actionGroup = new ActionGroup(
+        inspectorToolbarActionGroup = new ActionGroup(
                 showStructureAction,
                 showExecutionAction,
                 showSummaryAction
         );
-        UISupport.setupToolbar(toolbar, actionGroup);
+        UISupport.setupToolbar(toolbar, inspectorToolbarActionGroup);
     }
 
     private void setupPopupMenu() {
@@ -590,6 +600,7 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
 
     private void showWorkflowSummary() {
         ((CardLayout) pnlWorkflowContents.getLayout()).last(pnlWorkflowContents);
+        pnlWorkflowInspectorDetails.setValues(null);
         pnlWorkflowSummaryView.requestFocus();
         if (!summaryGenerated && !summaryGenerating) {
             summaryGenerating = true;
@@ -617,14 +628,22 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     }
 
     private void showWorkflowStructure() {
-        ((CardLayout) pnlWorkflowContents.getLayout()).first(pnlWorkflowContents);
-        pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
+        if (! pnlWorkflowInspectorStructure.isVisible())
+            ((CardLayout) pnlWorkflowContents.getLayout()).first(pnlWorkflowContents);
+        if (pnlWorkflowInspectorStructure.getListView().getSelectedIndex() == -1)
+            pnlWorkflowInspectorStructure.getListView().setSelectedIndex(0);
+        else
+            pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
         pnlWorkflowInspectorStructure.requestFocus();
     }
 
     private void showWorkflowExecution() {
-        ((CardLayout) pnlWorkflowContents.getLayout()).show(pnlWorkflowContents, "execution");
-        pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
+        if (! pnlWorkflowInspectorExecution.isVisible())
+            ((CardLayout) pnlWorkflowContents.getLayout()).show(pnlWorkflowContents, "execution");
+        if (pnlWorkflowInspectorExecution.getListView().getSelectedIndex() == -1)
+            pnlWorkflowInspectorExecution.getListView().setSelectedIndex(0);
+        else
+            pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
         pnlWorkflowInspectorExecution.requestFocus();
     }
 
@@ -669,11 +688,23 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
     }
 
     @Override
-    public void showAbout(JComponent parent) {
+    public void showAbout(Component parent) {
+        // disallow showing second dialog on Mac when invoked via system menu
+        if (isMac()) {
+            for (Window window : Window.getWindows()) {
+                if (window instanceof JDialog dialog && dialog.isShowing())  {
+                    return;
+                }
+            }
+        }
+
         Object[] options = {"Site", "OK"};
         int result = JOptionPane.showOptionDialog(
-                null,
-                EasyWorkflow.FULL_VERSION,
+                parent,
+                """
+                <html>%s<br>
+                <b>%s</b><br>
+                Copyright (c) 2025 Gregory Ledenev <i>(gregory.ledenev37@gmail.com)</i></html>""".formatted(EasyWorkflow.PROJECT_NAME, EasyWorkflow.VERSION),
                 "About",
                 JOptionPane.DEFAULT_OPTION,
                 JOptionPane.INFORMATION_MESSAGE,
@@ -701,5 +732,26 @@ public class ChatFrame extends JFrame implements UISupport.AboutProvider {
                 e.printStackTrace();
             }
         }
+    }
+
+    @Override
+    public void restoreState() {
+        super.restoreState();
+        Rectangle frameBounds = getOptions().getFrameBounds();
+        if (frameBounds != null)
+            setBounds(frameBounds);
+    }
+
+    @Override
+    public void saveState() {
+        super.saveState();
+        UISupport.getOptions().setFrameBounds(getBounds());
+    }
+
+    @Override
+    public void scheduledUpdate() {
+        super.scheduledUpdate();
+        menuBarActionGroup.update();
+        inspectorToolbarActionGroup.update();
     }
 }

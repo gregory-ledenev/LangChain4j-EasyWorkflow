@@ -66,12 +66,40 @@ public class Actions {
             this.actionUpdater = actionUpdater;
         }
 
+        private boolean isMenuBarSource(ActionEvent e) {
+            if (e.getSource() instanceof JMenuItem menuItem) {
+                java.awt.Component parent = menuItem.getParent();
+                while (parent != null) {
+                    if (parent instanceof JMenuBar) return true;
+                    if (parent instanceof JPopupMenu popupMenu)
+                        parent = popupMenu.getInvoker();
+                    parent = parent.getParent();
+                }
+            }
+            return false;
+        }
+
         @Override
         public void actionPerformed(ActionEvent e) {
             if (actionListener != null) {
-                actionListener.accept(e);
-                update();
+                if (isMenuBarSource(e) && UISupport.isMac())
+                    macMenuBarActionPerformed(e);
+                else
+                    defaultActionPerformed(e);
             }
+        }
+
+        private long when;
+        private void macMenuBarActionPerformed(ActionEvent e) {
+            if (e.getWhen() > when) {
+                SwingUtilities.invokeLater(() -> defaultActionPerformed(e));
+            }
+            when = e.getWhen();
+        }
+
+        private void defaultActionPerformed(ActionEvent e) {
+            actionListener.accept(e);
+            update();
         }
 
         /**

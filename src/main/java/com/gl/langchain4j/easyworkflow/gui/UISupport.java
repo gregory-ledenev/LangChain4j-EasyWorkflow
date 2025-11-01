@@ -46,15 +46,15 @@ import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
-import java.awt.image.BaseMultiResolutionImage;
+import java.awt.image.*;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.ActionGroup;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.BasicAction.COPY_NAME;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.StateAction;
@@ -117,6 +117,10 @@ public class UISupport {
     public static final String ICON_EXPAND = "expand";
     public static final String ICON_COLLAPSE = "collapse";
     public static final String ICON_CHAT = "chat";
+    public static final String ICON_INFO = "info";
+    public static final String ICON_COMPASS = "compass";
+    public static final String ICON_CUT = "cut";
+    public static final String ICON_SPACER = "spacer";
 
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
@@ -124,90 +128,111 @@ public class UISupport {
     private static Boolean darkAppearance;
     private static Options options;
 
+
     static {
-        icons.put(getIconKey(ICON_COPY, false), loadImageIcon("copy"));
-        icons.put(getIconKey(ICON_COPY, true), loadImageIcon("copy-light"));
-
-        icons.put(getIconKey(ICON_PASTE, false), loadImageIcon("paste"));
-        icons.put(getIconKey(ICON_PASTE, true), loadImageIcon("paste-light"));
-
-        icons.put(getIconKey(ICON_DOCUMENT, false), loadImageIcon("document"));
-        icons.put(getIconKey(ICON_DOCUMENT, true), loadImageIcon("document-light"));
-
-        icons.put(getIconKey(ICON_SEND, false), loadImageIcon("send"));
-        icons.put(getIconKey(ICON_SEND, true), loadImageIcon("send-light"));
-
-        icons.put(getIconKey(ICON_SETTINGS, false), loadImageIcon("settings"));
-        icons.put(getIconKey(ICON_SETTINGS, true), loadImageIcon("settings-light"));
-
-        icons.put(getIconKey(ICON_CLEAR, false), loadImageIcon("clear"));
-        icons.put(getIconKey(ICON_CLEAR, true), loadImageIcon("clear-light"));
-
-        icons.put(getIconKey(ICON_BULB, false), loadImageIcon("bulb"));
-        icons.put(getIconKey(ICON_BULB, true), loadImageIcon("bulb-light"));
-
-        icons.put(getIconKey(ICON_HELP, false), loadImageIcon("help"));
-        icons.put(getIconKey(ICON_HELP, true), loadImageIcon("help-light"));
-
-        icons.put(getIconKey(ICON_EXPERT, false), loadImageIcon("expert"));
-        icons.put(getIconKey(ICON_EXPERT, true), loadImageIcon("expert-light"));
-
-        icons.put(getIconKey(ICON_SIGNPOST, false), loadImageIcon("signpost"));
-        icons.put(getIconKey(ICON_SIGNPOST, true), loadImageIcon("signpost-light"));
-
-        icons.put(getIconKey(ICON_REFRESH, false), loadImageIcon("refresh"));
-        icons.put(getIconKey(ICON_REFRESH, true), loadImageIcon("refresh-light"));
-
-        icons.put(getIconKey(ICON_BOX, false), loadImageIcon("box"));
-        icons.put(getIconKey(ICON_BOX, true), loadImageIcon("box-light"));
-
-        icons.put(getIconKey(ICON_STACK, false), loadImageIcon("stack"));
-        icons.put(getIconKey(ICON_STACK, true), loadImageIcon("stack-light"));
-
-        icons.put(getIconKey(ICON_TARGET, false), loadImageIcon("target"));
-        icons.put(getIconKey(ICON_TARGET, true), loadImageIcon("target-light"));
-
-        icons.put(getIconKey(ICON_BREAKPOINT, false), loadImageIcon("breakpoint"));
-        icons.put(getIconKey(ICON_BREAKPOINT, true), loadImageIcon("breakpoint-light"));
-
-        icons.put(getIconKey(ICON_PLAY, false), loadImageIcon("play"));
-        icons.put(getIconKey(ICON_PLAY, true), loadImageIcon("play-light"));
-
-        icons.put(getIconKey(ICON_STOP, false), loadImageIcon("stop"));
-        icons.put(getIconKey(ICON_STOP, true), loadImageIcon("stop-light"));
-
-        icons.put(getIconKey(ICON_ALWAYS_EXPAND, false), loadImageIcon("always-expand"));
-        icons.put(getIconKey(ICON_ALWAYS_EXPAND, true), loadImageIcon("always-expand-light"));
-
-        icons.put(getIconKey(ICON_EXPAND, false), loadImageIcon("expand"));
-        icons.put(getIconKey(ICON_EXPAND, true), loadImageIcon("expand-light"));
-
-        icons.put(getIconKey(ICON_COLLAPSE, false), loadImageIcon("collapse"));
-        icons.put(getIconKey(ICON_COLLAPSE, true), loadImageIcon("collapse-light"));
-
-        icons.put(getIconKey(ICON_FILE_TYPE_CODE, false), loadImageIcon("file-type-code"));
-        icons.put(getIconKey(ICON_FILE_TYPE_CODE, true), loadImageIcon("file-type-code-light"));
-
-        icons.put(getIconKey(ICON_FILE_TYPE_TEXT, false), loadImageIcon("file-type-text"));
-        icons.put(getIconKey(ICON_FILE_TYPE_TEXT, true), loadImageIcon("file-type-text-light"));
-
-        icons.put(getIconKey(ICON_EXECUTION_FLOW, false), loadImageIcon("execution-flow"));
-        icons.put(getIconKey(ICON_EXECUTION_FLOW, true), loadImageIcon("execution-flow-light"));
-
-        icons.put(getIconKey(ICON_WORKFLOW, false), loadImageIcon("workflow"));
-        icons.put(getIconKey(ICON_WORKFLOW, true), loadImageIcon("workflow-light"));
-
-        icons.put(getIconKey(ICON_SHARE, false), loadImageIcon("share"));
-        icons.put(getIconKey(ICON_SHARE, true), loadImageIcon("share-light"));
-
-        icons.put(getIconKey(ICON_CHAT, false), loadImageIcon("chat"));
-        icons.put(getIconKey(ICON_CHAT, true), loadImageIcon("chat-light"));
+        loadIcon(ICON_COPY, "copy");
+        loadIcon(ICON_PASTE, "paste");
+        loadIcon(ICON_DOCUMENT, "document");
+        loadIcon(ICON_SEND, "send");
+        loadIcon(ICON_SETTINGS, "settings");
+        loadIcon(ICON_CLEAR, "clear");
+        loadIcon(ICON_BULB, "bulb");
+        loadIcon(ICON_HELP, "help");
+        loadIcon(ICON_EXPERT, "expert");
+        loadIcon(ICON_SIGNPOST, "signpost");
+        loadIcon(ICON_REFRESH, "refresh");
+        loadIcon(ICON_BOX, "box");
+        loadIcon(ICON_STACK, "stack");
+        loadIcon(ICON_TARGET, "target");
+        loadIcon(ICON_BREAKPOINT, "breakpoint");
+        loadIcon(ICON_PLAY, "play");
+        loadIcon(ICON_STOP, "stop");
+        loadIcon(ICON_ALWAYS_EXPAND, "always-expand");
+        loadIcon(ICON_EXPAND, "expand");
+        loadIcon(ICON_COLLAPSE, "collapse");
+        loadIcon(ICON_FILE_TYPE_CODE, "file-type-code");
+        loadIcon(ICON_FILE_TYPE_TEXT, "file-type-text");
+        loadIcon(ICON_EXECUTION_FLOW, "execution-flow");
+        loadIcon(ICON_WORKFLOW, "workflow");
+        loadIcon(ICON_SHARE, "share");
+        loadIcon(ICON_CHAT, "chat");
+        loadIcon(ICON_INFO, "info");
+        loadIcon(ICON_COMPASS, "compass");
+        loadIcon(ICON_CUT, "cut");
+        loadIcon(ICON_SPACER, "spacer");
     }
 
-    private static ImageIcon loadImageIcon(String name) {
-        return new ImageIcon(new BaseMultiResolutionImage(
-                new ImageIcon(Objects.requireNonNull(UISupport.class.getResource(name + ".png"))).getImage(),
-                new ImageIcon(Objects.requireNonNull(UISupport.class.getResource(name + "@2x.png"))).getImage()));
+    private static void loadIcon(String iconKey, String fileName) {
+        List<Image> images = loadImageVariants(fileName);
+
+        icons.put(getIconKey(iconKey, false), loadImageIcon(images, ImageFilter.Lighter));
+        icons.put(getIconKey(iconKey, true), loadImageIcon(images, ImageFilter.Inverted));
+    }
+
+    public static void setupPopupMenu(JTextComponent textComponent) {
+        JPopupMenu popupMenu = new JPopupMenu();
+
+        ActionGroup actionGroup = new ActionGroup(
+                new ActionGroup(
+                        new BasicAction("Cut", new AutoIcon(ICON_CUT),
+                                e -> textComponent.cut(),
+                                a -> a.setEnabled(textComponent.isEditable() && textComponent.getSelectedText() != null)),
+                        new BasicAction("Copy", new AutoIcon(ICON_COPY),
+                                e -> textComponent.copy(),
+                                a -> a.setEnabled(textComponent.getSelectedText() != null)),
+                        new BasicAction("Paste", new AutoIcon(ICON_PASTE),
+                                e -> textComponent.paste(),
+                                a -> a.setEnabled(textComponent.isEditable()))
+                )
+        );
+        setupPopupMenu(popupMenu, actionGroup);
+        textComponent.setComponentPopupMenu(popupMenu);
+    }
+
+    enum ImageFilter {
+        None, Lighter, Inverted
+    }
+
+    private static ImageIcon loadImageIcon(List<Image> imageVariants, ImageFilter imageFilter) {
+        List<Image> images = imageVariants;
+        switch (imageFilter) {
+            case Lighter -> images = imageVariants.stream()
+                    .map(image -> createFilteredImage(image, new GrayFilter(true, 30)))
+                    .map(image -> new ImageIcon(image).getImage())
+                    .toList();
+            case Inverted -> images = imageVariants.stream()
+                    .map(image -> createFilteredImage(image, new InvertFilter()))
+                    .map(image -> new ImageIcon(image).getImage())
+                    .toList();
+        }
+
+        return new ImageIcon(new BaseMultiResolutionImage(images.toArray(new Image[0])));
+    }
+
+    private static List<Image> loadImageVariants(String name) {
+        Image image1 = new ImageIcon(Objects.requireNonNull(UISupport.class.getResource(name + ".png"))).getImage();
+        Image image2 = image1 instanceof MultiResolutionImage ?
+                null :
+                new ImageIcon(Objects.requireNonNull(UISupport.class.getResource(name + "@2x.png"))).getImage();
+
+        List<Image> images;
+        if (image1 instanceof MultiResolutionImage multi) {
+            images = multi.getResolutionVariants();
+        } else {
+            images = List.of(image1, image2);
+        }
+        return images;
+    }
+
+    private static Image createFilteredImage(Image i, RGBImageFilter filter) {
+        ImageProducer prod = new FilteredImageSource(i.getSource(), filter);
+        return Toolkit.getDefaultToolkit().createImage(prod);
+    }
+
+    static class InvertFilter extends RGBImageFilter {
+        public int filterRGB(int x, int y, int rgb) {
+            return rgb ^ 0x00FFFFFF; // Preserve transparency
+        }
     }
 
     /**
@@ -218,9 +243,9 @@ public class UISupport {
      * @param actionListener The consumer to be called when the action is performed.
      * @return A new {@link Action} instance.
      */
-    public static Actions.BasicAction createAction(String title, Icon icon,
+    public static BasicAction createAction(String title, Icon icon,
                                                    Consumer<ActionEvent> actionListener) {
-        return new Actions.BasicAction(title, icon, actionListener);
+        return new BasicAction(title, icon, actionListener);
     }
 
     /**
@@ -496,7 +521,7 @@ public class UISupport {
      * @param action The {@link Action} to associate with the menu item.
      * @return A new {@link JMenuItem} instance.
      */
-    public static JMenuItem creteMenuItem(Action action) {
+    public static JMenuItem createMenuItem(Action action) {
         JMenuItem result = new JMenuItem(action);
         result.setToolTipText(null);
         return result;
@@ -541,7 +566,7 @@ public class UISupport {
             @Override
             public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
                 for (Action action : actionGroup.getActions()) {
-                    if (action instanceof Actions.BasicAction basicAction)
+                    if (action instanceof BasicAction basicAction)
                         basicAction.update();
                 }
             }
@@ -598,7 +623,7 @@ public class UISupport {
             }
             popupMenu.addSeparator();
         } else {
-            popupMenu.add(creteMenuItem(action));
+            popupMenu.add(createMenuItem(action));
         }
     }
 
@@ -738,7 +763,7 @@ public class UISupport {
          *
          * @param parent The parent component to which the dialog should be relative.
          */
-        void showAbout(JComponent parent);
+        void showAbout(Component parent);
 
         /**
          * Opens the application's website or relevant URL in a web browser. This method is typically invoked when a
