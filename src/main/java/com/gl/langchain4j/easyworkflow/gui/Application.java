@@ -24,16 +24,18 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
-import javax.swing.*;
 import java.awt.*;
 import java.util.Objects;
-import java.util.Timer;
 
 /**
  * The central application class responsible for managing the lifecycle of GUI frames,
  * handling application-level events like quit and about, and providing a singleton instance.
  */
 public class Application {
+    public interface ScheduledUpdatable {
+        void scheduledUpdate();
+    }
+
     private static Application sharedApplication;
 
     static {
@@ -170,23 +172,23 @@ public class Application {
             while (!isInterrupted()) {
                 try {
                     sleep(SLEEP_TIME);
-                    EventQueue.invokeAndWait(this::updateFrames);
+                    EventQueue.invokeAndWait(this::update);
 
                 } catch (Exception e) {
                 }
             }
         }
 
-        protected void updateFrames() {
+        protected void update() {
             try {
-                Window w = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
-                AppFrame activeFrame = w instanceof AppFrame ? (AppFrame) w : null;
-                if (activeFrame != null)
-                    activeFrame.scheduledUpdate();
+                Window activeWindow = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+                ScheduledUpdatable scheduledUpdatable = activeWindow instanceof ScheduledUpdatable ? (ScheduledUpdatable) activeWindow : null;
+                if (scheduledUpdatable != null)
+                    scheduledUpdatable.scheduledUpdate();
 
-                for (Frame frame : JFrame.getFrames())
-                    if (activeFrame != frame && frame.isShowing() && (frame instanceof AppFrame appFrame))
-                        appFrame.scheduledUpdate();
+                for (Window w : Window.getWindows())
+                    if (scheduledUpdatable != w && w.isShowing() && (w instanceof ScheduledUpdatable scheduledUpdatable1))
+                        scheduledUpdatable1.scheduledUpdate();
             } catch (Exception ex) {
                 ex.printStackTrace();
             }

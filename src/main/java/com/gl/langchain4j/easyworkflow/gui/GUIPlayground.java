@@ -150,7 +150,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 chatPane.setUserMessage(userMessage);
             }
         });
-        Application.getSharedApplication().launch(chatFrame);
     }
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {

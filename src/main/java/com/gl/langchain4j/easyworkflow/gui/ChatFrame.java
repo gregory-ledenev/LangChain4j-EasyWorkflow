@@ -58,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
@@ -167,7 +168,7 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
             JPanel pnlWorkflowContentsHost = new JPanel(new BorderLayout());
             HeaderPane headerPane = new HeaderPane();
             headerPane.setTitle("Workflow");
-//            headerPane.setSubtitle("Workflow structure, summary, its agents and execution steps");
+            headerPane.setSubtitle("Workflow structure, its agents, execution steps, and summary");
             pnlWorkflowContentsHost.add(headerPane, BorderLayout.NORTH);
             setupActions();
             setupMenuBar();
@@ -234,8 +235,8 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
     private void setupMenuBarHelpActionGroup() {
         menuBarHelpActionGroup = new ActionGroup("Help", null, true,
                 new ActionGroup(null, null, false,
-                        new BasicAction("Visit 'EasyWorkflow for LangChain4j'", new AutoIcon(ICON_COMPASS), e -> visitSite()),
-                        new BasicAction("Visit 'LangChain4j'", new AutoIcon(ICON_COMPASS), e -> visitSite("https://docs.langchain4j.dev/"))
+                        new BasicAction("Visit 'EasyWorkflow for LangChain4j'", new AutoIcon(ICON_GLOBE), e -> visitSite()),
+                        new BasicAction("Visit 'LangChain4j'", new AutoIcon(ICON_GLOBE), e -> visitSite("https://docs.langchain4j.dev/"))
                 ),
                 new ActionGroup(null, null, false,
                         new BasicAction("About...", new AutoIcon(ICON_HELP), e -> showAbout(chatPane))
@@ -252,7 +253,7 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
                         chatPane.getClearAfterSendingAction()
                 ),
                 new ActionGroup(),
-                new ActionGroup("Appearance", new AutoIcon(ICON_BULB), true,
+                new ActionGroup("Appearance", new AutoIcon(ICON_SPACER), true,
                         new StateAction("Light", null, exclusiveGroup,
                                 e -> applyAppearance(Appearance.Light),
                                 a -> a.setSelected(getOptions().getAppearance() == Appearance.Light)),
@@ -552,7 +553,7 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
         shareAction.setShortDescription("Share");
 
         if (workflowDebugger != null) {
-            workflowExpertAction = new GUIPlayground.WorkflowExpertAction(new AutoIcon(UISupport.ICON_EXPERT),
+            workflowExpertAction = new GUIPlayground.WorkflowExpertAction(new AutoIcon(ICON_AGENT_TOOLBAR),
                     this,
                     workflowDebugger.getAgentWorkflowBuilder().getAgentClass(), workflowDebugger
             );
@@ -753,5 +754,6 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
         super.scheduledUpdate();
         menuBarActionGroup.update();
         inspectorToolbarActionGroup.update();
+        chatPane.scheduledUpdate();
     }
 }

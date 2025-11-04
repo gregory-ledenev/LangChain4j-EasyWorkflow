@@ -58,47 +58,15 @@ import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.ActionGroup;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.BasicAction.COPY_NAME;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.StateAction;
+import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 
 /**
  * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
  * preferences.
  */
 public class UISupport {
-    /**
-     * Key for the copy icon.
-     */
-    public static final String ICON_COPY = "copy";
-    /**
-     * Key for the paste icon.
-     */
-    public static final String ICON_PASTE = "paste";
-    /**
-     * Key for the document icon.
-     */
-    public static final String ICON_DOCUMENT = "document";
-    /**
-     * Key for the send icon.
-     */
-    public static final String ICON_SEND = "send";
-    /**
-     * Key for the settings icon.
-     */
-    public static final String ICON_SETTINGS = "settings";
-    /**
-     * Key for the clear icon.
-     */
-    public static final String ICON_CLEAR = "clear";
-    /**
-     * Key for the bulb icon.
-     */
-    public static final String ICON_BULB = "bulb";
-    /**
-     * Key for the help icon.
-     */
-    public static final String ICON_HELP = "help";
-    /**
-     * Key for the expert icon.
-     */
+
+
     public static final String ICON_EXPERT = "expert";
     public static final String ICON_SIGNPOST = "signpost";
     public static final String ICON_REFRESH = "refresh";
@@ -108,18 +76,6 @@ public class UISupport {
     public static final String ICON_BREAKPOINT = "breakpoint";
     public static final String ICON_PLAY = "play";
     public static final String ICON_STOP = "stop";
-    public static final String ICON_ALWAYS_EXPAND = "always-expand";
-    public static final String ICON_FILE_TYPE_CODE = "file-type-code";
-    public static final String ICON_FILE_TYPE_TEXT = "file-type-text";
-    public static final String ICON_EXECUTION_FLOW = "execution-flow";
-    public static final String ICON_WORKFLOW = "workflow";
-    public static final String ICON_SHARE = "share";
-    public static final String ICON_EXPAND = "expand";
-    public static final String ICON_COLLAPSE = "collapse";
-    public static final String ICON_CHAT = "chat";
-    public static final String ICON_INFO = "info";
-    public static final String ICON_COMPASS = "compass";
-    public static final String ICON_CUT = "cut";
     public static final String ICON_SPACER = "spacer";
 
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
@@ -130,14 +86,8 @@ public class UISupport {
 
 
     static {
-        loadIcon(ICON_COPY, "copy");
-        loadIcon(ICON_PASTE, "paste");
-        loadIcon(ICON_DOCUMENT, "document");
-        loadIcon(ICON_SEND, "send");
-        loadIcon(ICON_SETTINGS, "settings");
-        loadIcon(ICON_CLEAR, "clear");
-        loadIcon(ICON_BULB, "bulb");
-        loadIcon(ICON_HELP, "help");
+        test = 2;
+
         loadIcon(ICON_EXPERT, "expert");
         loadIcon(ICON_SIGNPOST, "signpost");
         loadIcon(ICON_REFRESH, "refresh");
@@ -147,22 +97,10 @@ public class UISupport {
         loadIcon(ICON_BREAKPOINT, "breakpoint");
         loadIcon(ICON_PLAY, "play");
         loadIcon(ICON_STOP, "stop");
-        loadIcon(ICON_ALWAYS_EXPAND, "always-expand");
-        loadIcon(ICON_EXPAND, "expand");
-        loadIcon(ICON_COLLAPSE, "collapse");
-        loadIcon(ICON_FILE_TYPE_CODE, "file-type-code");
-        loadIcon(ICON_FILE_TYPE_TEXT, "file-type-text");
-        loadIcon(ICON_EXECUTION_FLOW, "execution-flow");
-        loadIcon(ICON_WORKFLOW, "workflow");
-        loadIcon(ICON_SHARE, "share");
-        loadIcon(ICON_CHAT, "chat");
-        loadIcon(ICON_INFO, "info");
-        loadIcon(ICON_COMPASS, "compass");
-        loadIcon(ICON_CUT, "cut");
         loadIcon(ICON_SPACER, "spacer");
     }
 
-    private static void loadIcon(String iconKey, String fileName) {
+    static void loadIcon(String iconKey, String fileName) {
         List<Image> images = loadImageVariants(fileName);
 
         icons.put(getIconKey(iconKey, false), loadImageIcon(images, ImageFilter.Lighter));
@@ -197,7 +135,7 @@ public class UISupport {
         List<Image> images = imageVariants;
         switch (imageFilter) {
             case Lighter -> images = imageVariants.stream()
-                    .map(image -> createFilteredImage(image, new GrayFilter(true, 30)))
+                    .map(image -> createFilteredImage(image, new GrayFilter(true, 40)))
                     .map(image -> new ImageIcon(image).getImage())
                     .toList();
             case Inverted -> images = imageVariants.stream()
@@ -668,6 +606,7 @@ public class UISupport {
      * @param actionGroup The {@link ActionGroup} containing the actions to add to the toolbar.
      */
     public static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup) {
+        toolbar.removeAll();
         setupToolbar(toolbar, actionGroup, true, new HashMap<>());
     }
 
@@ -693,7 +632,7 @@ public class UISupport {
             }
 
             // Add separator only if it's not the last item and the previous item was not a separator
-            if (addSeparators && i < actionGroup.getActions().size() - 1 &&
+            if (addSeparators && action instanceof ActionGroup && i < actionGroup.getActions().size() - 1 &&
                     ! (toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
                 toolbar.addSeparator();
             }

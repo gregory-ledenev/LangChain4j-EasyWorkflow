@@ -38,14 +38,7 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 public class HeaderPane extends JPanel{
     private final JLabel lblTitle = new JLabel();
     private final JLabel lblSubtitle = new JLabel();
-    private final JToolBar toolbar = new JToolBar() {
-        @Override
-        public Dimension getPreferredSize() {
-            Dimension preferredSize = super.getPreferredSize();
-            preferredSize.height = 36;
-            return preferredSize;
-        }
-    };
+    private final JToolBar toolbar = new JToolBar();
     private boolean paintBorderAtRight = true;
 
     /**

@@ -35,7 +35,7 @@ import static com.gl.langchain4j.easyworkflow.gui.Application.getSharedApplicati
  * The base class for all application frames.
  * Provides basic window management, including closing behavior and state management.
  */
-public class AppFrame extends JFrame {
+public class AppFrame extends JFrame implements Application.ScheduledUpdatable {
     private final String uid;
 
     /**

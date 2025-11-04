@@ -26,7 +26,6 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.FormEditorType;
@@ -61,6 +60,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_DOCUMENT;
+import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_SEND;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
@@ -92,12 +93,15 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         }
     };
     private final JLabel lblWaiting;
+    private final JToolBar pnlTools;
     private ChatEngine chatEngine;
     private boolean waitingForResponse;
     private boolean waitState;
     private Timer waitStateTimer;
     private StateAction renderMarkdownAction;
     private StateAction clearAfterSendingAction;
+    private ActionGroup toolsActionGroup;
+    private ChatMessage lastUserMessage;
 
     /**
      * Constructs a new ChatPane.
@@ -170,13 +174,15 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         };
         inputPanel.add(messageScrollPane, BorderLayout.CENTER);
 
+        pnlTools = new JToolBar(JToolBar.VERTICAL);
+        pnlTools.setAlignmentX(Component.RIGHT_ALIGNMENT);
         pnlButtons = new Box(BoxLayout.Y_AXIS);
         pnlButtons.setAlignmentX(RIGHT_ALIGNMENT);
-
+        pnlButtons.add(pnlTools);
         pnlButtons.add(Box.createVerticalStrut(10));
         pnlButtons.add(Box.createVerticalGlue());
 
-        btnSend.setFont(new Font("SansSerif", Font.BOLD, 30));
+        btnSend.setFont(btnSend.getFont().deriveFont(20f));
         btnSend.setAlignmentX(Component.RIGHT_ALIGNMENT);
         btnSend.addActionListener(e -> sendMessage());
         btnSend.setEnabled(false);
@@ -228,23 +234,12 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     public void setupToolActions(Action... actions) {
-        pnlButtons.removeAll();
+        toolsActionGroup.addAction(new ActionGroup(actions));
+        UISupport.setupToolbar(pnlTools, toolsActionGroup);
+    }
 
-        for (Action action : actions) {
-            JButton button = new ToolButton(action);
-            button.setText(null);
-            button.setToolTipText((String) action.getValue(Action.SHORT_DESCRIPTION));
-            pnlButtons.add(button);
-            pnlButtons.add(Box.createVerticalStrut(10));
-        }
-
-        pnlButtons.add(Box.createVerticalStrut(10));
-        pnlButtons.add(Box.createVerticalGlue());
-
-        pnlButtons.add(btnSend);
-
-        revalidate();
-        repaint();
+    public void scheduledUpdate() {
+        toolsActionGroup.update();
     }
 
     /**
@@ -304,9 +299,36 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         renderMarkdownAction = new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT), null,
                 e -> getChatMessagesPane().setRenderMarkdown(!getChatMessagesPane().isRenderMarkdown()),
                 a -> a.setSelected(getChatMessagesPane().isRenderMarkdown()));
-        clearAfterSendingAction = new StateAction("Clear After Sending", new AutoIcon(ICON_CLEAR), null,
+        clearAfterSendingAction = new StateAction("Clear After Sending", new AutoIcon(ICON_SPACER), null,
                 e -> getOptions().setClearAfterSending(!getOptions().isClearAfterSending()),
                 a -> a.setSelected(getOptions().isClearAfterSending()));
+
+        BasicAction resendAction = new BasicAction("Resend", new AutoIcon(ICON_SEND), e ->
+                resendLast(),
+                a -> a.setEnabled(canResendLast()));
+        resendAction.setShortDescription("Resend");
+        toolsActionGroup = new ActionGroup(
+                new ActionGroup(
+                        resendAction
+                )
+        );
+
+        UISupport.setupToolbar(pnlTools, toolsActionGroup);
+    }
+
+    private boolean canResendLast() {
+        return lastUserMessage != null;
+    }
+
+    private void resendLast() {
+        if (lastUserMessage != null) {
+            if (lastUserMessage.rawMessage() instanceof Map<?,?>)
+                //noinspection unchecked
+                setUserMessage((Map<String, Object>) lastUserMessage.rawMessage());
+            else
+                setUserMessage(lastUserMessage.rawMessage().toString());
+        }
+
     }
 
     /**
@@ -374,7 +396,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             if (getChatMessages().isEmpty())
                 addSystemChatMessage(message);
 
-            addChatMessage(chatMessageForMap(message, true));
+            lastUserMessage = chatMessageForMap(message, true);
+            addChatMessage(lastUserMessage);
             if (UISupport.getOptions().isClearAfterSending())
                 edtMessage.clearContent();
             edtMessage.requestFocus();

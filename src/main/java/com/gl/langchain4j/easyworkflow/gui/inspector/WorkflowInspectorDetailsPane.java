@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
 
 /**
@@ -132,7 +133,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             add(scrollPane, BorderLayout.CENTER);
 
             JPopupMenu popupMenu = new JPopupMenu();
-            JMenuItem mniCopy = new JMenuItem(UISupport.createAction("Copy", new UISupport.AutoIcon(UISupport.ICON_COPY), e -> copy()));
+            JMenuItem mniCopy = new JMenuItem(UISupport.createAction("Copy", new UISupport.AutoIcon(ICON_COPY), e -> copy()));
             popupMenu.add(mniCopy);
             edtValue.setComponentPopupMenu(popupMenu);
         }
@@ -192,7 +193,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             add(headerPane, BorderLayout.NORTH);
             JScrollPane scrollPane = UISupport.createScrollPane(treeValues, true, false, true, true, false);
             headerPane.setTitle("Inspector");
-//            headerPane.setSubtitle("Execution results for a selected agent");
+            headerPane.setSubtitle("Execution results for a selected agent");
             add(scrollPane, BorderLayout.CENTER);
             treeValues.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
             treeValues.setRootVisible(false);
@@ -309,6 +310,9 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
         }
 
         public void expandAllValues(boolean expandSelected) {
+            if (treeValues.getModel() == null)
+                return;
+
             DefaultMutableTreeNode selectedNode;
             if (expandSelected) {
                 TreePath path = treeValues.getSelectionPath();

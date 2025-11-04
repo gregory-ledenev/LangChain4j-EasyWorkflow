@@ -667,12 +667,17 @@ public abstract class WorkflowInspectorListPane extends JPanel {
         /**
          * Returns a string indicator representing the current state of the workflow item.
          *
-         * @return A symbol (e.g., "✓", "✘", "▶") indicating the state.
+         * @return A string indicating the state.
          */
         public String getStateIndicator() {
             return switch (state) {
                 case Unknown -> "";
-                case Finished -> type.equals(TYPE_END) ? "✓" : passCount <= 1 ? "•" : String.valueOf(passCount);
+                case Finished -> type.equals(TYPE_END) ?
+                        "✓" :
+                        passCount <= 1 ? "•" :
+                                passCount == Integer.MAX_VALUE ?
+                                        "⟳" :
+                                        String.valueOf(passCount);
                 case Failed -> "✘";
                 case Running -> "▶";
             };
@@ -959,7 +964,8 @@ public abstract class WorkflowInspectorListPane extends JPanel {
             lblStateIndicator.setText(value.getStateIndicator());
             lblStateIndicator.setBorder(value.getState() == WorkflowItem.State.Failed ||
                     (value.getState() == WorkflowItem.State.Finished &&
-                            (value.getPassCount() > 1 || value.getType().equals(TYPE_END))) ? INDICATOR_LINE_BORDER : INDICATOR_BORDER);
+                            ((value.getPassCount() > 1 && value.getPassCount() != Integer.MAX_VALUE) ||
+                                    value.getType().equals(TYPE_END))) ? INDICATOR_LINE_BORDER : INDICATOR_BORDER);
             pnlStateIndicator.setPreferredSize(new Dimension(50, 0));
 
             lblIcon.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
@@ -1085,6 +1091,7 @@ public abstract class WorkflowInspectorListPane extends JPanel {
                     currentItem.setIndentation(0);
                     model.addElement(currentItem);
                     currentItem.setState(WorkflowItem.State.Running);
+                    currentItem.setPassCount(currentItem.getPassCount() == 0 ? 1 : Integer.MAX_VALUE);
                     currentItem.setTraceEntry(model.size() - 1,
                             (WorkflowDebugger.AgentInvocationTraceEntry) states.get(WorkflowDebugger.KEY_TRACE_ENTRY));
                     markMissedItemsAsFinished(currentItem);

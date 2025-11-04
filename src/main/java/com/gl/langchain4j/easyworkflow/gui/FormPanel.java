@@ -266,7 +266,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             JPopupMenu popupMenu = textComponent.getComponentPopupMenu();
             popupMenu.add(new JSeparator());
             popupMenu.add(UISupport.createMenuItem(
-                    new BasicAction("Clear All", new AutoIcon(ICON_CLEAR), e -> clearContent())));
+                    new BasicAction("Clear All", new AutoIcon(ICON_SPACER), e -> clearContent())));
         }
     }
 
