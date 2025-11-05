@@ -28,12 +28,13 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
  * Represents a chat message, which can be either from the user or the system. It can contain both plain text and HTML
  * formatted content.
  *
+ * @param uid         Unique identifier for the message.
  * @param rawMessage  The message in original format
  * @param message     The plain text content of the message.
  * @param htmlMessage The HTML formatted content of the message. Can be null if only plain text is available.
  * @param type        The type of the message.
  */
-public record ChatMessage(Object rawMessage, String message, String htmlMessage, Type type) {
+public record ChatMessage(String uid, Object rawMessage, String message, String htmlMessage, Type type) {
     public enum Type {
         User,
         Agent,

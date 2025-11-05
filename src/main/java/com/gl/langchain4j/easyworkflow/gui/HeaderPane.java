@@ -39,7 +39,7 @@ public class HeaderPane extends JPanel{
     private final JLabel lblTitle = new JLabel();
     private final JLabel lblSubtitle = new JLabel();
     private final JToolBar toolbar = new JToolBar();
-    private boolean paintBorderAtRight = true;
+    private boolean paintBorderAtRight;
 
     /**
      * Constructs a new HeaderPane. Initializes the layout, sets up the title and subtitle labels, and applies a

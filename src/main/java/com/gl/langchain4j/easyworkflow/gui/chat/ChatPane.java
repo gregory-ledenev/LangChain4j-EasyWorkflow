@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_DOCUMENT;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_SEND;
@@ -102,6 +103,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private StateAction clearAfterSendingAction;
     private ActionGroup toolsActionGroup;
     private ChatMessage lastUserMessage;
+    private ExecutionDetailsProvider executionDetailsProvider;
 
     /**
      * Constructs a new ChatPane.
@@ -194,11 +196,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         setupActions();
     }
 
-    @Override
-    public void requestFocus() {
-        edtMessage.requestFocus();
-    }
-
     /**
      * Retrieves the ChatPane instance that contains the given subComponent.
      *
@@ -223,6 +220,11 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     public static void applyAppearance(Appearance darkAppearance, ChatPane chatPane) {
         UISupport.applyAppearance(darkAppearance);
         SwingUtilities.updateComponentTreeUI(chatPane.getParent());
+    }
+
+    @Override
+    public void requestFocus() {
+        edtMessage.requestFocus();
     }
 
     public StateAction getRenderMarkdownAction() {
@@ -322,7 +324,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
     private void resendLast() {
         if (lastUserMessage != null) {
-            if (lastUserMessage.rawMessage() instanceof Map<?,?>)
+            if (lastUserMessage.rawMessage() instanceof Map<?, ?>)
                 //noinspection unchecked
                 setUserMessage((Map<String, Object>) lastUserMessage.rawMessage());
             else
@@ -393,10 +395,13 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private void sendMessage() {
         Map<String, Object> message = getUserMessage();
         if (message != null && !message.isEmpty()) {
+            String uid = UUID.randomUUID().toString();
+            message.put(KEY_SESSION_UID, uid);
+
             if (getChatMessages().isEmpty())
                 addSystemChatMessage(message);
 
-            lastUserMessage = chatMessageForMap(message, true);
+            lastUserMessage = chatMessageForMap(uid, message, true);
             addChatMessage(lastUserMessage);
             if (UISupport.getOptions().isClearAfterSending())
                 edtMessage.clearContent();
@@ -414,13 +419,14 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private void addSystemChatMessage(Map<String, Object> message) {
         String systemMessageTemplate = chatEngine.getSystemMessageTemplate();
         if (systemMessageTemplate != null && !systemMessageTemplate.isEmpty())
-            addChatMessage(new ChatMessage(null, EasyWorkflow.expandTemplate(systemMessageTemplate, message), null, ChatMessage.Type.System));
+            addChatMessage(new ChatMessage(UUID.randomUUID().toString(), null, EasyWorkflow.expandTemplate(systemMessageTemplate, message), null, ChatMessage.Type.System));
     }
 
     private ChatMessage chatMessageForResponse(Object response) {
         if (response.getClass().isArray())
             response = Arrays.asList((Object[]) response);
 
+        String uid = UUID.randomUUID().toString();
         if (response instanceof List<?> list) {
             StringBuilder result = new StringBuilder();
             for (int i = 0; i < list.size(); i++) {
@@ -430,26 +436,26 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 result.append("%d. ".formatted(i + 1));
                 try {
                     Map<?, ?> map = OBJECT_MAPPER.convertValue(element, Map.class);
-                    result.append((chatMessageForMap(map, false).message()));
+                    result.append((chatMessageForMap(uid, map, false).message()));
                 } catch (IllegalArgumentException ex) {
                     result.append(element.toString());
                     logger.warn("Failed to convert element to map: " + element, ex);
                 }
             }
-            return new ChatMessage(response, result.toString(), convertMarkdownToHtml(result.toString()), ChatMessage.Type.Agent);
+            return new ChatMessage(uid, response, result.toString(), convertMarkdownToHtml(result.toString()), ChatMessage.Type.Agent);
         } else if (response instanceof Map<?, ?> responseMap) {
-            return chatMessageForMap(responseMap, false);
+            return chatMessageForMap(uid, responseMap, false);
         } else if (response instanceof String) {
             String responseString = response.toString();
             String responseAsHtml = convertMarkdownToHtml(responseString);
-            return new ChatMessage(response, responseString, responseAsHtml, ChatMessage.Type.Agent);
+            return new ChatMessage(uid, response, responseString, responseAsHtml, ChatMessage.Type.Agent);
         } else {
-            ChatMessage chatMessage = new ChatMessage(response, response.toString(), null, ChatMessage.Type.Agent);
+            ChatMessage chatMessage = new ChatMessage(uid, response, response.toString(), null, ChatMessage.Type.Agent);
             if (response instanceof Number || response instanceof Boolean || response.getClass().isEnum()) {
                 return chatMessage;
             } else {
                 try {
-                    return chatMessageForMap(OBJECT_MAPPER.convertValue(response, Map.class), false);
+                    return chatMessageForMap(uid, OBJECT_MAPPER.convertValue(response, Map.class), false);
                 } catch (Exception e) {
                     return chatMessage;
                 }
@@ -457,7 +463,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         }
     }
 
-    private ChatMessage chatMessageForMap(Map<?, ?> message, boolean isFromUser) {
+    private ChatMessage chatMessageForMap(String uid, Map<?, ?> message, boolean isFromUser) {
         String text = null;
         String html = null;
 
@@ -486,12 +492,15 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             final String format = "**%s**: %s<br>";
             if (userMessage != null && !userMessage.isEmpty())
                 markdown.append(String.format(format, "userMessage", userMessage));
-            message.forEach((key, value) -> markdown.append(String.format(format, key, value)));
+            message.forEach((key, value) -> {
+                if (!key.equals(KEY_SESSION_UID))
+                    markdown.append(String.format(format, key, value));
+            });
             text = markdown.toString();
             html = convertMarkdownToHtml(text);
         }
 
-        return new ChatMessage(message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent);
+        return new ChatMessage(uid, message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent);
     }
 
     private String convertMarkdownToHtml(String text) {
@@ -509,7 +518,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             } else {
                 final String error = "Failed to get response from chat.";
                 logger.error(error, ex);
-                addChatMessage(new ChatMessage(null, "🛑 " + error + " " + ex.getMessage(), null, ChatMessage.Type.Agent));
+                addChatMessage(new ChatMessage(UUID.randomUUID().toString(), null, "🛑 " + error + " " + ex.getMessage(), null, ChatMessage.Type.Agent));
             }
             setWaitingForResponse(false);
             chatMessagesHostPane.removeTypingIndicator();
@@ -618,7 +627,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     /**
      * Returns the chat messages as a JSON string.
      *
-     * @return A JSON string representation of the chat messages, or {@code null} if there are no messages or an error occurs during serialization.
+     * @return A JSON string representation of the chat messages, or {@code null} if there are no messages or an error
+     * occurs during serialization.
      */
     public String getChatMessagesAsJson() {
         if (getChatMessages().isEmpty())
@@ -644,6 +654,37 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     /**
+     * Returns the current {@link ExecutionDetailsProvider} for this chat pane.
+     *
+     * @return The {@link ExecutionDetailsProvider} instance.
+     */
+    public ExecutionDetailsProvider getExecutionDetailsProvider() {
+        return executionDetailsProvider;
+    }
+
+    /**
+     * Sets the {@link ExecutionDetailsProvider} for this chat pane.
+     *
+     * @param aExecutionDetailsProvider The {@link ExecutionDetailsProvider} to set.
+     */
+    public void setExecutionDetailsProvider(ExecutionDetailsProvider aExecutionDetailsProvider) {
+        executionDetailsProvider = aExecutionDetailsProvider;
+    }
+
+    /**
+     * Interface for providing execution details for a given chat message.
+     */
+    public interface ExecutionDetailsProvider {
+
+        /**
+         * Displays the execution details for a given chat message.
+         *
+         * @param chatMessage The chat message for which to display execution details.
+         */
+        void showExecutionDetails(ChatMessage chatMessage);
+    }
+
+    /**
      * Interface for defining a chat engine that can send messages and provide parameter information.
      */
     public interface ChatEngine {
@@ -654,41 +695,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         String getUserMessageTemplate();
 
         String getSystemMessageTemplate();
-
-        default String title() {
-            return "Chat";
-        }
-
-        default void refresh() {
-
-        }
-    }
-
-    static class ToolButton extends JButton {
-        public ToolButton(Action a) {
-            super(a);
-
-            init();
-        }
-
-        public ToolButton(Icon icon) {
-            super(icon);
-
-            init();
-        }
-
-        private void init() {
-            setAlignmentX(Component.RIGHT_ALIGNMENT);
-            setFocusable(false);
-        }
-
-        @Override
-        public void updateUI() {
-            super.updateUI();
-            setOpaque(false);
-            setBackground(null);
-            setBorder(new EmptyBorder(2, 2, 2, 2));
-        }
     }
 
     static class InputPaneBorder extends AbstractBorder {

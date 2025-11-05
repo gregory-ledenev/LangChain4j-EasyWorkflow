@@ -24,6 +24,9 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
+import com.gl.langchain4j.easyworkflow.gui.Actions;
+import com.gl.langchain4j.easyworkflow.gui.UISupport;
+
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.PopupMenuEvent;
@@ -38,8 +41,10 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.Map;
 
+import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
+import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
 
 /**
  * Renders a single chat message within the chat interface. This panel displays the message content, handles markdown
@@ -50,9 +55,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
     private final ChatMessage chatMessage;
     private final ChatMessageRendererBubble bubbleBackground;
 
-    JCheckBoxMenuItem mniToggleMarkdown;
     private int lastWidth;
-    private JPopupMenu popupMenu;
 
     /**
      * Constructs a ChatMessageRenderer for a given chat message.
@@ -63,7 +66,6 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         super(new GridBagLayout()); // Use GridBagLayout for robust alignment
         this.chatMessage = chatMessage;
 
-        setupPopupMenu();
         textPane = setupChatMessageTextPane(chatMessage);
 
         setOpaque(false);
@@ -85,6 +87,8 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
                 updateLayout(getTextPaneWidth(), false);
             }
         });
+
+        setupPopupMenu();
     }
 
     int getTextPaneWidth() {
@@ -118,59 +122,44 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
     private ChatMessageTextPane setupChatMessageTextPane(ChatMessage chatMessage) {
         final ChatMessageTextPane textPane;
         textPane = new ChatMessageTextPane();
-        textPane.setComponentPopupMenu(popupMenu);
         textPane.setForeground(chatMessage.outgoing() ? Color.WHITE : Color.DARK_GRAY);
         return textPane;
     }
 
     private void setupPopupMenu() {
-        popupMenu = new JPopupMenu();
-        popupMenu.addPopupMenuListener(new PopupMenuListener() {
-            @Override
-            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
-                mniToggleMarkdown.setSelected(isRenderMarkdown());
-            }
+        JPopupMenu popupMenu = new JPopupMenu();
 
-            @Override
-            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
-            }
-
-            @Override
-            public void popupMenuCanceled(PopupMenuEvent e) {
-            }
-        });
-
-        JMenuItem mniCopy = new JMenuItem(new AbstractAction("Copy", new AutoIcon(ICON_COPY)) {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                copy();
-            }
-        });
-        popupMenu.add(mniCopy);
-
-        JMenuItem mniResend = new JMenuItem(new AbstractAction("Resend", new AutoIcon(ICON_SEND)) {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                resend();
-            }
-        });
-        popupMenu.addSeparator();
-        popupMenu.add(mniResend);
-        popupMenu.addSeparator();
-
-        mniToggleMarkdown = new JCheckBoxMenuItem(new AbstractAction("Render Markdown", new AutoIcon(ICON_DOCUMENT)) {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                toggleMarkdown();
-            }
-        });
-        popupMenu.add(mniToggleMarkdown);
-
+        ActionGroup actionGroup = new ActionGroup(
+                new ActionGroup(
+                        new BasicAction("Copy", new AutoIcon(ICON_COPY), e -> copy())
+                ),
+                new ActionGroup(
+                        new BasicAction("Resend", new AutoIcon(ICON_SEND), e -> resend()),
+                        new BasicAction("Execution Details", new AutoIcon(ICON_TOOLBAR_PLAY),
+                                e -> showExecutionDetails(),
+                                a -> a.setEnabled(canShowExecutionDetails()))
+                ),
+                new ActionGroup(
+                        new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT),
+                                null,
+                                e -> setRenderMarkdown(! isRenderMarkdown()),
+                                a -> a.setSelected(isRenderMarkdown()))
+                )
+        );
+        UISupport.setupPopupMenu(popupMenu, actionGroup);
         setComponentPopupMenu(popupMenu);
+        textPane.setComponentPopupMenu(popupMenu);
     }
 
-    private void toggleMarkdown() {
-        setRenderMarkdown(mniToggleMarkdown.isSelected());
+    private boolean canShowExecutionDetails() {
+        return chatMessage.type() == ChatMessage.Type.User &&
+                getChatPane(this).getExecutionDetailsProvider() != null;
+    }
+
+    private void showExecutionDetails() {
+        ChatPane.ExecutionDetailsProvider executionDetailsProvider = getChatPane(this).getExecutionDetailsProvider();
+        if (executionDetailsProvider != null)
+            executionDetailsProvider.showExecutionDetails(chatMessage);
     }
 
     @Override
@@ -178,7 +167,6 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         super.addNotify();
 
         updateFromChatMessage();
-        mniToggleMarkdown.setSelected(isRenderMarkdown());
     }
 
     public boolean isRenderMarkdown() {
@@ -208,9 +196,9 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         //noinspection rawtypes
         if (! selectedTextPresent && chatMessage.rawMessage() instanceof Map map)
             //noinspection unchecked
-            ChatPane.getChatPane(this).setUserMessage(map);
+            getChatPane(this).setUserMessage(map);
         else {
-            ChatPane.getChatPane(this).setUserMessage(selectedTextPresent ?
+            getChatPane(this).setUserMessage(selectedTextPresent ?
                     selectedText :
                     chatMessage.message());
         }

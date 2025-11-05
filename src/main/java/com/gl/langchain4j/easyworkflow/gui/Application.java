@@ -175,6 +175,7 @@ public class Application {
                     EventQueue.invokeAndWait(this::update);
 
                 } catch (Exception e) {
+                    // do nothing
                 }
             }
         }

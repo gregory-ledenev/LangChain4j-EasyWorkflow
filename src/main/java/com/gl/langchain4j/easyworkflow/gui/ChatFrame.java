@@ -65,7 +65,7 @@ import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
  * A frame that provides a chat interface. It can be used to display a chat conversation and interact with a chat
  * engine.
  */
-public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
+public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.ExecutionDetailsProvider {
 
     public static final String PROP_FLOW_CHART_FILE = "flow-chart-file";
     public static final String PROP_STRUCTURE_FILE = "structure-file";
@@ -141,6 +141,9 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
             pnlWorkflowInspectorExecution.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
             pnlWorkflowInspectorExecution.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorExecution.setWorkflowDebugger(workflowDebugger);
+            pnlWorkflowInspectorExecution.setPlaceHolderText("Run workflow to see execution results");
+            pnlWorkflowInspectorExecution.setPlaceHolderIcon(new AutoIcon(ICON_INFO_PLAIN));
+            pnlWorkflowInspectorExecution.setPlaceHolderVisible(true);
 
             BasicAction focusInspectorAction = new BasicAction("focusInspector", null, e -> pnlWorkflowInspectorDetails.requestFocus());
             KeyStroke keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
@@ -199,6 +202,8 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
                 if (pnlWorkflowInspectorExecution.isVisible())
                     pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
             });
+
+            chatPane.setExecutionDetailsProvider(this);
         } else {
             setContentPane(chatPane);
         }
@@ -448,7 +453,6 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
      * @param title       The title of the chat frame.
      * @param icon        The icon to be displayed for the chat frame.
      * @param chatEngine  A function that takes a user message and returns a chat engine's response.
-     * @param exitOnClose If true, the application will exit when this frame is closed.
      * @return The created ChatFrame instance.
      */
     public static ChatFrame showChat(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger) {
@@ -522,16 +526,13 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
 
         showExecutionAction = new StateAction("Execution", new AutoIcon(ICON_EXECUTION_FLOW), showGroup,
                 e -> showWorkflowExecution(),
-                a -> {
-                    a.setEnabled(pnlWorkflowInspectorExecution.hasContent());
-                    a.setSelected(pnlWorkflowInspectorExecution.isVisible());
-                });
+                a -> a.setSelected(pnlWorkflowInspectorExecution.isVisible()));
         showExecutionAction.setShortDescription("Show workflow execution");
         showExecutionAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_3,
                 Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
 
         showSummaryAction = new StateAction("Summary", new AutoIcon(ICON_DOCUMENT), showGroup,
-                e -> showWorkflowSummary(),
+                e -> showWorkflowSummary(false),
                 a -> a.setSelected(pnlWorkflowSummary.isVisible()));
         showSummaryAction.setShortDescription("Show workflow summary");
         showSummaryAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_4,
@@ -587,6 +588,24 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
         UISupport.setupPopupMenu(popupMenu, actionGroup);
         pnlWorkflowInspectorStructure.setComponentPopupMenu(popupMenu);
         pnlWorkflowInspectorExecution.setComponentPopupMenu(popupMenu);
+
+        actionGroup = new ActionGroup(
+                new ActionGroup(
+                        showStructureAction,
+                        showExecutionAction,
+                        showSummaryAction
+                ),
+                new ActionGroup(
+                        copyAction
+                ),
+                new ActionGroup(
+                        new BasicAction("Refresh", new AutoIcon(ICON_TOOLBAR_REFRESH),
+                                e -> generateWorkflowSummary(true),
+                                a -> a.setEnabled(! summaryGenerating))
+                )
+        );
+        popupMenu = new JPopupMenu();
+        UISupport.setupPopupMenu(popupMenu, actionGroup);
         pnlWorkflowSummaryView.setComponentPopupMenu(popupMenu);
     }
 
@@ -599,11 +618,15 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
         return fileChooserUtils;
     }
 
-    private void showWorkflowSummary() {
+    private void showWorkflowSummary(boolean forceGeneration) {
         ((CardLayout) pnlWorkflowContents.getLayout()).last(pnlWorkflowContents);
         pnlWorkflowInspectorDetails.setValues(null);
         pnlWorkflowSummaryView.requestFocus();
-        if (!summaryGenerated && !summaryGenerating) {
+        generateWorkflowSummary(forceGeneration);
+    }
+
+    private void generateWorkflowSummary(boolean forceGeneration) {
+        if ((!summaryGenerated || forceGeneration) && !summaryGenerating) {
             summaryGenerating = true;
             pnlWorkflowSummaryView.setText("Generating summary..."); // Set initial text immediately
             pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); // Set cursor immediately
@@ -755,5 +778,10 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
         menuBarActionGroup.update();
         inspectorToolbarActionGroup.update();
         chatPane.scheduledUpdate();
+    }
+
+    @Override
+    public void showExecutionDetails(ChatMessage chatMessage) {
+        System.out.println("execution details");
     }
 }

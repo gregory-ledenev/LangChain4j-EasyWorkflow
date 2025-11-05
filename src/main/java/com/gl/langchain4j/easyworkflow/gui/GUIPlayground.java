@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 /**
@@ -124,6 +125,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 new ChatPane.ChatEngine() {
                     @Override
                     public Object send(Map<String, Object> message) {
+                        if (chatFrame.getWorkflowDebugger() != null)
+                            chatFrame.getWorkflowDebugger().setSessionUID((String) message.get(KEY_SESSION_UID));
                         return apply(agent, message);
                     }
 

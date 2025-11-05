@@ -42,9 +42,9 @@ import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.text.MessageFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.text.MessageFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
@@ -59,6 +59,7 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.
  * state.
  */
 public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, WorkflowContext.InputHandler {
+
     public static final String KEY_INPUT = "$input";
     public static final String KEY_OUTPUT = "$output";
     public static final String KEY_AGENT = "$agent";
@@ -66,16 +67,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public static final String KEY_AGENT_CLASS_SIMPLE_NAME = "$agentClass.simpleName";
     public static final String KEY_OUTPUT_NAME = "$outputName";
     public static final String KEY_TRACE_ENTRY = "$traceEntry";
-
+    public static final String KEY_SESSION_UID = "sessionUID";
     private static final Logger logger = LoggerFactory.getLogger(WorkflowDebugger.class);
     private final WorkflowContext workflowContext;
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());
-    private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>() {
-        @Override
-        public boolean add(AgentInvocationTraceEntry aAgentInvocationTraceEntry) {
-            return super.add(aAgentInvocationTraceEntry);
-        }
-    });
+    private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>());
+    private final List<AgentInvocationTraceEntryArchive> agentInvocationTraceEntryArchives = Collections.synchronizedList(new ArrayList<>());
     private final Map<String, Object> workflowInput = new HashMap<>();
     private final ConcurrentHashMap<Object, EasyWorkflow.Expression> agentMetadata = new ConcurrentHashMap<>();
     private boolean breakpointsEnabled = true;
@@ -84,7 +81,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     private boolean started = false;
     private EasyWorkflow.AgentWorkflowBuilder<?> agentWorkflowBuilder;
     private Throwable workflowFailure;
-
+    private String sessionUID;
     /**
      * Constructs a new {@code WorkflowDebugger}. Initializes a new {@link WorkflowContext} and registers itself as the
      * input and output state change handler.
@@ -112,6 +109,31 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public static String replaceNewLineCharacters(String text) {
         return text != null ? text.replaceAll("\\n", "\\\\n") : null;
+    }
+
+    /**
+     * Recursively unwraps nested exceptions to find the root cause of a failure. Specifically unwraps
+     * {@link java.lang.reflect.InvocationTargetException} and {@link AgentInvocationException}.
+     *
+     * @param failure The initial {@link Throwable} to analyze.
+     * @return The root cause {@link Throwable}, or the original failure if no further unwrapping is possible.
+     */
+    public static Throwable getFailureCauseException(Throwable failure) {
+        Throwable cause = failure;
+        while (!(cause instanceof MissingArgumentException) &&
+                (cause instanceof java.lang.reflect.InvocationTargetException ||
+                        cause instanceof AgentInvocationException ||
+                        cause instanceof UndeclaredThrowableException)) {
+            cause = cause.getCause();
+        }
+        return cause != null ? cause : failure;
+    }
+
+    public static ObjectMapper createObjectMapper() {
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
+        objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
+        return objectMapper;
     }
 
     /**
@@ -197,7 +219,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     /**
      * Returns the {@link Throwable} that caused the workflow to fail, if any.
      *
-     * @return The {@link Throwable} representing the workflow failure, or {@code null} if the workflow completed successfully.
+     * @return The {@link Throwable} representing the workflow failure, or {@code null} if the workflow completed
+     * successfully.
      */
     public Throwable getWorkflowFailure() {
         return workflowFailure;
@@ -213,9 +236,28 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     /**
+     * Returns a list of archived agent invocation trace entries. Each archive contains the workflow's input, its final
+     * result, and a list of {@link AgentInvocationTraceEntry} objects from a completed workflow execution.
+     *
+     * @return An unmodifiable list of {@link AgentInvocationTraceEntryArchive} objects.
+     */
+    public List<AgentInvocationTraceEntryArchive> getAgentInvocationTraceEntryArchives() {
+        return Collections.unmodifiableList(agentInvocationTraceEntryArchives);
+    }
+
+    /**
      * Resets the debugger's internal state, clearing all recorded events.
      */
     public void reset() {
+        if (! agentInvocationTraceEntries.isEmpty())
+            // TODO: 11/4/25 add deep cloning of everything mutable here
+            agentInvocationTraceEntryArchives.add(new AgentInvocationTraceEntryArchive(sessionUID,
+                    workflowInput,
+                    workflowResult,
+                    workflowFailure,
+                    agentInvocationTraceEntries,
+                    new HashMap<>(agenticScope.state())));
+
         workflowInput.clear();
         workflowResult = null;
         agentInvocationTraceEntries.clear();
@@ -501,23 +543,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
     }
 
-    /**
-     * Recursively unwraps nested exceptions to find the root cause of a failure.
-     * Specifically unwraps {@link java.lang.reflect.InvocationTargetException} and {@link AgentInvocationException}.
-     * @param failure The initial {@link Throwable} to analyze.
-     * @return The root cause {@link Throwable}, or the original failure if no further unwrapping is possible.
-     */
-    public static Throwable getFailureCauseException(Throwable failure) {
-        Throwable cause = failure;
-        while (! (cause instanceof MissingArgumentException)  &&
-                (cause instanceof java.lang.reflect.InvocationTargetException ||
-                cause instanceof AgentInvocationException ||
-                cause instanceof UndeclaredThrowableException)) {
-            cause = cause.getCause();
-        }
-        return cause != null ? cause : failure;
-    }
-
     private Object convertInValueToJson(ObjectMapper objectMapper, Object value) {
         if (value instanceof UserMessage userMessage) {
             return userMessage.hasSingleText() ? userMessage.singleText() : convertValueToJson(objectMapper, value);
@@ -586,7 +611,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 failedAgents.add(id);
             }
             agentNames.put(id, traceEntry.getAgentName());
-            if (! completedAgents.contains(id))
+            if (!completedAgents.contains(id))
                 completedAgents.add(id);
         }
 
@@ -611,13 +636,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 failedAgents,
                 runningAgents,
                 agentNames));
-    }
-
-    public static ObjectMapper createObjectMapper() {
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
-        objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
-        return objectMapper;
     }
 
     /**
@@ -660,12 +678,48 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Generates an HTML with a visual representation of the workflow execution. It contains a flow chart diagram and an
      * inspector that allows checking results of agent invocations.
      *
-     * @param filePath The path to the file where the HTML should be written.
+     * @param filePath         The path to the file where the HTML should be written.
      * @param isIncludeSummary Specifies whether to include an AI generated workflow summary.
      * @throws IOException If an I/O error occurs.
      */
     public void toHtmlFile(String filePath, boolean isIncludeSummary) throws IOException {
         Files.write(Paths.get(filePath), toHtml(isIncludeSummary).getBytes());
+    }
+
+    /**
+     * Returns the unique identifier for the current workflow session.
+     *
+     * @return The session UID.
+     */
+    public String getSessionUID() {
+        return sessionUID;
+    }
+
+    /**
+     * Sets the unique identifier for the current workflow session.
+     *
+     * @param aSessionUID The session UID to set.
+     */
+    public void setSessionUID(String aSessionUID) {
+        sessionUID = aSessionUID;
+    }
+
+    /**
+     * Represents an archived collection of agent invocation trace entries, along with the workflow's input and final
+     * result. This record is used for storing and retrieving a complete history of a workflow execution.
+     *
+     * @param workflowInput  A map containing the input parameters of the workflow.
+     * @param workflowResult The final result of the workflow execution.
+     * @param agentInvocationTraceEntries   A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent
+     *                       invocations.
+     */
+    public record AgentInvocationTraceEntryArchive(
+            String uid,
+            Map<String, Object> workflowInput,
+            Object workflowResult,
+            Throwable workflowFailure,
+            List<AgentInvocationTraceEntry> agentInvocationTraceEntries,
+            Map<String, Object> agenticScope) {
     }
 
     public abstract static class UserMessageMixIn {
@@ -712,19 +766,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
 
         /**
-         * Returns the {@link WorkflowDebugger} instance associated with this breakpoint.
-         *
-         * @return The associated {@link WorkflowDebugger}.
-         */
-        public WorkflowDebugger getWorkflowDebugger() {
-            return workflowDebugger;
-        }
-
-        void setWorkflowDebugger(WorkflowDebugger aWorkflowDebugger) {
-            workflowDebugger = aWorkflowDebugger;
-        }
-
-        /**
          * Creates a new {@link BreakpointBuilder} to construct a {@link AgentBreakpoint}.
          *
          * @param type   the type of breakpoint
@@ -745,6 +786,19 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          */
         public static BreakpointBuilder builder(Breakpoint.Type type, String template) {
             return new BreakpointBuilder(type, log(template));
+        }
+
+        /**
+         * Returns the {@link WorkflowDebugger} instance associated with this breakpoint.
+         *
+         * @return The associated {@link WorkflowDebugger}.
+         */
+        public WorkflowDebugger getWorkflowDebugger() {
+            return workflowDebugger;
+        }
+
+        void setWorkflowDebugger(WorkflowDebugger aWorkflowDebugger) {
+            workflowDebugger = aWorkflowDebugger;
         }
 
         /**
@@ -1136,8 +1190,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                         new AgentBreakpoint(action, type, this.agentClasses, this.outputNames, this.condition, this.enabled);
                 case SESSION_STARTED, SESSION_STOPPED, SESSION_FAILED ->
                         new Breakpoint(action, type, this.condition, this.enabled);
-                case LINE ->
-                        new LineBreakpoint(action, this.condition, this.enabled);
+                case LINE -> new LineBreakpoint(action, this.condition, this.enabled);
             };
         }
 
@@ -1269,7 +1322,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         /**
          * Returns the {@link Throwable} that caused the agent invocation to fail, if any.
          *
-         * @return The {@link Throwable} representing the agent invocation failure, or {@code null} if the invocation completed successfully.
+         * @return The {@link Throwable} representing the agent invocation failure, or {@code null} if the invocation
+         * completed successfully.
          */
         public Throwable getFailure() {
             return failure;
@@ -1333,8 +1387,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public class ServiceAgent {
         @Agent
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
-            if (WorkflowDebugger.this.agenticScope == null)
-                WorkflowDebugger.this.agenticScope = agenticScope;
+            WorkflowDebugger.this.agenticScope = agenticScope;
             return null;
         }
     }

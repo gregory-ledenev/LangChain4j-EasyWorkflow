@@ -24,6 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
+import com.gl.langchain4j.easyworkflow.gui.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.HeaderPane;
 import com.gl.langchain4j.easyworkflow.gui.UISupport;
 
@@ -160,7 +161,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
      * A panel that displays a tree view of the workflow execution results. It allows navigating through nested maps and
      * lists.
      */
-    class ValuesPane extends JPanel implements TreeSelectionListener {
+    class ValuesPane extends AppPane implements TreeSelectionListener {
         private static final String PROP_ALWAYS_EXPAND = "alwaysExpand";
         private final HeaderPane headerPane;
         private final JTree treeValues = new JTree();
@@ -188,13 +189,16 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
         public ValuesPane() {
             setMinimumSize(new Dimension(200, 100));
             setOpaque(false);
-            setLayout(new BorderLayout());
+            JPanel pnlContent = new JPanel(new BorderLayout());
+            pnlContent.setOpaque(false);
+            setContent(pnlContent);
+
             headerPane = new HeaderPane(false);
-            add(headerPane, BorderLayout.NORTH);
+            pnlContent.add(headerPane, BorderLayout.NORTH);
             JScrollPane scrollPane = UISupport.createScrollPane(treeValues, true, false, true, true, false);
             headerPane.setTitle("Inspector");
             headerPane.setSubtitle("Execution results for a selected agent");
-            add(scrollPane, BorderLayout.CENTER);
+            pnlContent.add(scrollPane, BorderLayout.CENTER);
             treeValues.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
             treeValues.setRootVisible(false);
             treeValues.setShowsRootHandles(true);
@@ -202,6 +206,10 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             treeValues.setCellRenderer(new ValuesPaneRenderer());
             treeValues.addTreeSelectionListener(this);
             setValues(Map.of());
+
+            setPlaceHolderText("No execution results");
+            setPlaceHolderIcon(new AutoIcon(ICON_INFO_PLAIN));
+            setPlaceHolderVisible(true);
 
             actionAlwaysExpand.putValue(Action.SELECTED_KEY, isAlwaysExpandValues());
             actionAlwaysExpand.putValue(Action.SHORT_DESCRIPTION, "Always Expand All");
@@ -385,21 +393,22 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             this.values = values;
             if (this.values == null) {
                 treeValues.setModel(null);
-                return;
-            }
-
-            DefaultMutableTreeNode root = new DefaultMutableTreeNode("Values");
-            buildTree(root, this.values);
-            DefaultTreeModel model = new DefaultTreeModel(root);
-            treeValues.setModel(model);
-
-            if (isAlwaysExpandValues()) {
-                expandAllValues(false);
             } else {
-                for (int i = 0; i < root.getChildCount(); i++)
-                    treeValues.expandPath(new TreePath(model.getPathToRoot(root.getChildAt(i))));
+                DefaultMutableTreeNode root = new DefaultMutableTreeNode("Values");
+                buildTree(root, this.values);
+                DefaultTreeModel model = new DefaultTreeModel(root);
+                treeValues.setModel(model);
+
+                if (isAlwaysExpandValues()) {
+                    expandAllValues(false);
+                } else {
+                    for (int i = 0; i < root.getChildCount(); i++)
+                        treeValues.expandPath(new TreePath(model.getPathToRoot(root.getChildAt(i))));
+                }
+                treeValues.getSelectionModel().addSelectionPath(treeValues.getPathForRow(0));
             }
-            treeValues.getSelectionModel().addSelectionPath(treeValues.getPathForRow(0));
+
+            setPlaceHolderVisible(this.values == null || this.values.isEmpty());
         }
 
         private void buildTree(DefaultMutableTreeNode parent, Object data) {
