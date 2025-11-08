@@ -24,26 +24,22 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
-import com.gl.langchain4j.easyworkflow.gui.Actions;
-import com.gl.langchain4j.easyworkflow.gui.UISupport;
+import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
 import javax.swing.text.View;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.StyleSheet;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
-import java.awt.event.ActionEvent;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.Map;
 
-import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
 
 /**
@@ -51,12 +47,17 @@ import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
  * rendering, and provides context menu options like copy and resend.
  */
 public class ChatMessageRenderer extends JPanel implements Scrollable {
+    public static final Color BADGE_FILL_COLOR = new Color(232, 232, 255, 232);
+    public static final Color BADGE_STROKE_COLOR = Color.GRAY;
+    public static final Color BADGE_SYMBOL_COLOR = Color.GRAY;
+
     private final ChatMessageTextPane textPane;
     private final ChatMessage chatMessage;
     private final ChatMessageRendererBubble bubbleBackground;
 
     private int lastWidth;
-
+    private final Icon iconPlay = UIManager.getLookAndFeel().getDisabledIcon(this, new AutoIcon(ICON_TOOLBAR_PLAY));
+    private boolean showExecutionResults;
     /**
      * Constructs a ChatMessageRenderer for a given chat message.
      *
@@ -69,7 +70,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         textPane = setupChatMessageTextPane(chatMessage);
 
         setOpaque(false);
-        setBorder(new EmptyBorder(5, 10, 5, 10));
+        setBorder(new EmptyBorder(10, 10, 5, 8));
 
         bubbleBackground = new ChatMessageRendererBubble(this.chatMessage, 15);
         bubbleBackground.add(textPane, BorderLayout.CENTER);
@@ -78,7 +79,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = chatMessage.outgoing() ? GridBagConstraints.LINE_END : GridBagConstraints.LINE_START;
-        gbc.insets = new Insets(0, chatMessage.outgoing() ? 20 : 0, 0, chatMessage.outgoing() ? 0 : 20);
+        gbc.insets = new Insets(0, chatMessage.outgoing() ? 20 : 0, 0, chatMessage.outgoing() ? 0 : 40);
         add(bubbleBackground, gbc);
 
         addComponentListener(new ComponentAdapter() {
@@ -91,6 +92,43 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         setupPopupMenu();
     }
 
+    @Override
+    protected void paintChildren(Graphics g) {
+        super.paintChildren(g);
+
+        if (!showExecutionResults)
+            return;
+
+        Graphics2D g2d = (Graphics2D) g.create();
+        try {
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setColor(BADGE_FILL_COLOR);
+            int size = 20;
+            Rectangle r = new Rectangle(getWidth() - size - 2, 3, size, size);
+
+            g2d.fillOval(r.x, r.y, r.width, r.height);
+
+            // Draw a triangle play symbol in the center of the oval
+            g2d.setColor(BADGE_SYMBOL_COLOR);
+            int ovalCenterX = r.x + r.width / 2 + 1;
+            int ovalCenterY = size / 2 + 3;
+            int triangleSize = 6;
+
+            int[] xPoints = {ovalCenterX - triangleSize / 2, ovalCenterX - triangleSize / 2, ovalCenterX + triangleSize / 2};
+            int[] yPoints = {ovalCenterY - triangleSize + 1, ovalCenterY + triangleSize - 1, ovalCenterY};
+            g2d.fillPolygon(xPoints, yPoints, 3);
+
+            // Stroke the oval
+            g2d.setColor(BADGE_STROKE_COLOR);
+            g2d.setStroke(new BasicStroke(1));
+            g2d.drawOval(r.x, r.y, r.width, r.height);
+
+
+        } finally {
+            g2d.dispose();
+        }
+    }
+
     int getTextPaneWidth() {
         Insets borderInsets = bubbleBackground.getBorder().getBorderInsets(bubbleBackground);
         return getWidth() - borderInsets.left - borderInsets.right;
@@ -100,7 +138,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
      * Updates the text pane's content based on the chat message and markdown rendering preference.
      */
     public void updateFromChatMessage() {
-        String text = isRenderMarkdown() ?
+        String text = getOptions().isRenderMarkdown() ?
                 chatMessage.bestMessage() :
                 chatMessage.message();
 
@@ -134,16 +172,16 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
                         new BasicAction("Copy", new AutoIcon(ICON_COPY), e -> copy())
                 ),
                 new ActionGroup(
-                        new BasicAction("Resend", new AutoIcon(ICON_SEND), e -> resend()),
-                        new BasicAction("Execution Details", new AutoIcon(ICON_TOOLBAR_PLAY),
+                        new BasicAction("Resend", new AutoIcon(ICON_TOOLBAR_SEND), e -> resend()),
+                        new BasicAction("Show Execution Details", new AutoIcon(ICON_TOOLBAR_PLAY),
                                 e -> showExecutionDetails(),
                                 a -> a.setEnabled(canShowExecutionDetails()))
                 ),
                 new ActionGroup(
                         new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT),
                                 null,
-                                e -> setRenderMarkdown(! isRenderMarkdown()),
-                                a -> a.setSelected(isRenderMarkdown()))
+                                e -> getOptions().setRenderMarkdown(! getOptions().isRenderMarkdown()),
+                                a -> a.setSelected(getOptions().isRenderMarkdown()))
                 )
         );
         UISupport.setupPopupMenu(popupMenu, actionGroup);
@@ -153,13 +191,11 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
 
     private boolean canShowExecutionDetails() {
         return chatMessage.type() == ChatMessage.Type.User &&
-                getChatPane(this).getExecutionDetailsProvider() != null;
+                getChatPane(this).canShowExecutionDetails();
     }
 
     private void showExecutionDetails() {
-        ChatPane.ExecutionDetailsProvider executionDetailsProvider = getChatPane(this).getExecutionDetailsProvider();
-        if (executionDetailsProvider != null)
-            executionDetailsProvider.showExecutionDetails(chatMessage);
+        getChatPane(this).showExecutionDetails(chatMessage);
     }
 
     @Override
@@ -167,19 +203,6 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         super.addNotify();
 
         updateFromChatMessage();
-    }
-
-    public boolean isRenderMarkdown() {
-        return ChatMessagesPane.getChatMessagesPane(this).isRenderMarkdown();
-    }
-
-    /**
-     * Sets whether markdown should be rendered for chat messages.
-     *
-     * @param isRenderMarkdown True to render markdown, false otherwise.
-     */
-    public void setRenderMarkdown(boolean isRenderMarkdown) {
-        ChatMessagesPane.getChatMessagesPane(this).setRenderMarkdown(isRenderMarkdown);
     }
 
     private void copy() {
@@ -241,6 +264,10 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         return false;
     }
 
+    public ChatMessage getChatMessage() {
+        return chatMessage;
+    }
+
     static class ChatMessageTextPane extends JEditorPane {
         private Dimension preferredSize = new Dimension(0, 0);
 
@@ -258,8 +285,8 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
             styleSheet.addRule("p { margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }");
             styleSheet.addRule("ul, ol, li, p { line-height: 1.0; }");
 
-            setEditable(false);
             setContentType("text/html");
+            setEditable(false);
             setOpaque(false);
             putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
             setFont(getFont().deriveFont(15f));
@@ -275,10 +302,8 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
 
         public void updatePreferredSize(int fixedWidth) {
             Dimension superPreferredSize = super.getPreferredSize();
-            if (superPreferredSize.getWidth() < fixedWidth)
-                preferredSize = superPreferredSize;
-            else
-                preferredSize = new Dimension(fixedWidth, getPreferredHeight(this, fixedWidth));
+            preferredSize = new Dimension(Math.min(superPreferredSize.width, fixedWidth),
+                    getPreferredHeight(this, fixedWidth));
         }
 
         @Override
@@ -294,6 +319,17 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         @Override
         public Dimension getPreferredSize() {
             return preferredSize;
+        }
+    }
+
+    public boolean isShowExecutionResults() {
+        return showExecutionResults;
+    }
+
+    public void setShowExecutionResults(boolean selected) {
+        if (this.showExecutionResults != selected) {
+            this.showExecutionResults = selected;
+            repaint();
         }
     }
 }

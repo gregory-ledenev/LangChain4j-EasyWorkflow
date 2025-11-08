@@ -22,12 +22,14 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.platform;
 
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
+import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
+import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
 import com.jthemedetecor.OsThemeDetector;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
@@ -54,10 +56,10 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
-import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
-import static com.gl.langchain4j.easyworkflow.gui.Actions.ActionGroup;
-import static com.gl.langchain4j.easyworkflow.gui.Actions.BasicAction.COPY_NAME;
-import static com.gl.langchain4j.easyworkflow.gui.Actions.StateAction;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.ActionGroup;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.BasicAction.COPY_NAME;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.StateAction;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 
 /**
@@ -67,16 +69,6 @@ import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 public class UISupport {
 
 
-    public static final String ICON_EXPERT = "expert";
-    public static final String ICON_SIGNPOST = "signpost";
-    public static final String ICON_REFRESH = "refresh";
-    public static final String ICON_BOX = "box";
-    public static final String ICON_STACK = "stack";
-    public static final String ICON_TARGET = "target";
-    public static final String ICON_BREAKPOINT = "breakpoint";
-    public static final String ICON_PLAY = "play";
-    public static final String ICON_STOP = "stop";
-    public static final String ICON_SPACER = "spacer";
 
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
@@ -84,23 +76,7 @@ public class UISupport {
     private static Boolean darkAppearance;
     private static Options options;
 
-
-    static {
-        test = 2;
-
-        loadIcon(ICON_EXPERT, "expert");
-        loadIcon(ICON_SIGNPOST, "signpost");
-        loadIcon(ICON_REFRESH, "refresh");
-        loadIcon(ICON_BOX, "box");
-        loadIcon(ICON_STACK, "stack");
-        loadIcon(ICON_TARGET, "target");
-        loadIcon(ICON_BREAKPOINT, "breakpoint");
-        loadIcon(ICON_PLAY, "play");
-        loadIcon(ICON_STOP, "stop");
-        loadIcon(ICON_SPACER, "spacer");
-    }
-
-    static void loadIcon(String iconKey, String fileName) {
+    public static void loadIcon(String iconKey, String fileName) {
         List<Image> images = loadImageVariants(fileName);
 
         icons.put(getIconKey(iconKey, false), loadImageIcon(images, ImageFilter.Lighter));
@@ -135,7 +111,7 @@ public class UISupport {
         List<Image> images = imageVariants;
         switch (imageFilter) {
             case Lighter -> images = imageVariants.stream()
-                    .map(image -> createFilteredImage(image, new GrayFilter(true, 40)))
+                    .map(image -> createFilteredImage(image, new GrayFilter(true, 45)))
                     .map(image -> new ImageIcon(image).getImage())
                     .toList();
             case Inverted -> images = imageVariants.stream()
@@ -279,9 +255,10 @@ public class UISupport {
                 UIManager.setLookAndFeel(darkAppearance ?
                         (isMac ? new FlatMacDarkLaf() : new FlatDarkLaf()) :
                         (isMac ? new FlatMacLightLaf() : new FlatLightLaf()));
-                if (isMac)
+                if (isMac) {
                     UIManager.put("ToggleButton.toolbar.selectedBackground",
-                            darkAppearance ? Color.DARK_GRAY : new Color(232, 232, 232));
+                            darkAppearance ? Color.DARK_GRAY : new Color(216, 216, 255));
+                }
             } catch (Exception ex) {
                 System.err.println("Failed to initialize LaF");
             }
@@ -419,7 +396,7 @@ public class UISupport {
             result.setText(null);
 
         boolean hasText = result.getText() != null;
-        result.setMargin(new Insets(4, hasText ? 6 : 4, 4, hasText ? 6 : 4));
+        result.setMargin(new Insets(5, hasText ? 6 : 5, 5, hasText ? 6 : 5));
 
         if (action instanceof ActionGroup)
             result.setText(hasText ? result.getText() + " ▾" : "▾");
@@ -449,7 +426,7 @@ public class UISupport {
             result.setText(null);
         }
         boolean hasText = result.getText() != null;
-        result.setMargin(new Insets(4, hasText ? 6 : 4, 4, hasText ? 6 : 4));
+        result.setMargin(new Insets(5, hasText ? 6 : 5, 5, hasText ? 6 : 5));
         return result;
     }
 
@@ -462,7 +439,16 @@ public class UISupport {
     public static JMenuItem createMenuItem(Action action) {
         JMenuItem result = new JMenuItem(action);
         result.setToolTipText(null);
+        setupSelectedIcon(action, result);
         return result;
+    }
+
+    private static void setupSelectedIcon(Action action, JMenuItem result) {
+        if (isMac()) {
+            AutoIcon icon = action.getValue(Action.SMALL_ICON) instanceof AutoIcon ? (AutoIcon) action.getValue(Action.SMALL_ICON) : null;
+            if (icon != null)
+                result.setSelectedIcon(UISupport.getIcon(icon.key, true));
+        }
     }
 
     /**
@@ -471,9 +457,10 @@ public class UISupport {
      * @param action The {@link Action} to associate with the checkbox menu item.
      * @return A new {@link JCheckBoxMenuItem} instance.
      */
-    public static JCheckBoxMenuItem creteMenuCheckBoxItem(Action action) {
+    public static JCheckBoxMenuItem createMenuCheckBoxItem(Action action) {
         JCheckBoxMenuItem result = new JCheckBoxMenuItem(action);
         result.setToolTipText(null);
+        setupSelectedIcon(action, result);
         return result;
     }
 
@@ -486,6 +473,7 @@ public class UISupport {
     public static JRadioButtonMenuItem createRadioButtonMenuItem(Action action) {
         JRadioButtonMenuItem result = new JRadioButtonMenuItem(action);
         result.setToolTipText(null);
+        setupSelectedIcon(action, result);
         return result;
     }
 
@@ -524,6 +512,7 @@ public class UISupport {
                 if (subGroup.isPopup()) {
                     JMenu subMenu = new JMenu(subGroup.getValue(Action.NAME).toString());
                     subMenu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null); // Cast to Icon
+                    setupSelectedIcon(subGroup, subMenu);
                     setupPopupMenu(subMenu.getPopupMenu(), subGroup, buttonGroupMap); // Pass buttonGroupMap for nested groups
                     popupMenu.add(subMenu);
                 } else {
@@ -551,7 +540,7 @@ public class UISupport {
                 buttonGroup.add(rbMenuItem);
                 popupMenu.add(rbMenuItem);
             } else {
-                popupMenu.add(creteMenuCheckBoxItem(stateAction));
+                popupMenu.add(createMenuCheckBoxItem(stateAction));
             }
         } else if (action instanceof ActionGroup subGroup && !subGroup.isPopup()) {
             // This case handles non-popup ActionGroups that are not nested within another ActionGroup
@@ -751,6 +740,10 @@ public class UISupport {
     public static class AutoIcon extends ImageIcon {
         private final String key;
 
+        public String getKey() {
+            return key;
+        }
+
         public AutoIcon(String aKey) {
             key = aKey;
         }
@@ -795,6 +788,8 @@ public class UISupport {
         public static final String PROP_APPEARANCE_DARK = "appearanceDark";
         public static final String PROP_FRAME_BOUNDS = "frameBounds";
         public static final String PROP_CLEAR_AFTER_SENDING = "clearAfterSending";
+        public static final String PROP_OPEN_FILE_AFTER_EXPORTING = "openFileAfterSharing";
+        private final PropertyChangeSupport propetyChangeSupport = new PropertyChangeSupport(this);
 
         /**
          * Checks if markdown rendering is enabled.
@@ -811,7 +806,10 @@ public class UISupport {
          * @param renderMarkdown true to enable markdown rendering, false to disable.
          */
         public void setRenderMarkdown(boolean renderMarkdown) {
-            getPreferences().putBoolean(PROP_RENDER_MARKDOWN, renderMarkdown);
+            if (isRenderMarkdown() != renderMarkdown) {
+                getPreferences().putBoolean(PROP_RENDER_MARKDOWN, renderMarkdown);
+                propetyChangeSupport.firePropertyChange(PROP_RENDER_MARKDOWN, !renderMarkdown, renderMarkdown);
+            }
         }
 
         /**
@@ -829,7 +827,11 @@ public class UISupport {
          * @param appearance The desired appearance setting.
          */
         public void setAppearance(Appearance appearance) {
-            getPreferences().putInt(PROP_APPEARANCE, appearance.ordinal());
+            if (getAppearance() != appearance) {
+                Appearance oldValue = getAppearance();
+                getPreferences().putInt(PROP_APPEARANCE, appearance.ordinal());
+                propetyChangeSupport.firePropertyChange(PROP_APPEARANCE, oldValue, appearance);
+            }
         }
 
         /**
@@ -858,7 +860,10 @@ public class UISupport {
          * @param frameBounds The {@link Rectangle} representing the frame's current bounds.
          */
         public void setFrameBounds(Rectangle frameBounds) {
-            getPreferences().put(PROP_FRAME_BOUNDS, "%s, %s, %s, %s".formatted(frameBounds.x, frameBounds.y, frameBounds.width, frameBounds.height));
+            if (!Objects.equals(getFrameBounds(), frameBounds)) {
+                getPreferences().put(PROP_FRAME_BOUNDS, "%s, %s, %s, %s".formatted(frameBounds.x, frameBounds.y, frameBounds.width, frameBounds.height));
+                propetyChangeSupport.firePropertyChange(PROP_FRAME_BOUNDS, getFrameBounds(), frameBounds);
+            }
         }
 
         /**
@@ -876,7 +881,48 @@ public class UISupport {
          * @param isCleaAfterSending true to enable clearing after sending, false to disable.
          */
         public void setClearAfterSending(boolean isCleaAfterSending) {
-            getPreferences().putBoolean(PROP_CLEAR_AFTER_SENDING, isCleaAfterSending);
+            if (isClearAfterSending() != isCleaAfterSending) {
+                getPreferences().putBoolean(PROP_CLEAR_AFTER_SENDING, isCleaAfterSending);
+                propetyChangeSupport.firePropertyChange(PROP_CLEAR_AFTER_SENDING, !isCleaAfterSending, isCleaAfterSending);
+            }
+        }
+
+        /**
+         * Checks if the "open file after exporting" option is enabled.
+         *
+         * @return true if the exported file should be opened automatically, false otherwise.
+         */
+        public boolean isOpenFileAfterSharing() {
+            return getPreferences().getBoolean(PROP_OPEN_FILE_AFTER_EXPORTING, false);
+        }
+
+        /**
+         * Sets whether the exported file should be opened automatically.
+         *
+         * @param value true to enable opening after exporting, false to disable.
+         */
+        public void setOpenFileAfterSharing(boolean value) {
+            if (isOpenFileAfterSharing() != value) {
+                getPreferences().putBoolean(PROP_OPEN_FILE_AFTER_EXPORTING, value);
+                propetyChangeSupport.firePropertyChange(PROP_OPEN_FILE_AFTER_EXPORTING, !value, value);
+            }
+        }
+        /**
+         * Adds a {@link PropertyChangeListener} to the listener list. The listener is registered for all properties.
+         *
+         * @param propertyChangeListener The {@link PropertyChangeListener} to be added.
+         */
+        public void addPropertyChangeListener(PropertyChangeListener propertyChangeListener) {
+            propetyChangeSupport.addPropertyChangeListener(propertyChangeListener);
+        }
+
+        /**
+         * Removes a {@link PropertyChangeListener} from the listener list.
+         *
+         * @param propertyChangeListener The {@link PropertyChangeListener} to be removed.
+         */
+        public void removePropertyChangeListener(PropertyChangeListener propertyChangeListener) {
+            propetyChangeSupport.removePropertyChangeListener(propertyChangeListener);
         }
     }
 
@@ -990,5 +1036,68 @@ public class UISupport {
     public static void bindAction(JComponent c, String actionKey, KeyStroke keyStroke, Action action) {
         c.getInputMap().put(keyStroke, actionKey);
         c.getActionMap().put(actionKey, action);
+    }
+
+    /**
+     * Scrolls a given rectangle within a component to be visible. If the component's parent is a {@link JViewport},
+     * it attempts to align the rectangle vertically within the viewport based on the specified alignment.
+     *
+     * @param comp              The component containing the rectangle to be scrolled.
+     * @param rect              The rectangle to make visible.
+     * @param verticalAlignment The vertical alignment for the rectangle within the viewport (e.g.,
+     *                          {@link JComponent#TOP_ALIGNMENT}, {@link JComponent#BOTTOM_ALIGNMENT},
+     *                          {@link JComponent#CENTER_ALIGNMENT}).
+     */
+    public static void scrollRectToVisible(JComponent comp, Rectangle rect, float verticalAlignment) {
+        if (comp.getParent() instanceof JViewport viewport) {
+            Rectangle viewRect = viewport.getViewRect();
+
+            int viewHeight = viewRect.height;
+            int newY;
+
+            if (verticalAlignment == JComponent.TOP_ALIGNMENT) {
+                newY = rect.y;
+            } else if (verticalAlignment == JComponent.BOTTOM_ALIGNMENT) {
+                newY = rect.y + rect.height - viewHeight;
+            } else if (verticalAlignment == JComponent.CENTER_ALIGNMENT) {
+                newY = rect.y + rect.height / 2 - viewHeight / 2;
+            } else {
+                // Default to TOP if an unknown alignment is provided
+                newY = rect.y;
+            }
+
+            // Ensure newY is within the valid scroll range
+            // The maximum Y position is the component height minus the viewport height
+            // The minimum Y position is 0
+
+            newY = Math.max(0, Math.min(newY, comp.getHeight() - viewHeight));
+
+            Rectangle adjusted = new Rectangle(rect);
+            adjusted.y = newY;
+            adjusted.height = viewHeight;
+            comp.scrollRectToVisible(adjusted);
+        } else {
+            comp.scrollRectToVisible(rect);
+        }
+    }
+
+    /**
+     * Updates the content of a {@link JScrollPane} while attempting to preserve its vertical scroll position.
+     * This is useful when the content of the scroll pane changes, but the user's current scroll view should be maintained.
+     * @param scrollPane The {@link JScrollPane} whose content is being updated.
+     * @param action A {@link Runnable} containing the code that updates the content of the scroll pane.
+     */
+    public static void updateAndPreserveScrollPosition(JScrollPane scrollPane, Runnable action) {
+        Objects.requireNonNull(scrollPane, "scrollPane cannot be null");
+        Objects.requireNonNull(action, "action cannot be null");
+
+        JScrollBar verticalScrollBar = scrollPane.getVerticalScrollBar();
+        double scrollPercentage = (double) verticalScrollBar.getValue() / (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount());
+
+        action.run();
+
+        SwingUtilities.invokeLater(() -> {
+            verticalScrollBar.setValue((int) (scrollPercentage * (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount())));
+        });
     }
 }

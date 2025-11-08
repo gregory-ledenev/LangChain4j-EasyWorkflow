@@ -24,17 +24,21 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
+import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+
 import javax.swing.*;
 import java.awt.*;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.util.*;
 import java.util.List;
 
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.getOptions;
+import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.getOptions;
 
 /**
  * A panel that displays a list of chat messages, supporting markdown rendering and a typing indicator.
  */
-public class ChatMessagesPane extends JPanel implements Scrollable {
+public class ChatMessagesPane extends JPanel implements Scrollable, PropertyChangeListener {
     List<ChatMessage> chatMessages = new ArrayList<>();
     Map<ChatMessage, ChatMessageRenderer> chatMessageRenderers = new HashMap<>();
     private TypingIndicator typingIndicator;
@@ -80,38 +84,18 @@ public class ChatMessagesPane extends JPanel implements Scrollable {
     }
 
     /**
-     * Checks if markdown rendering is enabled.
-     *
-     * @return true if markdown rendering is enabled, false otherwise.
-     */
-    public boolean isRenderMarkdown() {
-        return getOptions().isRenderMarkdown();
-    }
-
-    /**
-     * Sets whether markdown rendering should be enabled or disabled.
-     * If the state changes, it updates all message renderers.
-     * @param renderMarkdown true to enable markdown rendering, false to disable.
-     */
-    public void setRenderMarkdown(boolean renderMarkdown) {
-        if (isRenderMarkdown() != renderMarkdown) {
-            getOptions().setRenderMarkdown(renderMarkdown);
-
-            updateRenderers();
-        }
-    }
-
-    /**
      * Updates all chat message renderers, revalidates and repaints the pane.
      */
     public void updateRenderers() {
-        for (ChatMessageRenderer renderer : chatMessageRenderers.values()) {
-            renderer.updateFromChatMessage();
-            renderer.updateLayout(renderer.getTextPaneWidth(), true);
-        }
-
-        revalidate();
-        repaint();
+        UISupport.updateAndPreserveScrollPosition((JScrollPane) SwingUtilities.getAncestorOfClass(JScrollPane.class, this),
+                () -> {
+                    for (ChatMessageRenderer renderer : chatMessageRenderers.values()) {
+                        renderer.updateFromChatMessage();
+                        renderer.updateLayout(renderer.getTextPaneWidth(), true);
+                    }
+                    revalidate();
+                    repaint();
+                });
     }
 
     /**
@@ -190,5 +174,32 @@ public class ChatMessagesPane extends JPanel implements Scrollable {
     @Override
     public boolean getScrollableTracksViewportHeight() {
         return false;
+    }
+
+    public void selectChatMessage(ChatMessage chatMessage) {
+        for (ChatMessageRenderer value : chatMessageRenderers.values()) {
+            value.setShowExecutionResults(value.getChatMessage() == chatMessage);
+        }
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+
+        getOptions().addPropertyChangeListener(this);
+    }
+
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+
+        getOptions().removePropertyChangeListener(this);
+    }
+
+    @Override
+    public void propertyChange(PropertyChangeEvent evt) {
+        if (evt.getSource() == getOptions() && evt.getPropertyName().equals("renderMarkdown")) {
+            updateRenderers();
+        }
     }
 }

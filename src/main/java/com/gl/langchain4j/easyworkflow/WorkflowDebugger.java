@@ -82,6 +82,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     private EasyWorkflow.AgentWorkflowBuilder<?> agentWorkflowBuilder;
     private Throwable workflowFailure;
     private String sessionUID;
+    private String archiveSessionUID;
+
     /**
      * Constructs a new {@code WorkflowDebugger}. Initializes a new {@link WorkflowContext} and registers itself as the
      * input and output state change handler.
@@ -251,16 +253,100 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public void reset() {
         if (! agentInvocationTraceEntries.isEmpty())
             // TODO: 11/4/25 add deep cloning of everything mutable here
-            agentInvocationTraceEntryArchives.add(new AgentInvocationTraceEntryArchive(sessionUID,
-                    workflowInput,
-                    workflowResult,
-                    workflowFailure,
-                    agentInvocationTraceEntries,
-                    new HashMap<>(agenticScope.state())));
+            agentInvocationTraceEntryArchives.add(new AgentInvocationTraceEntryArchive(
+                    archiveSessionUID,
+                    deepClone(workflowInput),
+                    deepClone(workflowResult),
+                    deepClone(workflowFailure),
+                    deepClone(agentInvocationTraceEntries),
+                    deepClone((agenticScope.state()))));
 
         workflowInput.clear();
         workflowResult = null;
         agentInvocationTraceEntries.clear();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T deepClone(T object) {
+        if (object == null) {
+            return null;
+        }
+
+        if (object instanceof Collection<?>) {
+            return (T) deepCloneCollection((Collection<?>) object);
+        }
+
+        if (object instanceof Map<?, ?>) {
+            return (T) deepCloneMap((Map<?, ?>) object);
+        }
+
+        if (object.getClass().isArray()) {
+            return (T) deepCloneArray(object);
+        }
+
+        if (object instanceof Cloneable) {
+            return (T) deepCloneCloneable(object);
+        }
+
+        return object;
+    }
+
+    private static Object deepCloneCloneable(Object object) {
+        try {
+            Method cloneMethod = object.getClass().getMethod("clone");
+            return cloneMethod.invoke(object);
+        } catch (NoSuchMethodException e) {
+            // If clone method is not public or not found, proceed to return original
+        } catch (Exception e) {
+            logger.warn("Failed to clone object of type {}. Returning original object.", object);
+        }
+        return object;
+    }
+
+    private static Object deepCloneArray(Object object) {
+        if (object instanceof Object[]) {
+            Object[] array = (Object[]) object;
+            Object[] clonedArray = (Object[]) java.lang.reflect.Array.newInstance(array.getClass().getComponentType(), array.length);
+            for (int i = 0; i < array.length; i++) {
+                clonedArray[i] = deepClone(array[i]);
+            }
+            return clonedArray;
+        } else {
+            // For primitive arrays, a simple clone is enough as value copies elements
+            try {
+                Method cloneMethod = object.getClass().getMethod("clone");
+                return cloneMethod.invoke(object);
+            } catch (Exception e) {
+                // If cloning fails for a primitive array, return original
+                return object;
+            }
+        }
+    }
+
+    private static Map<Object, Object> deepCloneMap(Map<?, ?> object) {
+        Map<Object, Object> clonedMap = new HashMap<>();
+        for (Map.Entry<?, ?> entry : object.entrySet()) {
+            clonedMap.put(deepClone(entry.getKey()), deepClone(entry.getValue()));
+        }
+        return clonedMap;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static Collection<Object> deepCloneCollection(Object object) {
+        if (object instanceof List) {
+            List<Object> clonedList = new ArrayList<>();
+            for (Object item : (List) object) {
+                clonedList.add(deepClone(item));
+            }
+            return clonedList;
+        } else if (object instanceof Set) {
+            Set<Object> clonedSet = new HashSet<>();
+            for (Object item : (Set) object) {
+                clonedSet.add(deepClone(item));
+            }
+            return clonedSet;
+        }
+        return null;
     }
 
     /**
@@ -512,6 +598,24 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         if (!isDetailed)
             return super.toString();
 
+
+        return toString(getWorkflowInput(), getAgentInvocationTraceEntries(), getWorkflowResult(), getWorkflowFailure());
+    }
+
+    /**
+     * Returns a string representation of the workflow debugger's state, including detailed information about
+     * workflow input, agent invocations, and the final result.
+     *
+     * @param workflowInput The input parameters of the workflow.
+     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent invocations.
+     * @param workflowResult The final result of the workflow execution.
+     * @param workflowFailure The {@link Throwable} that caused the workflow to fail, if any.
+     * @return A string representation of the workflow execution details.
+     */
+    public String toString(Map<String, Object> workflowInput,
+                           List<AgentInvocationTraceEntry> agentInvocationTraceEntries,
+                           Object workflowResult,
+                           Throwable workflowFailure) {
         StringBuilder result = new StringBuilder();
 
         workflowInput.forEach((name, value) -> {
@@ -523,8 +627,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
         int index = 1;
         result.append("-----------------------\n");
-        List<AgentInvocationTraceEntry> entries = getAgentInvocationTraceEntries();
-        for (WorkflowDebugger.AgentInvocationTraceEntry agentInvocationTraceEntry : entries) {
+        for (AgentInvocationTraceEntry agentInvocationTraceEntry : agentInvocationTraceEntries) {
             result.append(agentInvocationTraceEntry.toString(index)).append("\n");
             result.append("-----------------------\n");
             index++;
@@ -532,15 +635,16 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
         if (isStarted())
             result.append("▶ RUNNING...\n");
-        else if (getWorkflowFailure() == null)
-            result.append("◼ RESULT: ").append(replaceNewLineCharacters(getWorkflowResult() != null ? getWorkflowResult().toString() : "N/A"));
-        else
-            result.append("✘ ERROR: ").append(replaceNewLineCharacters(getFailureCauseException(getWorkflowFailure()).toString()));
+        else {
+            if (workflowFailure == null) {
+                result.append("◼ RESULT: ").append(replaceNewLineCharacters(workflowResult != null ? workflowResult.toString() : "N/A"));
+            } else
+                result.append("✘ ERROR: ").append(replaceNewLineCharacters(getFailureCauseException(workflowFailure).toString()));
+        }
 
         result.append("\n");
 
         return result.toString();
-
     }
 
     private Object convertInValueToJson(ObjectMapper objectMapper, Object value) {
@@ -578,8 +682,36 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @param isIncludeSummary Specifies whether to include an AI generated workflow summary
      * @return An HTML string representing the workflow execution.
      */
-    public String toHtml(String title, String subTitle, boolean isIncludeSummary) {
-        Map<String, Object> workflowResult = new HashMap<>();
+    public String toHtml(String title,
+                         String subTitle,
+                         boolean isIncludeSummary) {
+        return toHtml(title, subTitle, isIncludeSummary,
+                getWorkflowInput(), getAgentInvocationTraceEntries(), getWorkflowResult(), getWorkflowFailure());
+    }
+
+
+    /**
+     * Generates an HTML string with a visual representation of the workflow execution. It includes a flow chart diagram
+     * and an inspector that allows checking results of agent invocations. This method allows specifying custom workflow
+     * input, agent invocation trace entries, workflow result, and workflow failure for rendering.
+     *
+     * @param title The title for the HTML page.
+     * @param subTitle The subtitle for the HTML page.
+     * @param isIncludeSummary Specifies whether to include an AI generated workflow summary.
+     * @param aWorkflowInput The input parameters of the workflow.
+     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent invocations.
+     * @param workflowResult The final result of the workflow execution.
+     * @param workflowFailure The {@link Throwable} that caused the workflow to fail, if any.
+     * @return An HTML string representing the workflow execution.
+     */
+    public String toHtml(String title,
+                         String subTitle,
+                         boolean isIncludeSummary,
+                         Map<String, Object> aWorkflowInput,
+                         List<AgentInvocationTraceEntry> agentInvocationTraceEntries,
+                         Object workflowResult,
+                         Throwable workflowFailure) {
+        Map<String, Object> results = new HashMap<>();
 
         ObjectMapper objectMapper = createObjectMapper();
 
@@ -588,19 +720,18 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         completedAgents.add(FLOW_CHART_NODE_START);
 
         Map<String, Object> in = new HashMap<>();
-        workflowResult.put(FLOW_CHART_NODE_START, in);
-        in.putAll(workflowInput);
+        results.put(FLOW_CHART_NODE_START, in);
+        in.putAll(aWorkflowInput);
 
         Set<String> failedAgents = new HashSet<>();
         Map<String, String> agentNames = new HashMap<>(); // uid -> name
         agentNames.put(FLOW_CHART_NODE_START, "Start");
         agentNames.put(FLOW_CHART_NODE_END, "End");
 
-        List<AgentInvocationTraceEntry> entries = getAgentInvocationTraceEntries();
-        for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : entries) {
+        for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : agentInvocationTraceEntries) {
             Map<String, Object> agentResult = new HashMap<>();
             String id = agentMetadata.get(traceEntry.getAgent()).getId();
-            workflowResult.put(id, agentResult);
+            results.put(id, agentResult);
             agentResult.put("in", convertInValueToJson(objectMapper, traceEntry.input));
             if (traceEntry.output != null)
                 agentResult.put("out", convertValueToJson(objectMapper, traceEntry.output));
@@ -615,15 +746,15 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 completedAgents.add(id);
         }
 
-        if (getWorkflowFailure() != null) {
+        if (workflowFailure != null) {
             Map<String, Object> result = new HashMap<>();
-            workflowResult.put(FLOW_CHART_NODE_END, result);
-            result.put("failure", convertValueToJson(objectMapper, getFailureCauseException(getWorkflowFailure())));
+            results.put(FLOW_CHART_NODE_END, result);
+            result.put("failure", convertValueToJson(objectMapper, getFailureCauseException(workflowFailure)));
             completedAgents.add(FLOW_CHART_NODE_END);
-        } else if (getWorkflowResult() != null) {
+        } else if (workflowResult != null) {
             Map<String, Object> result = new HashMap<>();
-            workflowResult.put(FLOW_CHART_NODE_END, result);
-            result.put("result", convertValueToJson(objectMapper, getWorkflowResult()));
+            results.put(FLOW_CHART_NODE_END, result);
+            result.put("result", convertValueToJson(objectMapper, workflowResult));
             completedAgents.add(FLOW_CHART_NODE_END);
         }
 
@@ -631,7 +762,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 title,
                 subTitle,
                 isIncludeSummary,
-                workflowResult,
+                results,
                 completedAgents,
                 failedAgents,
                 runningAgents,
@@ -650,6 +781,33 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 "A visual representation of the workflow execution (" +
                         LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")",
                 isIncludeSummary);
+    }
+
+    /**
+     * Generates an HTML string with a visual representation of the workflow execution. The title is "Workflow Diagram"
+     * and the subtitle includes the current timestamp. This method allows specifying custom workflow input,
+     * agent invocation trace entries, workflow result, and workflow failure for rendering.
+     *
+     * @param isIncludeSummary Specifies whether to include an AI generated workflow summary.
+     * @param aWorkflowInput The input parameters of the workflow.
+     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent invocations.
+     * @param workflowResult The final result of the workflow execution.
+     * @param workflowFailure The {@link Throwable} that caused the workflow to fail, if any.
+     * @return An HTML string representing the workflow execution.
+     */
+    public String toHtml(boolean isIncludeSummary,
+                         Map<String, Object> aWorkflowInput,
+                         List<AgentInvocationTraceEntry> agentInvocationTraceEntries,
+                         Object workflowResult,
+                         Throwable workflowFailure) {
+        return toHtml("Workflow Diagram",
+                "A visual representation of the workflow execution (" +
+                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")) + ")",
+                isIncludeSummary,
+                aWorkflowInput,
+                agentInvocationTraceEntries,
+                workflowResult,
+                workflowFailure);
     }
 
     /**
@@ -701,6 +859,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @param aSessionUID The session UID to set.
      */
     public void setSessionUID(String aSessionUID) {
+        archiveSessionUID = sessionUID;
         sessionUID = aSessionUID;
     }
 

@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.platform;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -38,8 +38,9 @@ import java.awt.*;
 import java.util.List;
 import java.util.*;
 
-import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
+import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
 /**
  * A panel that dynamically generates a form based on a list of {@link FormElement} objects. It supports various input

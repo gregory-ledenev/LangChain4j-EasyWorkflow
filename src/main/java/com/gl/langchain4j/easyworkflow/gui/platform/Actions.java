@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.platform;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;

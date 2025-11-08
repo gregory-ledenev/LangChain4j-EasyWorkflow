@@ -24,7 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
-import com.gl.langchain4j.easyworkflow.gui.UISupport;
+import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 
 import javax.swing.*;
 import java.awt.*;
@@ -229,12 +229,12 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
      * Sets the flag indicating whether there is new data. If the value changes, it updates the "Scroll to Bottom"
      * button's foreground color.
      *
-     * @param aHasNewData {@code true} if there is new data, {@code false} otherwise.
+     * @param hasNewData {@code true} if there is new data, {@code false} otherwise.
      */
-    public void setHasNewData(boolean aHasNewData) {
-        if (hasNewData != aHasNewData) {
-            hasNewData = aHasNewData;
-            btnScrollToBottom.setForeground(hasNewData ? Color.GREEN : null);
+    public void setHasNewData(boolean hasNewData) {
+        if (this.hasNewData != hasNewData) {
+            this.hasNewData = hasNewData;
+            btnScrollToBottom.setForeground(this.hasNewData ? Color.GREEN : null);
         }
     }
 
@@ -243,7 +243,6 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
         SwingUtilities.invokeLater(() -> {
             getChatMessagesPane().updateRenderers();
             SwingUtilities.invokeLater(() -> scrollPane.getVerticalScrollBar().setValue(value));
-            ;
         });
     }
 
@@ -253,4 +252,3 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
             appearanceChanged();
     }
 }
-

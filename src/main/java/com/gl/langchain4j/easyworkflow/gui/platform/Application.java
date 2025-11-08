@@ -22,10 +22,13 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.platform;
 
+import javax.swing.*;
 import java.awt.*;
 import java.util.Objects;
+
+import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.isMac;
 
 /**
  * The central application class responsible for managing the lifecycle of GUI frames,
@@ -132,6 +135,15 @@ public class Application {
      * Displays the "About" dialog provided by an {@link UISupport.AboutProvider} if available.
      */
     public void about() {
+        // disallow showing second dialog on Mac when invoked via system menu
+        if (isMac()) {
+            for (Window window : Window.getWindows()) {
+                if (window instanceof JDialog dialog && dialog.isShowing())  {
+                    return;
+                }
+            }
+        }
+
         for (Window window : Window.getWindows()) {
             if (window instanceof UISupport.AboutProvider aboutProvider) {
                 aboutProvider.showAbout(window);

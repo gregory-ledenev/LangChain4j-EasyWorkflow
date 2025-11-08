@@ -22,14 +22,13 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.platform;
 
 import javax.swing.*;
-import javax.swing.border.LineBorder;
 
 import java.awt.*;
 
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
 /**
  * A custom panel that serves as a header, displaying a title and an optional subtitle.
@@ -54,6 +53,8 @@ public class HeaderPane extends JPanel{
      * Initializes the layout, sets up the title and subtitle labels, and applies a border.
      */
     public HeaderPane(boolean paintBorderAtRight) {
+        setOpaque(false);
+
         this.paintBorderAtRight = paintBorderAtRight;
 
         BoxLayout mgr = new BoxLayout(this, BoxLayout.Y_AXIS);

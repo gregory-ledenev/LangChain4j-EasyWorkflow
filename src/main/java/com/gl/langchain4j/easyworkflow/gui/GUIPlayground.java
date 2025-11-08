@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
+import com.gl.langchain4j.easyworkflow.gui.platform.Application;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.data.message.UserMessage;
 import org.slf4j.Logger;
@@ -91,7 +92,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
      */
     @Override
     public void play(Object agent, Map<String, Object> userMessage) {
-        String title = "Playground - %s".formatted(agentClass.getSimpleName());
+        String title = null;
 
         boolean showDialog = false;
 
@@ -112,7 +113,13 @@ public class GUIPlayground extends Playground.BasicPlayground {
     }
 
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
-        System.setProperty("apple.awt.application.name", title);
+        System.setProperty("apple.awt.application.name", title != null ? title : "Playground");
+
+        if (title == null)
+            title = "Playground - %s".formatted(agentClass.getSimpleName());
+
+        Icons.loadIcons();
+        ToolbarIcons.loadIcons();
 
         WorkflowDebugger workflowDebugger;
         if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER))
@@ -156,6 +163,13 @@ public class GUIPlayground extends Playground.BasicPlayground {
     }
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {
+        System.setProperty("apple.awt.application.name", title != null ? title : "Playground");
+
+        if (title == null)
+            title = "Playground - %s".formatted(agentClass.getSimpleName());
+
+        Icons.loadIcons();
+        ToolbarIcons.loadIcons();
 
         chatDialog = new ChatDialog((Frame) arguments.get(ARG_OWNER_FRAME), title,
                 new ChatPane.ChatEngine() {

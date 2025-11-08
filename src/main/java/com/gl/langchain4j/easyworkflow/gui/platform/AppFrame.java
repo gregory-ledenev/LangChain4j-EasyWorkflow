@@ -22,14 +22,14 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.platform;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
-import static com.gl.langchain4j.easyworkflow.gui.Application.getSharedApplication;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Application.getSharedApplication;
 
 /**
  * The base class for all application frames.

@@ -75,9 +75,6 @@ import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
  */
 public class EasyWorkflow {
 
-    public static final String PROJECT_NAME = "EasyWorkflow for LangChain4j";
-    public static final String VERSION = "v0.9.22";
-    public static final String FULL_VERSION = PROJECT_NAME + " " + VERSION;
     public static final String JSON_TYPE_AGENT = "agent";
     public static final String JSON_TYPE_NON_AI_AGENT = "nonAiAgent";
     public static final String JSON_TYPE_REPEAT = "repeat";

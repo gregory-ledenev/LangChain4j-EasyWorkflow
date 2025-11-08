@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui;
+package com.gl.langchain4j.easyworkflow.gui.platform;
 
 /**
  * Defines the types of editors available for form elements.

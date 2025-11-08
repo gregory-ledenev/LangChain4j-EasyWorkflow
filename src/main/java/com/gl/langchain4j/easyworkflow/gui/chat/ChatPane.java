@@ -28,10 +28,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
-import com.gl.langchain4j.easyworkflow.gui.FormEditorType;
-import com.gl.langchain4j.easyworkflow.gui.FormPanel;
-import com.gl.langchain4j.easyworkflow.gui.UISupport;
-import com.gl.langchain4j.easyworkflow.gui.UISupport.AutoIcon;
+import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
+import com.gl.langchain4j.easyworkflow.gui.platform.FormPanel;
+import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.langchain4j.easyworkflow.gui.platform.UISupport.AutoIcon;
 import dev.langchain4j.service.V;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
@@ -60,10 +60,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
-import static com.gl.langchain4j.easyworkflow.gui.Actions.*;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_DOCUMENT;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_SEND;
-import static com.gl.langchain4j.easyworkflow.gui.UISupport.*;
+import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SEND;
+import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
+import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
 /**
  * A panel that provides a chat interface, including message input, display, and settings.
@@ -74,7 +75,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private static final Logger logger = LoggerFactory.getLogger(ChatPane.class);
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
     private final FormPanel edtMessage = new FormPanel();
-    private final JButton btnSend = new JButton("➤");
+    private final JButton btnSend = new JButton(new AutoIcon(ICON_SEND));
     private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
         if (UISupport.getOptions().getAppearance() == Appearance.Auto)
             SwingUtilities.invokeLater(() -> applyAppearance(Appearance.Auto, this));
@@ -94,7 +95,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         }
     };
     private final JLabel lblWaiting;
-    private final JToolBar pnlTools;
+    private final JToolBar toolsToolbar;
     private ChatEngine chatEngine;
     private boolean waitingForResponse;
     private boolean waitState;
@@ -176,16 +177,25 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         };
         inputPanel.add(messageScrollPane, BorderLayout.CENTER);
 
-        pnlTools = new JToolBar(JToolBar.VERTICAL);
-        pnlTools.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        toolsToolbar = new JToolBar(JToolBar.VERTICAL) {
+            @Override
+            public Dimension getMaximumSize() {
+                return super.getPreferredSize();
+            }
+        };
+//        toolsToolbar.setBackground(Color.YELLOW);
+//        toolsToolbar.setOpaque(true);
+        toolsToolbar.setAlignmentX(Component.CENTER_ALIGNMENT);
         pnlButtons = new Box(BoxLayout.Y_AXIS);
         pnlButtons.setAlignmentX(RIGHT_ALIGNMENT);
-        pnlButtons.add(pnlTools);
+        pnlButtons.add(toolsToolbar);
         pnlButtons.add(Box.createVerticalStrut(10));
         pnlButtons.add(Box.createVerticalGlue());
+//        pnlButtons.setBackground(Color.RED);
+//        pnlButtons.setOpaque(true);
 
-        btnSend.setFont(btnSend.getFont().deriveFont(20f));
-        btnSend.setAlignmentX(Component.RIGHT_ALIGNMENT);
+        btnSend.setMargin(new Insets(5, 5, 5, 5));
+        btnSend.setAlignmentX(Component.CENTER_ALIGNMENT);
         btnSend.addActionListener(e -> sendMessage());
         btnSend.setEnabled(false);
         btnSend.setToolTipText("Send");
@@ -237,7 +247,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
     public void setupToolActions(Action... actions) {
         toolsActionGroup.addAction(new ActionGroup(actions));
-        UISupport.setupToolbar(pnlTools, toolsActionGroup);
+        UISupport.setupToolbar(toolsToolbar, toolsActionGroup);
     }
 
     public void scheduledUpdate() {
@@ -292,20 +302,20 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals(FormPanel.PROPERTY_VALUE_CHANGED))
-            updateSendButon();
+            updateSendButton();
         else if (evt.getPropertyName().equals(FormPanel.PROPERTY_ENTER_PRESSED))
             sendMessage();
     }
 
     private void setupActions() {
         renderMarkdownAction = new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT), null,
-                e -> getChatMessagesPane().setRenderMarkdown(!getChatMessagesPane().isRenderMarkdown()),
-                a -> a.setSelected(getChatMessagesPane().isRenderMarkdown()));
-        clearAfterSendingAction = new StateAction("Clear After Sending", new AutoIcon(ICON_SPACER), null,
+                e -> getOptions().setRenderMarkdown(!getOptions().isRenderMarkdown()),
+                a -> a.setSelected(getOptions().isRenderMarkdown()));
+        clearAfterSendingAction = new StateAction("Clear Prompt After Sending", new AutoIcon(ICON_CHAT), null,
                 e -> getOptions().setClearAfterSending(!getOptions().isClearAfterSending()),
                 a -> a.setSelected(getOptions().isClearAfterSending()));
 
-        BasicAction resendAction = new BasicAction("Resend", new AutoIcon(ICON_SEND), e ->
+        BasicAction resendAction = new BasicAction("Resend", new AutoIcon(ICON_TOOLBAR_SEND), e ->
                 resendLast(),
                 a -> a.setEnabled(canResendLast()));
         resendAction.setShortDescription("Resend");
@@ -315,7 +325,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 )
         );
 
-        UISupport.setupToolbar(pnlTools, toolsActionGroup);
+        UISupport.setupToolbar(toolsToolbar, toolsActionGroup);
     }
 
     private boolean canResendLast() {
@@ -346,7 +356,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         return chatMessagesHostPane;
     }
 
-    private void updateSendButon() {
+    private void updateSendButton() {
         btnSend.setEnabled(!waitingForResponse && edtMessage.hasRequiredContent());
     }
 
@@ -393,6 +403,9 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     private void sendMessage() {
+        if (waitingForResponse)
+            return;
+
         Map<String, Object> message = getUserMessage();
         if (message != null && !message.isEmpty()) {
             String uid = UUID.randomUUID().toString();
@@ -503,14 +516,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         return new ChatMessage(uid, message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent);
     }
 
-    private String convertMarkdownToHtml(String text) {
-        Parser parser = Parser.builder().build();
-        Node document = parser.parse(text);
-        HtmlRenderer renderer = HtmlRenderer.builder().omitSingleParagraphP(true).build();
-
-        return renderer.render(document);
-    }
-
     private void processChatEngineResponse(ChatMessage result, Throwable ex) {
         SwingUtilities.invokeLater(() -> {
             if (ex == null) {
@@ -522,19 +527,21 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             }
             setWaitingForResponse(false);
             chatMessagesHostPane.removeTypingIndicator();
-            updateSendButon();
+            updateSendButton();
         });
     }
 
     private void setWaitingForResponse(boolean isWaitingForResponse) {
         if (waitingForResponse != isWaitingForResponse) {
             waitingForResponse = isWaitingForResponse;
-            updateSendButon();
+            updateSendButton();
         }
     }
 
     private void addChatMessage(ChatMessage message) {
         chatMessagesHostPane.addChatMessage(message);
+        if (message.type() == ChatMessage.Type.User)
+            chatMessagesHostPane.getChatMessagesPane().selectChatMessage(message);
     }
 
     /**
@@ -680,8 +687,36 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
          * Displays the execution details for a given chat message.
          *
          * @param chatMessage The chat message for which to display execution details.
+         * @param completion  The completion lambda that will be called when the execution details are displayed.
          */
-        void showExecutionDetails(ChatMessage chatMessage);
+        void showExecutionDetails(ChatMessage chatMessage, Runnable completion);
+    }
+
+    /**
+     * Checks if execution details can be shown.
+     *
+     * @return {@code true} if an {@link ExecutionDetailsProvider} is set, {@code false} otherwise.
+     */
+    public boolean canShowExecutionDetails() {
+        return executionDetailsProvider != null && ! waitingForResponse;
+    }
+
+    /**
+     * Displays the execution details for a given chat message using the configured {@link ExecutionDetailsProvider}.
+     * If no provider is set, this method does nothing.
+     *
+     * @param chatMessage The chat message for which to display execution details.
+     */
+    public void showExecutionDetails(ChatMessage chatMessage) {
+        if (executionDetailsProvider != null) {
+            getChatMessagesPane().selectChatMessage(chatMessage);
+            waitingForResponse = true;
+            updateSendButton();
+            executionDetailsProvider.showExecutionDetails(chatMessage, () -> {
+                waitingForResponse = false;
+                updateSendButton();
+            });
+        }
     }
 
     /**
