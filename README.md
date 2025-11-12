@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.22</version>
+    <version>1.0.0</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.22</version>
+    <version>1.0.0</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -397,7 +397,9 @@ The GUI playground offers a modern and convenient interface to allow testing the
 By default, GUI Playground shows a simple Chat UI. To show GUI Playground in advanced mode with ability to see structure and execution results — specify a Workflow Debugger.
 
 ```java
-Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI, workflowDebugger);
+Playground playground = Playground.createPlayground(NovelCreator.class, 
+        Playground.Type.GUI, 
+        workflowDebugger);
 ```
 
 If an agent requires multiple arguments, they are presented in a form layout for easier input. To customize form - use `@PlaygroundParam` annotation, where you can specify how each agent's method parameter should be rendered, its description, value choices etc.
