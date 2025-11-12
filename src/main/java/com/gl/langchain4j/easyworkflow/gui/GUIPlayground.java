@@ -127,7 +127,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
             workflowDebugger = null;
         }
 
-        chatFrame = ChatFrame.showChat(title, new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("logo.png"))),
+        chatFrame = ChatFrame.showChat(title, new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("icons/logo.png"))),
                 new ChatPane.ChatEngine() {
                     @Override
                     public Object send(Map<String, Object> message) {

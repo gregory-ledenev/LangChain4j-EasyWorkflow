@@ -1,5 +1,7 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+
 import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.loadIcon;
 
 public class ToolbarIcons {
@@ -26,26 +28,30 @@ public class ToolbarIcons {
     public static final String ICON_FILING_CABINET = "filling-cabinet";
 
     public static void loadIcons()  {
-        loadIcon(ICON_COPY, "../toolbar/copy");
-        loadIcon(ICON_PASTE, "../toolbar/paste");
-        loadIcon(ICON_CUT, "../toolbar/cut");
-        loadIcon(ICON_SHARE, "../toolbar/share");
-        loadIcon(ICON_INFO, "../toolbar/info");
-        loadIcon(ICON_INFO_PLAIN, "../toolbar/info-plain");
-        loadIcon(ICON_CHAT, "../toolbar/chat");
-        loadIcon(ICON_DOCUMENT, "../toolbar/document");
-        loadIcon(ICON_EXECUTION_FLOW, "../toolbar/execution-flow");
-        loadIcon(ICON_WORKFLOW, "../toolbar/workflow");
-        loadIcon(ICON_AGENT_TOOLBAR, "../toolbar/agent");
-        loadIcon(ICON_HELP, "../toolbar/help");
-        loadIcon(ICON_GLOBE, "../toolbar/globe");
-        loadIcon(ICON_TOOLBAR_SEND, "../toolbar/send");
-        loadIcon(ICON_EXPAND, "../toolbar/expand");
-        loadIcon(ICON_COLLAPSE, "../toolbar/collapse");
-        loadIcon(ICON_ALWAYS_EXPAND, "../toolbar/always-expand");
-        loadIcon(ICON_TOOLBAR_REFRESH, "../toolbar/refresh");
-        loadIcon(ICON_TOOLBAR_PLAY, "../toolbar/play-toolbar");
-        loadIcon(ICON_TIMER, "../toolbar/timer");
-        loadIcon(ICON_FILING_CABINET, "../toolbar/filing-cabinet");
+        loadIcon(ICON_COPY, "icons/toolbar/copy");
+        loadIcon(ICON_PASTE, "icons/toolbar/paste");
+        loadIcon(ICON_CUT, "icons/toolbar/cut");
+        loadIcon(ICON_SHARE, "icons/toolbar/share");
+        loadIcon(ICON_INFO, "icons/toolbar/info");
+        loadIcon(ICON_INFO_PLAIN, "icons/toolbar/info-plain");
+        loadIcon(ICON_CHAT, "icons/toolbar/chat");
+        loadIcon(ICON_DOCUMENT, "icons/toolbar/document");
+        loadIcon(ICON_EXECUTION_FLOW, "icons/toolbar/execution-flow");
+        loadIcon(ICON_WORKFLOW, "icons/toolbar/workflow");
+        loadIcon(ICON_AGENT_TOOLBAR, "icons/toolbar/agent");
+        loadIcon(ICON_HELP, "icons/toolbar/help");
+        loadIcon(ICON_GLOBE, "icons/toolbar/globe");
+        loadIcon(ICON_TOOLBAR_SEND, "icons/toolbar/send");
+        loadIcon(ICON_EXPAND, "icons/toolbar/expand");
+        loadIcon(ICON_COLLAPSE, "icons/toolbar/collapse");
+        loadIcon(ICON_ALWAYS_EXPAND, "icons/toolbar/always-expand");
+        loadIcon(ICON_TOOLBAR_REFRESH, "icons/toolbar/refresh");
+        loadIcon(ICON_TOOLBAR_PLAY, "icons/toolbar/play-toolbar");
+        loadIcon(ICON_TIMER, "icons/toolbar/timer");
+        loadIcon(ICON_FILING_CABINET, "icons/toolbar/filing-cabinet");
+    }
+
+    public static void loadIcon(String iconKey, String fileName) {
+        UISupport.loadIcon(ToolbarIcons.class, iconKey, fileName);
     }
 }

@@ -6,7 +6,7 @@
 
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>0.9.23</version>
+    <version>1.0.0</version>
 
     <name>EasyWorkflow for LangChain4j</name>
     <description>

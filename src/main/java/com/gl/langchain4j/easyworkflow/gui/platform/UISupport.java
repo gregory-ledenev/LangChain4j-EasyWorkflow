@@ -74,8 +74,8 @@ public class UISupport {
     private static Boolean darkAppearance;
     private static Options options;
 
-    public static void loadIcon(String iconKey, String fileName) {
-        List<Image> images = loadImageVariants(fileName);
+    public static void loadIcon(Class clazz, String iconKey, String fileName) {
+        List<Image> images = loadImageVariants(clazz, fileName);
 
         icons.put(getIconKey(iconKey, false), loadImageIcon(images, ImageFilter.Lighter));
         icons.put(getIconKey(iconKey, true), loadImageIcon(images, ImageFilter.Inverted));
@@ -121,8 +121,8 @@ public class UISupport {
         return new ImageIcon(new BaseMultiResolutionImage(images.toArray(new Image[0])));
     }
 
-    private static List<Image> loadImageVariants(String name) {
-        Image image1 = new ImageIcon(Objects.requireNonNull(UISupport.class.getResource(name + ".png"))).getImage();
+    private static List<Image> loadImageVariants(Class clazz, String name) {
+        Image image1 = new ImageIcon(Objects.requireNonNull(clazz.getResource(name + ".png"))).getImage();
         Image image2 = image1 instanceof MultiResolutionImage ?
                 null :
                 new ImageIcon(Objects.requireNonNull(UISupport.class.getResource(name + "@2x.png"))).getImage();

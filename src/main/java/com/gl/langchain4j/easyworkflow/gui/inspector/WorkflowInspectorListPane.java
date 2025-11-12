@@ -28,10 +28,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import dev.langchain4j.data.message.UserMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -482,16 +485,23 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
     }
 
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowInspectorListPane.class);
+
     private Object convertValue(Object value) {
         if (value == null)
             return null;
 
-        if (value.getClass().isPrimitive() || value instanceof String || value instanceof Number || value.getClass().isEnum())
-            return value;
-        else if (value.getClass().isArray() || value instanceof List)
-            return OBJECT_MAPPER.convertValue(value, List.class);
-        else
-            return OBJECT_MAPPER.convertValue(value, Map.class);
+        try {
+            if (value.getClass().isPrimitive() || value instanceof String || value instanceof Number || value.getClass().isEnum())
+                return value;
+            else if (value.getClass().isArray() || value instanceof List)
+                return OBJECT_MAPPER.convertValue(value, List.class);
+            else
+                return OBJECT_MAPPER.convertValue(value, Map.class);
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Failed to convert value to JSON: {}", value, ex);
+            return value.toString();
+        }
     }
 
     private void setupWorkflowDebugger() {

@@ -183,16 +183,20 @@ public class TestSequentialAndRepeatableAgents {
                      3. ▷︎ StyleScorer
                            ↓ OUT > "score": 0.6000000000000001
                      -----------------------
+                           ↓ IN: {score=0.6000000000000001, audience=infants, topic=dragons and wizards, style=fantasy, story=In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!}
+                     4. ▷︎ LineBreakpointAgent
+                           ↓ OUT > "": SCORE (INLINE): 0.6000000000000001
+                     -----------------------
                            ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a professional editor. Analyze and rewrite the following story to better fit and be more\\ncoherent with the fantasy style.\\nReturn only the story and nothing else.\\nThe story is "In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!".\\n" }] }
-                     4. ▷︎ StyleEditor
+                     5. ▷︎ StyleEditor
                            ↓ OUT > "story": 0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!
                      -----------------------
                            ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based\\non how well it aligns with the style 'fantasy'.\\nReturn only the score and nothing else.\\nThe story is: "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!"\\n" }] }
-                     5. ▷︎ StyleScorer
+                     6. ▷︎ StyleScorer
                            ↓ OUT > "score": 0.8
                      -----------------------
                            ↓ IN: UserMessage { name = null contents = [TextContent { text = "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!" }] }
-                     6. ▷︎ QualityScorer
+                     7. ▷︎ QualityScorer
                            ↓ OUT > "quality": 0.74
                      -----------------------
                      ◼ RESULT: Novel[story=0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!, score=0.8]

@@ -390,9 +390,15 @@ Answer: Novel[story=In the enchanted realm of Aethoria...
 
 ### GUI
 
-The GUI playground offers a modern and convenient chat interface.
+The GUI playground offers a modern and convenient interface to allow testing the workflows using the Chat interface, inspect their structure, execution results, and summary.
 
 ![](gui-playground.png)
+
+By default, GUI Playground shows a simple Chat UI. To show GUI Playground in advanced mode with ability to see structure and execution results — specify a Workflow Debugger.
+
+```java
+Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI, workflowDebugger);
+```
 
 If an agent requires multiple arguments, they are presented in a form layout for easier input. To customize form - use `@PlaygroundParam` annotation, where you can specify how each agent's method parameter should be rendered, its description, value choices etc.
 ```java
@@ -413,12 +419,7 @@ public interface NovelCreator extends AgenticScopeOwner {
 }
 ```
 
-You can add an action that invokes the Workflow Expert in the playground by specifying a Workflow debugger.
-
-```java
-Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI);
-playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
-```
+You may check the runnable GUI playground  at [SampleConditionalAgentsPlayground.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleConditionalAgentsPlayground.java)
 
 ## Sample for Sequential and Repeatable Agents
 
