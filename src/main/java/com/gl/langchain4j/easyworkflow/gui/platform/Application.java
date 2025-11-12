@@ -34,6 +34,7 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.isMac;
  * The central application class responsible for managing the lifecycle of GUI frames,
  * handling application-level events like quit and about, and providing a singleton instance.
  */
+@SuppressWarnings("ALL")
 public class Application {
     public interface ScheduledUpdatable {
         void scheduledUpdate();
@@ -168,6 +169,7 @@ public class Application {
         }
     }
 
+    @SuppressWarnings("unused")
     private static class UpdateThread extends Thread {
         public static final long SLEEP_TIME = 300;
 

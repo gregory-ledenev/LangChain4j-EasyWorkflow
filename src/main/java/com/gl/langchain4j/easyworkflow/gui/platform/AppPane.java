@@ -5,6 +5,7 @@ import java.awt.*;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 
+@SuppressWarnings("ALL")
 public class AppPane extends JPanel {
     private final JLayeredPane layeredPane = new JLayeredPane();
     private JComponent content;

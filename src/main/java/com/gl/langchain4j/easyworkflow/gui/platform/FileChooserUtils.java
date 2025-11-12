@@ -39,6 +39,7 @@ import java.util.List;
  * A utility class for handling file choosers (both Swing JFileChooser and AWT FileDialog)
  * and common file operations like reading, writing, and copying.
  */
+@SuppressWarnings("ALL")
 public class FileChooserUtils {
     public boolean useNativeFileChooser = false;
     protected JFileChooser fileChooser;
@@ -814,8 +815,8 @@ public class FileChooserUtils {
          */
         protected void setAcceptableExtensions(String[] acceptableExtensions) {
             if (acceptableExtensions != null) {
-                for (int i = 0; i < acceptableExtensions.length; i++)
-                    this.acceptableExtensions.add(acceptableExtensions[i].toLowerCase().trim());
+                for (String aAcceptableExtension : acceptableExtensions)
+                    this.acceptableExtensions.add(aAcceptableExtension.toLowerCase().trim());
             }
         }
 

@@ -63,7 +63,7 @@ public class SampleSwitchAgents {
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10);
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
         workflowDebugger.addBreakpoint(new WorkflowDebugger.AgentBreakpoint((aBreakpoint, aAgenticScope) -> {
-            out.println("");
+            out.println();
             return null;
         }, WorkflowDebugger.Breakpoint.Type.AGENT_OUTPUT, null, null, null, true));
 

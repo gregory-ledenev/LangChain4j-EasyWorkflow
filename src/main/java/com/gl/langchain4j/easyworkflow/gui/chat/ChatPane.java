@@ -31,7 +31,6 @@ import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormPanel;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport.AutoIcon;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +64,7 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 /**
  * A panel that provides a chat interface, including message input, display, and settings.
  */
+@SuppressWarnings("ALL")
 public class ChatPane extends JPanel implements PropertyChangeListener {
 
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -405,7 +405,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         Map<String, Object> message = getUserMessage();
         if (message != null && !message.isEmpty()) {
             String uid = UUID.randomUUID().toString();
-            message.put(KEY_SESSION_UID, uid);
 
             if (getChatMessages().isEmpty())
                 addSystemChatMessage(message);
@@ -419,6 +418,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             setWaitingForResponse(true);
             chatMessagesHostPane.addTypingIndicator();
             CompletableFuture.supplyAsync(() -> {
+                message.put(KEY_SESSION_UID, uid);
                 Object response = chatEngine.send(message);
                 return chatMessageForResponse(response);
             }).whenComplete(this::processChatEngineResponse);

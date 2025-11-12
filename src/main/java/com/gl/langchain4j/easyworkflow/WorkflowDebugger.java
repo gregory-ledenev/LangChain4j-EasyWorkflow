@@ -47,7 +47,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
@@ -59,6 +58,7 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.
  * A debugger for the EasyWorkflow framework, allowing users to set breakpoints and inspect the workflow's flow and
  * state.
  */
+@SuppressWarnings("ALL")
 public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, WorkflowContext.InputHandler {
 
     public static final String KEY_INPUT = "$input";
@@ -281,7 +281,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
 
         if (object instanceof Collection<?>) {
-            return (T) deepCloneCollection((Collection<?>) object);
+            return (T) deepCloneCollection(object);
         }
 
         if (object instanceof Map<?, ?>) {
@@ -312,8 +312,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     private static Object deepCloneArray(Object object) {
-        if (object instanceof Object[]) {
-            Object[] array = (Object[]) object;
+        if (object instanceof Object[] array) {
             Object[] clonedArray = (Object[]) java.lang.reflect.Array.newInstance(array.getClass().getComponentType(), array.length);
             for (int i = 0; i < array.length; i++) {
                 clonedArray[i] = deepClone(array[i]);
@@ -626,12 +625,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                            Throwable workflowFailure) {
         StringBuilder result = new StringBuilder();
 
-        workflowInput.forEach((name, value) -> {
-            result.append(MessageFormat.format("↓ IN > \"{0}\": {1}",
-                            name,
-                            replaceNewLineCharacters(value.toString())))
-                    .append("\n");
-        });
+        workflowInput.forEach((name, value) -> result.append(MessageFormat.format("↓ IN > \"{0}\": {1}",
+                        name,
+                        replaceNewLineCharacters(value.toString())))
+                .append("\n"));
 
         int index = 1;
         result.append("-----------------------\n");
@@ -1232,9 +1229,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
             boolean outputNameMatch = (type == Type.AGENT_INPUT)
                     || (this.outputNames == null || this.outputNames.length == 0)
-                    || Arrays.stream(this.outputNamePatterns).anyMatch(pattern -> {
-                return outputName != null && outputName.matches(pattern);
-            });
+                    || Arrays.stream(this.outputNamePatterns).anyMatch(pattern -> outputName != null && outputName.matches(pattern));
 
             return agentClassMatch && outputNameMatch;
         }
@@ -1309,7 +1304,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public static class BreakpointBuilder {
         private final BiFunction<Breakpoint, Map<String, Object>, Object> action;
-        private Breakpoint.Type type;
+        private final Breakpoint.Type type;
         private Class<?>[] agentClasses;
         private String[] outputNames = {"*"};
         private Predicate<Map<String, Object>> condition;

@@ -121,9 +121,7 @@ public interface Playground {
     static Playground createPlayground(Class<?> agentClass, Type type, WorkflowDebugger workflowDebugger) {
         Playground result;
         switch (type) {
-            case Console -> {
-                result = new ConsolePlayground(agentClass);
-            }
+            case Console -> result = new ConsolePlayground(agentClass);
             case GUI -> {
                 // intentionally done via reflection to not expose GUI classes here
                 // as it may cause issues in headless environments
@@ -284,7 +282,6 @@ public interface Playground {
     }
 
     class ConsolePlayground extends BasicPlayground {
-        private String humanRequest;
         Scanner scanner;
 
         /**
@@ -313,7 +310,6 @@ public interface Playground {
 
             scanner = new Scanner(System.in);
             try {
-                //noinspection ConditionalBreakInInfiniteLoop
                 while (true) {
                     if (request != null && !request.isEmpty()) {
                         out.print("[thinking...]\n");
@@ -340,8 +336,7 @@ public interface Playground {
          */
         @Override
         public void setHumanRequest(HumanInTheLoop agent, String request) {
-            humanRequest =  request;
-            out.println(humanRequest);
+            out.println(request);
             out.print("> ");
         }
 

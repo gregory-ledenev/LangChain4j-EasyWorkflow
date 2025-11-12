@@ -39,7 +39,6 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeSupport;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +56,7 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
  * ({@link ValuesPane}) to navigate through the results and a detail pane ({@link ValueDetailsPane}) to show the
  * selected value.
  */
+@SuppressWarnings("ALL")
 public class WorkflowInspectorDetailsPane extends JSplitPane {
     private final ValuesPane pnlValues;
     private final ValueDetailsPane pnlValueDetails;

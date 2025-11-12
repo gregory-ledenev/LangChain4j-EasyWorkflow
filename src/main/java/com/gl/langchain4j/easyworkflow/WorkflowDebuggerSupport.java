@@ -107,7 +107,7 @@ public interface WorkflowDebuggerSupport {
      * getting a {@link WorkflowDebugger} instance. Non-AI agents can extend this class to easily integrate with the
      * workflow debugger.
      */
-    public static abstract class Impl implements WorkflowDebuggerSupport {
+    abstract class Impl implements WorkflowDebuggerSupport {
         private WorkflowDebugger workflowDebugger;
 
         @Override

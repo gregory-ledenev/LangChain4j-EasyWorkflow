@@ -73,6 +73,7 @@ import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
  * allows defining sequences of agents, conditional execution, parallel execution, agent grouping, and loops. Use
  * {@code EasyWorkflow.builder(...)} to start.
  */
+@SuppressWarnings("ALL")
 public class EasyWorkflow {
 
     public static final String JSON_TYPE_AGENT = "agent";

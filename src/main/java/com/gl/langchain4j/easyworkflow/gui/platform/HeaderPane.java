@@ -34,11 +34,12 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
  * A custom panel that serves as a header, displaying a title and an optional subtitle.
  * It provides methods to set and retrieve the title and subtitle.
  */
+@SuppressWarnings("ALL")
 public class HeaderPane extends JPanel{
     private final JLabel lblTitle = new JLabel();
     private final JLabel lblSubtitle = new JLabel();
     private final JToolBar toolbar = new JToolBar();
-    private boolean paintBorderAtRight;
+    private final boolean paintBorderAtRight;
 
     /**
      * Constructs a new HeaderPane. Initializes the layout, sets up the title and subtitle labels, and applies a

@@ -7,6 +7,7 @@ import java.util.Objects;
 
 import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.loadIcon;
 
+@SuppressWarnings("ALL")
 public class Icons {
     private static final Map<String, ImageIcon> icons = new HashMap<>();
 

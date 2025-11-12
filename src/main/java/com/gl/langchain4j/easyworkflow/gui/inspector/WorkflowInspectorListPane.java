@@ -58,6 +58,7 @@ import static javax.swing.BoxLayout.Y_AXIS;
 /**
  * A panel that displays a hierarchical view of a workflow, allowing for inspection and debugging.
  */
+@SuppressWarnings("ALL")
 public abstract class WorkflowInspectorListPane extends AppPane {
     public static final String NODE_AGENTIC_SCOPE = "| Agentic Scope |";
     public static final String NODE_PROGRESSION = "| Progression |";
@@ -192,7 +193,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         populateListModel(listModel, workflowData, 0);
         String outputName = builder.getComputedOutputName();
         listModel.add(new WorkflowItem(null, TYPE_END, outputName, ICON_STOP, "End",
-                "(%s %s)".formatted(EasyWorkflow.getAgentMethod(builder.getAgentClass()).getReturnType().getSimpleName(), outputName), 0));
+                "(%s %s)".formatted(Objects.requireNonNull(getAgentMethod(builder.getAgentClass())).getReturnType().getSimpleName(), outputName), 0));
 
         for (WorkflowItem workflowItem : listModel) {
             workflowItemsByUID.put(workflowItem.getUid(), workflowItem);
@@ -361,7 +362,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     private Map<String, Object> getProgression() {
-        Map<String, Object> result = new HashMap<>();
         List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = getTraceEntries();
 
         Map<String, List<Object>> progressionMap = new LinkedHashMap<>();
@@ -381,10 +381,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     .add(convertValue(workflowResult));
         }
 
-        progressionMap.forEach((outputName, values) -> result.put(outputName, values));
-
-
-        return result;
+        return new HashMap<>(progressionMap);
     }
 
     protected List<WorkflowDebugger.AgentInvocationTraceEntry> getTraceEntries(WorkflowItem selectedValue) {
@@ -669,13 +666,11 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     public void workflowDebuggerAgentFinished(Map<String, Object> states) {
         WorkflowDebugger.AgentInvocationTraceEntry traceEntry = (WorkflowDebugger.AgentInvocationTraceEntry) states.get(WorkflowDebugger.KEY_TRACE_ENTRY);
         String uid = workflowDebugger.getAgentMetadata(traceEntry.getAgent()).getId();
-        SwingUtilities.invokeLater(() -> {
-            findItemByUid(uid).ifPresent(item -> {
-                item.setState(WorkflowItem.State.Finished);
-                list.repaint();
-                updateSelection();
-            });
-        });
+        SwingUtilities.invokeLater(() -> findItemByUid(uid).ifPresent(item -> {
+            item.setState(WorkflowItem.State.Finished);
+            list.repaint();
+            updateSelection();
+        }));
     }
 
     /**
@@ -1079,8 +1074,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             pentagon.quadTo(rect.x, rect.y + rect.height, rect.x + arc, rect.y + rect.height);
             pentagon.lineTo(rect.x + rect.width - cornerSize - arc, rect.y + rect.height);
             pentagon.quadTo(rect.x + rect.width - cornerSize, rect.y + rect.height, rect.x + rect.width - cornerSize + arc, rect.y + rect.height - arc);
-            pentagon.lineTo(rect.x + rect.width - arc, rect.y + rect.height / 2 + arc);
-            pentagon.quadTo(rect.x + rect.width, rect.y + rect.height / 2, rect.x + rect.width - arc, rect.y + rect.height / 2 - arc);
+            pentagon.lineTo(rect.x + rect.width - arc, rect.y + (float) rect.height / 2 + arc);
+            pentagon.quadTo(rect.x + rect.width, rect.y + (float) rect.height / 2, rect.x + rect.width - arc, rect.y + (float) rect.height / 2 - arc);
             pentagon.lineTo(rect.x + rect.width - cornerSize + arc, rect.y + arc);
             pentagon.quadTo(rect.x + rect.width - cornerSize, rect.y, rect.x + rect.width - cornerSize - arc, rect.y);
             pentagon.lineTo(rect.x + arc, rect.y);
@@ -1108,14 +1103,14 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             hexagon.moveTo(rect.x + cornerSize + arc, rect.y);
             hexagon.lineTo(rect.x + rect.width - cornerSize - arc, rect.y);
             hexagon.quadTo(rect.x + rect.width - cornerSize, rect.y, rect.x + rect.width - cornerSize + arc, rect.y + arc);
-            hexagon.lineTo(rect.x + rect.width - arc, rect.y + rect.height / 2 - arc);
-            hexagon.quadTo(rect.x + rect.width, rect.y + rect.height / 2, rect.x + rect.width - arc, rect.y + rect.height / 2 + arc);
+            hexagon.lineTo(rect.x + rect.width - arc, rect.y + (float) rect.height / 2 - arc);
+            hexagon.quadTo(rect.x + rect.width, rect.y + (float) rect.height / 2, rect.x + rect.width - arc, rect.y + (float) rect.height / 2 + arc);
             hexagon.lineTo(rect.x + rect.width - cornerSize + arc, rect.y + rect.height - arc);
             hexagon.quadTo(rect.x + rect.width - cornerSize, rect.y + rect.height, rect.x + rect.width - cornerSize - arc, rect.y + rect.height);
             hexagon.lineTo(rect.x + cornerSize + arc, rect.y + rect.height);
             hexagon.quadTo(rect.x + cornerSize, rect.y + rect.height, rect.x + cornerSize - arc, rect.y + rect.height - arc);
-            hexagon.lineTo(rect.x + arc, rect.y + rect.height / 2 + arc);
-            hexagon.quadTo(rect.x, rect.y + rect.height / 2, rect.x + arc, rect.y + rect.height / 2 - arc);
+            hexagon.lineTo(rect.x + arc, rect.y + (float) rect.height / 2 + arc);
+            hexagon.quadTo(rect.x, rect.y + (float) rect.height / 2, rect.x + arc, rect.y + (float) rect.height / 2 - arc);
             hexagon.lineTo(rect.x + cornerSize - arc, rect.y + arc);
             hexagon.quadTo(rect.x + cornerSize, rect.y, rect.x + cornerSize + arc, rect.y);
             hexagon.closePath();
@@ -1378,7 +1373,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             if (workflowItem.getType().equals(TYPE_START)) {
                 return new String[] {"→ " + mapToSubTitle(getWorkflowInput())};
             } else if (workflowItem.getType().equals(TYPE_END)) {
-                String result = "";
+                String result;
                 if (getWorkflowFailure() != null)
                     result = WorkflowDebugger.getFailureCauseException(getWorkflowFailure()).getMessage();
                 else

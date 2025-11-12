@@ -38,9 +38,10 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.getOptions;
 /**
  * A panel that displays a list of chat messages, supporting markdown rendering and a typing indicator.
  */
+@SuppressWarnings("ALL")
 public class ChatMessagesPane extends JPanel implements Scrollable, PropertyChangeListener {
-    List<ChatMessage> chatMessages = new ArrayList<>();
-    Map<ChatMessage, ChatMessageRenderer> chatMessageRenderers = new HashMap<>();
+    private final List<ChatMessage> chatMessages = new ArrayList<>();
+    private final Map<ChatMessage, ChatMessageRenderer> chatMessageRenderers = new HashMap<>();
     private TypingIndicator typingIndicator;
 
     @Override

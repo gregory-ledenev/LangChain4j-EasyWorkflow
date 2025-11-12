@@ -34,6 +34,7 @@ import java.beans.PropertyChangeListener;
 /**
  * A component that hosts a ChatMessagesPane within a scrollable view and provides a "Scroll to Bottom" button.
  */
+@SuppressWarnings("ALL")
 public class ChatMessagesHostPane extends JPanel implements PropertyChangeListener {
     private final ChatMessagesPane chatMessagesPane;
     private final JScrollPane scrollPane;

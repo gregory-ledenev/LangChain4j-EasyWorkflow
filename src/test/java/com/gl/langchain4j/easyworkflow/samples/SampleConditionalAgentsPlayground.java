@@ -34,12 +34,10 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
-import java.io.IOException;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
-import static java.lang.System.out;
 
 /**
  * This class provides a sample GUI Playground for

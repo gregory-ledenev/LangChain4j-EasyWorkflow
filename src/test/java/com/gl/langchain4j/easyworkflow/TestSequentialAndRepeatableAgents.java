@@ -84,9 +84,6 @@ public class TestSequentialAndRepeatableAgents {
 
         Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
         WorkflowExpertSupport.play(workflowDebugger, Novel.class.getSimpleName(), "describe results", Playground.Type.GUI);
-
-//        Playground playground = Playground.createPlayground(NovelCreator.class, Playground.Type.GUI);
-//        playground.play(novelCreator, null);
     }
 
     @Test

@@ -32,6 +32,7 @@ import java.awt.*;
  * This indicator can be started and stopped, and it automatically manages its animation
  * when added to or removed from a parent component.
  */
+@SuppressWarnings("ALL")
 public class TypingIndicator extends JPanel {
     private final JLabel typingLabel = new JLabel();
     private boolean animating;

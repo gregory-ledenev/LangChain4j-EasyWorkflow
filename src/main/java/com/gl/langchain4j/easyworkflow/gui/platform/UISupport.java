@@ -56,15 +56,14 @@ import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.ActionGroup;
 import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.BasicAction.COPY_NAME;
-import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.StateAction;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 
 /**
  * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
  * preferences.
  */
+@SuppressWarnings("ALL")
 public class UISupport {
 
 
@@ -926,7 +925,7 @@ public class UISupport {
     }
 
     static class RoundRectBorder extends AbstractBorder {
-        protected Color lineColor;
+        protected final Color lineColor;
         protected int arcWidth = -1;
         protected int arcHeight = -1;
 
@@ -965,8 +964,8 @@ public class UISupport {
     }
 
     static class CustomLineBorder extends AbstractBorder {
-        protected Color lineColor;
-        protected Insets insets;
+        protected final Color lineColor;
+        protected final Insets insets;
         protected boolean paintTop = true;
         protected boolean paintLeft = true;
         protected boolean paintBottom = true;
@@ -1095,8 +1094,6 @@ public class UISupport {
 
         action.run();
 
-        SwingUtilities.invokeLater(() -> {
-            verticalScrollBar.setValue((int) (scrollPercentage * (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount())));
-        });
+        SwingUtilities.invokeLater(() -> verticalScrollBar.setValue((int) (scrollPercentage * (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount()))));
     }
 }

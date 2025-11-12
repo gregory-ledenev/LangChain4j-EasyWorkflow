@@ -212,9 +212,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
         WorkflowDebugger workflowDebugger = getWorkflowDebugger();
         if (workflowDebugger != null) {
             EasyWorkflow.AgentExpression agentMetadata = (EasyWorkflow.AgentExpression) workflowDebugger.getAgentMetadata(agent);
-            String outputName = agentMetadata.getOutputName();
-            if (outputName == null)
-                outputName = "$humanRequest";
             workflowDebugger.inputReceived(agent, agentMetadata.getAgentClass(), UserMessage.userMessage(request));
         }
     }

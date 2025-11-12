@@ -46,6 +46,7 @@ import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
  * Renders a single chat message within the chat interface. This panel displays the message content, handles markdown
  * rendering, and provides context menu options like copy and resend.
  */
+@SuppressWarnings("ALL")
 public class ChatMessageRenderer extends JPanel implements Scrollable {
     public static final Color BADGE_FILL_COLOR = new Color(232, 232, 255, 232);
     public static final Color BADGE_STROKE_COLOR = Color.GRAY;

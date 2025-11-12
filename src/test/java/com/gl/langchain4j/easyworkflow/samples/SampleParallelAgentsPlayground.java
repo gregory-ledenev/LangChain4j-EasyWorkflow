@@ -29,25 +29,19 @@ package com.gl.langchain4j.easyworkflow.samples;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.function.Function;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.OutputComposers.*;
-import static com.gl.langchain4j.easyworkflow.OutputComposers.mappingOf;
 
 /**
  * This class provides a sample GUI Playground for
  * <a href="https://docs.langchain4j.dev/tutorials/agents#parallel-workflow">Parallel Workflow</a>
  * using EasyWorkflow DSL-style workflow initialization.
  */
+@SuppressWarnings("ALL")
 public class SampleParallelAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
 

@@ -32,10 +32,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
+@SuppressWarnings("ALL")
 public class Actions {
     /**
      * An abstract base class for actions that perform a specific task.
      */
+    @SuppressWarnings("unused")
     public static class BasicAction extends AbstractAction {
         private final Consumer<ActionEvent> actionListener;
         private final Consumer<? extends BasicAction> actionUpdater;
@@ -180,6 +182,7 @@ public class Actions {
     /**
      * An abstract base class for actions that represent a state (e.g., toggle actions).
      */
+    @SuppressWarnings("unused")
     public static class StateAction extends BasicAction {
         private String exclusiveGroup;
 
@@ -252,6 +255,7 @@ public class Actions {
     /**
      * A class that represents a group of actions.
      */
+    @SuppressWarnings("unused")
     public static class ActionGroup extends BasicAction {
         private final List<Action> actions;
         private final boolean popup;

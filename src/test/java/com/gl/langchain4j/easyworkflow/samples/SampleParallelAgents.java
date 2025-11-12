@@ -26,7 +26,6 @@
 package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agentic.Agent;

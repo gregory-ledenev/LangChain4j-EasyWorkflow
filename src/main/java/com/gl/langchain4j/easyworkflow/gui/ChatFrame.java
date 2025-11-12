@@ -68,6 +68,7 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
  * A frame that provides a chat interface. It can be used to display a chat conversation and interact with a chat
  * engine.
  */
+@SuppressWarnings("ALL")
 public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.ExecutionDetailsProvider {
 
     public static final String PROP_FLOW_CHART_FILE = "flow-chart-file";
@@ -598,9 +599,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 });
         copyAction.setShortDescription("Copy");
 
-        shareAction = new BasicAction("Share", new AutoIcon(ICON_SHARE), e -> {
-            shareFlowChart();
-        });
+        shareAction = new BasicAction("Share", new AutoIcon(ICON_SHARE), e -> shareFlowChart());
         shareAction.setShortDescription("Share");
 
         if (workflowDebugger != null) {
@@ -829,6 +828,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         pnlWorkflowInspectorExecution.setTraceEntryArchive(agentInvocationTraceEntryArchive, task2);
     }
 
+    @SuppressWarnings("unused")
     static class ExecutionDetailsCompletion implements Runnable {
         private final Runnable completion;
         private final AtomicInteger counter = new AtomicInteger();
