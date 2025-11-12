@@ -83,6 +83,7 @@ public class EasyWorkflow {
     public static final String JSON_TYPE_MATCH = "match";
     public static final String JSON_TYPE_GROUP = "group";
     public static final String JSON_TYPE_DO_PARALLEL = "doParallel";
+    public static final String JSON_TYPE_BREAKPOINT = "breakpoint";
     public static final String JSON_KEY_UID = "uid";
     public static final String JSON_KEY_AGENT_CLASS_NAME = "className";
     public static final String JSON_KEY_OUTPUT_NAME = "outputName";
@@ -286,6 +287,23 @@ public class EasyWorkflow {
     }
 
     /**
+     * Retrieves the names of the parameters of the given agent method.
+     *
+     * @param agentMethod The agent method to inspect.
+     * @return A list of parameter names.
+     */
+    public static List<String> getAgentMethodParameterNames(Method agentMethod) {
+        Objects.requireNonNull(agentMethod);
+
+        return Arrays.stream(agentMethod.getParameters())
+                .map(p -> {
+                    V v = p.getAnnotation(V.class);
+                    return v != null ? v.value() : p.getName();
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Expands the {@link UserMessage} template of an agent method with the provided states.
      *
      * @param clazz  The class of the agent.
@@ -412,6 +430,21 @@ public class EasyWorkflow {
 
         private static String mermaidInspectorLink(String node) {
             return "click %s call showInspector(\"%s\")\n".formatted(node, node);
+        }
+
+        private static String getOutputName(Class<?> agentClass) {
+            String result = "response";
+
+            if (agentClass != null) {
+                Method[] declaredMethods = agentClass.getDeclaredMethods();
+                if (declaredMethods.length > 0) {
+                    Agent annotation = declaredMethods[0].getAnnotation(Agent.class);
+                    if (annotation != null && !annotation.outputName().isEmpty())
+                        result = annotation.outputName();
+                }
+            }
+
+            return result;
         }
 
         public Class<T> getAgentClass() {
@@ -745,7 +778,7 @@ public class EasyWorkflow {
          * @param action The action to execute when the breakpoint is hit.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> breakpoint(BiConsumer<Breakpoint, Map<String, Object>> action) {
+        public AgentWorkflowBuilder<T> breakpoint(BiFunction<Breakpoint, Map<String, Object>, Object> action) {
             return breakpoint(action, null);
         }
 
@@ -757,7 +790,7 @@ public class EasyWorkflow {
          * @param condition The condition that must be true for the breakpoint to trigger.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> breakpoint(BiConsumer<Breakpoint, Map<String, Object>> action,
+        public AgentWorkflowBuilder<T> breakpoint(BiFunction<Breakpoint, Map<String, Object>, Object> action,
                                                   Predicate<Map<String, Object>> condition) {
             addExpression(new BreakpointExpression(this, action, condition));
             return this;
@@ -984,7 +1017,7 @@ public class EasyWorkflow {
 
             SequentialAgentService<T> builder = AgenticServices.sequenceBuilder(agentClass)
                     .subAgents(agents.toArray())
-                    .outputName(outputName != null && !outputName.isEmpty() ? outputName : AgentExpression.getOutputName(agentClass));
+                    .outputName(outputName != null && !outputName.isEmpty() ? outputName : getOutputName(agentClass));
             if (outputComposer != null)
                 builder.output(outputComposer);
 
@@ -1067,6 +1100,16 @@ public class EasyWorkflow {
 
         String getOutputName() {
             return outputName;
+        }
+
+        /**
+         * Computes the effective output name for the main agent of this workflow. If an output name is explicitly set,
+         * it is used; otherwise, the default output name derived from the agent class is returned.
+         *
+         * @return The computed output name.
+         */
+        public String getComputedOutputName() {
+            return outputName != null ? outputName : getOutputName(agentClass);
         }
 
         boolean isLogInput() {
@@ -1749,21 +1792,6 @@ public class EasyWorkflow {
             this.configurator = configurator;
         }
 
-        protected static String getOutputName(Class<?> agentClass) {
-            String result = "response";
-
-            if (agentClass != null) {
-                Method[] declaredMethods = agentClass.getDeclaredMethods();
-                if (declaredMethods.length > 0) {
-                    Agent annotation = declaredMethods[0].getAnnotation(Agent.class);
-                    if (annotation != null && !annotation.outputName().isEmpty())
-                        result = annotation.outputName();
-                }
-            }
-
-            return result;
-        }
-
         public String getId() {
             return id;
         }
@@ -2065,7 +2093,7 @@ public class EasyWorkflow {
         }
 
         public String getOutputName() {
-            return outputName != null ? outputName : getOutputName(agentClass);
+            return outputName != null ? outputName : AgentWorkflowBuilder.getOutputName(agentClass);
         }
 
         record WorkflowContextConfig(WorkflowContext.Input input, WorkflowContext.Output output) {
@@ -2158,12 +2186,12 @@ public class EasyWorkflow {
 
     static class BreakpointExpression implements Expression {
         private final String id = UUID.randomUUID().toString();
-        private final BiConsumer<Breakpoint, Map<String, Object>> action;
+        private final BiFunction<Breakpoint, Map<String, Object>, Object> action;
         private final Predicate<Map<String, Object>> condition;
         private final AgentWorkflowBuilder<?> builder;
 
         public BreakpointExpression(AgentWorkflowBuilder<?> builder,
-                                    BiConsumer<Breakpoint, Map<String, Object>> action,
+                                    BiFunction<Breakpoint, Map<String, Object>, Object> action,
                                     Predicate<Map<String, Object>> condition) {
             this.builder = builder;
             this.action = action;
@@ -2184,13 +2212,17 @@ public class EasyWorkflow {
                     .condition(condition)
                     .build();
             workflowDebugger.addBreakpoint(breakpoint);
-            return breakpoint.createAgent(workflowDebugger);
+            Object agent = breakpoint.createAgent(workflowDebugger);
+
+            workflowDebugger.registerAgentMetadata(agent, this);
+
+            return agent;
         }
 
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = new LinkedHashMap<>();
-            json.put("type", "breakpoint");
+            json.put(JSON_KEY_TYPE, JSON_TYPE_BREAKPOINT);
             json.put("uid", getId());
             return json;
         }

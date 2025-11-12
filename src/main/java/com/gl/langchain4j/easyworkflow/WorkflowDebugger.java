@@ -48,6 +48,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Predicate;
 
 import static com.gl.langchain4j.easyworkflow.BreakpointActions.log;
@@ -252,7 +253,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      */
     public void reset() {
         if (! agentInvocationTraceEntries.isEmpty())
-            // TODO: 11/4/25 add deep cloning of everything mutable here
             agentInvocationTraceEntryArchives.add(new AgentInvocationTraceEntryArchive(
                     archiveSessionUID,
                     deepClone(workflowInput),
@@ -263,11 +263,19 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
         workflowInput.clear();
         workflowResult = null;
+        workflowFailure = null;
         agentInvocationTraceEntries.clear();
     }
 
+    /**
+     * Performs a deep clone of the given object. This method attempts to clone collections, maps, arrays,
+     * and objects implementing {@link Cloneable}. For other objects, it returns the original object.
+     * @param object The object to deep clone.
+     * @param <T> The type of the object.
+     * @return A deep clone of the object, or the original object if cloning is not supported or fails.
+     */
     @SuppressWarnings("unchecked")
-    private static <T> T deepClone(T object) {
+    public static <T> T deepClone(T object) {
         if (object == null) {
             return null;
         }
@@ -488,7 +496,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @param userMessage the user message received
      */
     @Override
-    public void inputReceived(Object agent, Class<?> agentClass, UserMessage userMessage) {
+    public void inputReceived(Object agent, Class<?> agentClass, Object userMessage) {
         agenticScope.writeState(KEY_INPUT, userMessage);
         try {
             Class<?> adjustedAgentClass = agentClass != null ? agentClass : Object.class;
@@ -901,7 +909,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Represents a breakpoint that can be set in the workflow.
      */
     public static class Breakpoint {
-        private final BiConsumer<Breakpoint, Map<String, Object>> action;
+        private final BiFunction<Breakpoint, Map<String, Object>, Object> action;
         private final Breakpoint.Type type;
         private final Predicate<Map<String, Object>> condition;
         private volatile boolean enabled;
@@ -916,7 +924,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param condition The condition that must be met for the breakpoint to be triggered.
          * @param enabled   {@code true} if the breakpoint is enabled, {@code false} otherwise.
          */
-        public Breakpoint(BiConsumer<Breakpoint, Map<String, Object>> action, Breakpoint.Type type, Predicate<Map<String, Object>> condition, boolean enabled) {
+        public Breakpoint(BiFunction<Breakpoint, Map<String, Object>, Object> action, Breakpoint.Type type, Predicate<Map<String, Object>> condition, boolean enabled) {
 
             this.action = action;
             this.type = type;
@@ -931,7 +939,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param action the action to perform when the breakpoint is hit
          * @return a new {@link BreakpointBuilder}
          */
-        public static BreakpointBuilder builder(Breakpoint.Type type, BiConsumer<Breakpoint, Map<String, Object>> action) {
+        public static BreakpointBuilder builder(Breakpoint.Type type, BiFunction<Breakpoint, Map<String, Object>, Object> action) {
             return new BreakpointBuilder(type, action);
         }
 
@@ -980,7 +988,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          *
          * @return the action to perform when the breakpoint is hit
          */
-        public BiConsumer<Breakpoint, Map<String, Object>> getAction() {
+        public BiFunction<Breakpoint, Map<String, Object>, Object> getAction() {
             return action;
         }
 
@@ -1037,8 +1045,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          *
          * @param agenticScope The {@link AgenticScope} at the time the breakpoint is hit.
          */
-        public void executeAction(Map<String, Object> agenticScope) {
-            action.accept(this, agenticScope);
+        public Object executeAction(Map<String, Object> agenticScope) {
+            return action.apply(this, agenticScope);
         }
 
         /**
@@ -1085,7 +1093,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param condition the condition that must be met for the breakpoint to be triggered
          * @param enabled   {@code true} if the breakpoint is enabled, {@code false} otherwise
          */
-        public LineBreakpoint(BiConsumer<Breakpoint, Map<String, Object>> action,
+        public LineBreakpoint(BiFunction<Breakpoint, Map<String, Object>, Object> action,
                               Predicate<Map<String, Object>> condition,
                               boolean enabled) {
             super(action, Type.LINE, condition, enabled);
@@ -1106,9 +1114,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * An agent that, when invoked, executes the action of a {@link LineBreakpoint}. This class is used internally by
      * {@link LineBreakpoint#createAgent(WorkflowDebugger)}.
      */
-    public static class LineBreakpointAgent {
+    public static class LineBreakpointAgent implements WorkflowDebuggerSupport{
         private final LineBreakpoint lineBreakpoint;
-        private final WorkflowDebugger workflowDebugger;
+        private WorkflowDebugger workflowDebugger;
 
         /**
          * Constructs a new {@code LineBreakpointAgent}.
@@ -1123,10 +1131,26 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
         @Agent
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
+            inputReceived(WorkflowDebugger.deepClone(agenticScope.state()));
+
+            Object output = null;
+
             Map<String, Object> agenticScopeState = workflowDebugger.getAgenticScopeState();
             if (lineBreakpoint.getCondition() == null || lineBreakpoint.getCondition().test(agenticScopeState))
-                lineBreakpoint.executeAction(agenticScopeState);
+                output = lineBreakpoint.executeAction(agenticScopeState);
+
+            outputProduced(output);
             return null;
+        }
+
+        @Override
+        public WorkflowDebugger getWorkflowDebugger() {
+            return workflowDebugger;
+        }
+
+        @Override
+        public void setWorkflowDebugger(WorkflowDebugger workflowDebugger) {
+            this.workflowDebugger = workflowDebugger;
         }
     }
 
@@ -1151,7 +1175,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          * @param condition    the condition that must be met for the breakpoint to be triggered
          * @param enabled      {@code true} if the breakpoint is enabled, {@code false} otherwise
          */
-        public AgentBreakpoint(BiConsumer<Breakpoint, Map<String, Object>> action,
+        public AgentBreakpoint(BiFunction<Breakpoint, Map<String, Object>, Object> action,
                                Type type,
                                Class<?>[] agentClasses,
                                String[] outputNames,
@@ -1284,7 +1308,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * A builder class for creating {@link AgentBreakpoint} instances.
      */
     public static class BreakpointBuilder {
-        private final BiConsumer<Breakpoint, Map<String, Object>> action;
+        private final BiFunction<Breakpoint, Map<String, Object>, Object> action;
         private Breakpoint.Type type;
         private Class<?>[] agentClasses;
         private String[] outputNames = {"*"};
@@ -1296,7 +1320,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
          *
          * @param action the action to perform when the breakpoint is hit
          */
-        public BreakpointBuilder(Breakpoint.Type type, BiConsumer<Breakpoint, Map<String, Object>> action) {
+        public BreakpointBuilder(Breakpoint.Type type, BiFunction<Breakpoint, Map<String, Object>, Object> action) {
             this.type = type;
             this.action = action;
         }

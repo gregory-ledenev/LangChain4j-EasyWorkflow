@@ -30,8 +30,6 @@ import dev.langchain4j.data.message.UserMessage;
 import java.lang.reflect.Method;
 import java.util.Map;
 
-import static com.gl.langchain4j.easyworkflow.EasyWorkflow.getAgentMethod;
-
 /**
  * This interface provides support for debugging workflows. Non-AI agents should implement it and call its
  * {@code inputReceived()} and {@code outputProduced()} methods to notify the debugger about agent's invocation.
@@ -60,7 +58,7 @@ public interface WorkflowDebuggerSupport {
      *
      * @param userMessage The received {@link UserMessage}.
      */
-    default void inputReceived(UserMessage userMessage) {
+    default void inputReceived(Object userMessage) {
         if (getWorkflowDebugger() != null)
             getWorkflowDebugger().inputReceived(this, getClass(), userMessage);
     }
@@ -88,8 +86,7 @@ public interface WorkflowDebuggerSupport {
         for (Method method : getClass().getDeclaredMethods()) {
             Agent annotation = method.getAnnotation(Agent.class);
             if (annotation != null) {
-                if (annotation.outputName() != null && !annotation.outputName().isEmpty())
-                    getWorkflowDebugger().stateChanged(this, getClass(), annotation.outputName(), output);
+                getWorkflowDebugger().stateChanged(this, getClass(), annotation.outputName(), output);
                 break;
             }
         }

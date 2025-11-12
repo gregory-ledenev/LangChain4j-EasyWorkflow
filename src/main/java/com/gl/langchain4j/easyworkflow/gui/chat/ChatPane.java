@@ -33,9 +33,6 @@ import com.gl.langchain4j.easyworkflow.gui.platform.FormPanel;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport.AutoIcon;
 import dev.langchain4j.service.V;
-import org.commonmark.node.Node;
-import org.commonmark.parser.Parser;
-import org.commonmark.renderer.html.HtmlRenderer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,7 +58,6 @@ import java.util.function.Consumer;
 
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SEND;
-import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;

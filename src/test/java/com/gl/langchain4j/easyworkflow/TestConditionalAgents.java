@@ -87,7 +87,10 @@ public class TestConditionalAgents {
                     .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL, "category == MEDICAL"))
                         .agent(new MedicalExpert())
                     .end().elseIf()
-                        .breakpoint((aBreakpoint, aAgenticScope) -> breakpointHit.set(true))
+                        .breakpoint((aBreakpoint, aAgenticScope) -> {
+                            breakpointHit.set(true);
+                            return null;
+                        })
                     .end()
                     .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL, "category == LEGAL"))
                         .agent(new LegalExpert())

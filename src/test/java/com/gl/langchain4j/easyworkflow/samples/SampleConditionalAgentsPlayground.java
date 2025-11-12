@@ -34,19 +34,21 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
 import static java.lang.System.out;
 
 /**
- * This class provides a sample playground for
+ * This class provides a sample GUI Playground for
  * <a href="https://docs.langchain4j.dev/tutorials/agents#conditional-workflow">Conditional Workflow</a>
  * using EasyWorkflow DSL-style workflow initialization.
  */
-public class SampleSwitchAgentsPlayground {
+@SuppressWarnings("unused")
+public class SampleConditionalAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
-
     public static void main(String[] args) {
 
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
@@ -57,34 +59,30 @@ public class SampleSwitchAgentsPlayground {
 
         ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10);
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
-        workflowDebugger.addBreakpoint(new WorkflowDebugger.AgentBreakpoint((aBreakpoint, aAgenticScope) -> {
-            out.println("");
-            return null;
-        }, WorkflowDebugger.Breakpoint.Type.AGENT_OUTPUT, null, null, null, true));
 
-        EasyWorkflow.AgentWorkflowBuilder<SampleSwitchAgents.ExpertRouterAgent> builder = EasyWorkflow.builder(SampleSwitchAgents.ExpertRouterAgent.class);
-        SampleSwitchAgents.ExpertRouterAgent expertRouterAgent = builder
+        EasyWorkflow.AgentWorkflowBuilder<SampleConditionalAgents.ExpertRouterAgent> builder = EasyWorkflow.builder(SampleConditionalAgents.ExpertRouterAgent.class);
+        SampleConditionalAgents.ExpertRouterAgent expertRouterAgent = builder
                 .chatModel(BASE_MODEL)
                 .chatMemory(chatMemory)
                 .workflowDebugger(workflowDebugger)
                 .setState("response", "")
-                .agent(SampleSwitchAgents.CategoryRouter.class)
-                .doWhen("category", SampleSwitchAgents.RequestCategory.UNKNOWN)
-                    .match(SampleSwitchAgents.RequestCategory.MEDICAL)
-                        .agent(SampleSwitchAgents.MedicalExpert.class)
-                    .end()
-                    .match(SampleSwitchAgents.RequestCategory.LEGAL)
-                        .agent(SampleSwitchAgents.LegalExpert.class)
-                    .end()
-                    .match(SampleSwitchAgents.RequestCategory.TECHNICAL)
-                        .agent(SampleSwitchAgents.TechnicalExpert.class)
-                    .end()
+                .agent(SampleConditionalAgents.CategoryRouter.class)
+                .ifThen(condition(agenticScope -> agenticScope.readState("category", SampleConditionalAgents.RequestCategory.UNKNOWN) == SampleConditionalAgents.RequestCategory.MEDICAL, "category == RequestCategory.MEDICAL"))
+                    .agent(SampleConditionalAgents.MedicalExpert.class)
+                .end().elseIf()
+                    .breakpoint("ELSEIF")
                 .end()
-                .agent(SampleSwitchAgents.SummaryAgent.class)
+                .ifThen(condition(agenticScope -> agenticScope.readState("category", SampleConditionalAgents.RequestCategory.UNKNOWN) == SampleConditionalAgents.RequestCategory.LEGAL, "category == RequestCategory.LEGAL"))
+                    .agent(SampleConditionalAgents.LegalExpert.class)
+                .end()
+                .ifThen(condition(agenticScope -> agenticScope.readState("category", SampleConditionalAgents.RequestCategory.UNKNOWN) == SampleConditionalAgents.RequestCategory.TECHNICAL, "category == RequestCategory.TECHNICAL"))
+                    .agent(SampleConditionalAgents.TechnicalExpert.class)
+                .end()
+                .agent(SampleConditionalAgents.SummaryAgent.class)
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();
 
-        Playground playground = Playground.createPlayground(SampleSwitchAgents.ExpertRouterAgent.class,
+        Playground playground = Playground.createPlayground(SampleConditionalAgents.ExpertRouterAgent.class,
                 Playground.Type.GUI,
                 workflowDebugger);
         playground.play(expertRouterAgent, Map.of("request", "I broke my leg, what should I do?"));

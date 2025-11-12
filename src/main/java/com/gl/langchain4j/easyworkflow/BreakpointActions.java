@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.expandTemplate;
 
@@ -43,10 +44,11 @@ public class BreakpointActions {
      * @param template The template string for the log message.
      * @return A {@link BiConsumer} that logs the formatted message when executed.
      */
-    public static BiConsumer<WorkflowDebugger.Breakpoint, Map<String, Object>> log(String template) {
+    public static BiFunction<WorkflowDebugger.Breakpoint, Map<String, Object>, Object> log(String template) {
         return (b, ctx) -> {
             String text = ctx != null ? expandTemplate(template, ctx) : template;
             WorkflowDebugger.getLogger().info(text.replaceAll("\\n", "\\\\n"));
+            return text;
         };
     }
 
@@ -58,9 +60,11 @@ public class BreakpointActions {
      * @param breakpoints The breakpoints to toggle.
      * @return A {@link BiConsumer} that toggles the enabled state of the specified breakpoints when executed.
      */
-    public static BiConsumer<WorkflowDebugger.Breakpoint, Map<String, Object>> toggleBreakpoints(boolean enabled, WorkflowDebugger.Breakpoint... breakpoints) {
-        return (b, ctx) -> Arrays.
-                stream(breakpoints).forEach(toToggle -> toToggle.setEnabled(enabled));
+    public static BiFunction<WorkflowDebugger.Breakpoint, Map<String, Object>, Object> toggleBreakpoints(boolean enabled, WorkflowDebugger.Breakpoint... breakpoints) {
+        return (b, ctx) -> {
+            Arrays.stream(breakpoints).forEach(toToggle -> toToggle.setEnabled(enabled));
+            return null;
+        };
     }
 
     /**
@@ -70,10 +74,11 @@ public class BreakpointActions {
      * @param filePath The path to the file where the HTML should be written.
      * @return A {@link BiConsumer} that generates the HTML file when executed.
      */
-    public static BiConsumer<WorkflowDebugger.Breakpoint, Map<String, Object>> toHtmlFile(String filePath) {
+    public static BiFunction<WorkflowDebugger.Breakpoint, Map<String, Object>, Object> toHtmlFile(String filePath) {
         return (b, ctx) -> {
             try {
                 b.getWorkflowDebugger().toHtmlFile(filePath);
+                return filePath;
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }

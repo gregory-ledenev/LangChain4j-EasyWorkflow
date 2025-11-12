@@ -27,24 +27,28 @@
 package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.prefs.Preferences;
 
-import static java.lang.System.out;
+import static com.gl.langchain4j.easyworkflow.OutputComposers.*;
+import static com.gl.langchain4j.easyworkflow.OutputComposers.mappingOf;
 
 /**
- * This class provides a sample playground for
- * <a href="https://docs.langchain4j.dev/tutorials/agents#conditional-workflow">Conditional Workflow</a>
+ * This class provides a sample GUI Playground for
+ * <a href="https://docs.langchain4j.dev/tutorials/agents#parallel-workflow">Parallel Workflow</a>
  * using EasyWorkflow DSL-style workflow initialization.
  */
-public class SampleSwitchAgentsPlayground {
+public class SampleParallelAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
 
     public static void main(String[] args) {
@@ -55,38 +59,27 @@ public class SampleSwitchAgentsPlayground {
                 .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
                 .build();
 
-        ChatMemory chatMemory = MessageWindowChatMemory.withMaxMessages(10);
+        EasyWorkflow.AgentWorkflowBuilder<SampleParallelAgents.EveningPlannerAgent> builder;
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
-        workflowDebugger.addBreakpoint(new WorkflowDebugger.AgentBreakpoint((aBreakpoint, aAgenticScope) -> {
-            out.println("");
-            return null;
-        }, WorkflowDebugger.Breakpoint.Type.AGENT_OUTPUT, null, null, null, true));
-
-        EasyWorkflow.AgentWorkflowBuilder<SampleSwitchAgents.ExpertRouterAgent> builder = EasyWorkflow.builder(SampleSwitchAgents.ExpertRouterAgent.class);
-        SampleSwitchAgents.ExpertRouterAgent expertRouterAgent = builder
+        SampleParallelAgents.BeanListEveningPlannerAgent beanListEveningPlannerAgent = EasyWorkflow.builder(SampleParallelAgents.BeanListEveningPlannerAgent.class)
                 .chatModel(BASE_MODEL)
-                .chatMemory(chatMemory)
                 .workflowDebugger(workflowDebugger)
-                .setState("response", "")
-                .agent(SampleSwitchAgents.CategoryRouter.class)
-                .doWhen("category", SampleSwitchAgents.RequestCategory.UNKNOWN)
-                    .match(SampleSwitchAgents.RequestCategory.MEDICAL)
-                        .agent(SampleSwitchAgents.MedicalExpert.class)
-                    .end()
-                    .match(SampleSwitchAgents.RequestCategory.LEGAL)
-                        .agent(SampleSwitchAgents.LegalExpert.class)
-                    .end()
-                    .match(SampleSwitchAgents.RequestCategory.TECHNICAL)
-                        .agent(SampleSwitchAgents.TechnicalExpert.class)
-                    .end()
+                .logInput(true)
+                .logOutput(true)
+                .doParallel(asBeanList(SampleParallelAgents.EveningPlan.class,
+                        mappingOf("movies", "movie"),
+                        mappingOf("meals", "meal")))
+                .outputName("result")
+                .agent(SampleParallelAgents.FoodExpert.class)
+                .agent(SampleParallelAgents.MovieExpert.class)
                 .end()
-                .agent(SampleSwitchAgents.SummaryAgent.class)
-                .output(OutputComposers.asMap("response", "summary"))
+                .outputName("result")
                 .build();
 
-        Playground playground = Playground.createPlayground(SampleSwitchAgents.ExpertRouterAgent.class,
-                Playground.Type.GUI,
-                workflowDebugger);
-        playground.play(expertRouterAgent, Map.of("request", "I broke my leg, what should I do?"));
+        Playground playground = Playground.createPlayground(SampleParallelAgents.BeanListEveningPlannerAgent.class, Playground.Type.GUI);
+        playground.setup(Map.of(
+                Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
+                Playground.ARG_SHOW_DIALOG, false));
+        playground.play(beanListEveningPlannerAgent, null);
     }
 }

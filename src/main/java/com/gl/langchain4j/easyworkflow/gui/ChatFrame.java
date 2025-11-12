@@ -60,6 +60,7 @@ import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.LOGO_ICON;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
+import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane.PROP_SELECTED_VARIABLE;
 import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
@@ -210,6 +211,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                     pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorExecution.getSelectedData());
             });
 
+            pnlWorkflowInspectorDetails.addPropertyChangeListener(evt -> {
+                if (evt.getPropertyName().equals(PROP_SELECTED_VARIABLE)) {
+                    pnlWorkflowInspectorStructure.highlightUsage((String) evt.getNewValue());
+                    pnlWorkflowInspectorExecution.highlightUsage((String) evt.getNewValue());
+                }
+            });
             pnlChat.setExecutionDetailsProvider(this);
         } else {
             setContentPane(pnlChat);
@@ -796,10 +803,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     @Override
     public void scheduledUpdate() {
         super.scheduledUpdate();
-        menuBarActionGroup.update();
-        inspectorToolbarActionGroup.update();
+
+        if (workflowDebugger != null) {
+            menuBarActionGroup.update();
+            inspectorToolbarActionGroup.update();
+            pnlWorkflowInspectorDetails.scheduledUpdate();
+        }
         pnlChat.scheduledUpdate();
-        pnlWorkflowInspectorDetails.scheduledUpdate();
     }
 
     @Override

@@ -29,7 +29,6 @@ import com.formdev.flatlaf.FlatLightLaf;
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
-import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
 import com.jthemedetecor.OsThemeDetector;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;

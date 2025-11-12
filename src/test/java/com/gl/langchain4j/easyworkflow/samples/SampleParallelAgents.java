@@ -129,18 +129,11 @@ public class SampleParallelAgents {
                     .outputName("result")
                     .build();
 
-            // NOTE: to use Playground comment executor shutdown
-            Playground playground = Playground.createPlayground(BeanListEveningPlannerAgent.class, Playground.Type.GUI);
-            playground.setup(Map.of(
-                    Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
-                    Playground.ARG_SHOW_DIALOG, false));
-            playground.play(beanListEveningPlannerAgent, null);
-
-//            System.out.println(beanListEveningPlannerAgent.plan("happy"));
-//            System.out.println(genericEveningPlannerAgent.plan("sad"));
+            System.out.println(beanListEveningPlannerAgent.plan("happy"));
+            System.out.println(genericEveningPlannerAgent.plan("sad"));
         } finally {
-//            executor.shutdownNow();
-//            EasyWorkflow.closeSharedExecutorService();
+            executor.shutdownNow();
+            EasyWorkflow.closeSharedExecutorService();
         }
     }
 

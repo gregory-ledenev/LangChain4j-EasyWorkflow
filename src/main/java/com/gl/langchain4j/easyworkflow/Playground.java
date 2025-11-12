@@ -102,26 +102,45 @@ public interface Playground {
      * Creates a new Playground instance based on the specified type.
      *
      * @param agentClass The class of the agent to be used in the playground.
-     * @param type The type of playground to create (Console or GUI).
+     * @param type       The type of playground to create (Console or GUI).
      * @return A new Playground instance.
      */
     static Playground createPlayground(Class<?> agentClass, Type type) {
+        return createPlayground(agentClass, type, null);
+    }
+
+    /**
+     * Creates a new Playground instance based on the specified type.
+     *
+     * @param agentClass       The class of the agent to be used in the playground.
+     * @param type             The type of playground to create (Console or GUI).
+     * @param workflowDebugger The workflowDebugger to work with. Pass it if you want a complete GUI Playground with
+     *                         workflow summary, tracking execution results, Workflow Expert, etc.
+     * @return A new Playground instance.
+     */
+    static Playground createPlayground(Class<?> agentClass, Type type, WorkflowDebugger workflowDebugger) {
+        Playground result;
         switch (type) {
             case Console -> {
-                return new ConsolePlayground(agentClass);
+                result = new ConsolePlayground(agentClass);
             }
             case GUI -> {
                 // intentionally done via reflection to not expose GUI classes here
                 // as it may cause issues in headless environments
                 try {
-                    Class<?> playHroundClass = Class.forName("com.gl.langchain4j.easyworkflow.gui.GUIPlayground");
-                    return (Playground) playHroundClass.getConstructor(Class.class).newInstance(agentClass);
+                    Class<?> playgroundClass = Class.forName("com.gl.langchain4j.easyworkflow.gui.GUIPlayground");
+                    result = (Playground) playgroundClass.getConstructor(Class.class).newInstance(agentClass);
                 } catch (Exception ex) {
                     throw new RuntimeException(ex);
                 }
             }
             default -> throw new IllegalStateException("Unexpected playground type: " + type);
         }
+
+        if (workflowDebugger != null)
+            result.setup(Map.of(ARG_WORKFLOW_DEBUGGER, workflowDebugger));
+
+        return result;
     }
 
     abstract class BasicPlayground implements Playground, BiFunction<Object, Map<String, Object>, Object> {

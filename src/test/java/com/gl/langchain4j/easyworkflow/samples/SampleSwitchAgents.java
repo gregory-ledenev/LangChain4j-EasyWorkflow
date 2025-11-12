@@ -28,13 +28,8 @@ package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
-import com.gl.langchain4j.easyworkflow.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import dev.langchain4j.agentic.Agent;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.guardrail.OutputGuardrail;
-import dev.langchain4j.guardrail.OutputGuardrailResult;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;
@@ -69,6 +64,7 @@ public class SampleSwitchAgents {
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
         workflowDebugger.addBreakpoint(new WorkflowDebugger.AgentBreakpoint((aBreakpoint, aAgenticScope) -> {
             out.println("");
+            return null;
         }, WorkflowDebugger.Breakpoint.Type.AGENT_OUTPUT, null, null, null, true));
 
         EasyWorkflow.AgentWorkflowBuilder<ExpertRouterAgent> builder = EasyWorkflow.builder(ExpertRouterAgent.class);

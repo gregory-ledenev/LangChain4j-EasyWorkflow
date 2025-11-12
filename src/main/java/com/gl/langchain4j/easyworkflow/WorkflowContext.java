@@ -199,7 +199,7 @@ public class WorkflowContext {
          * @param agentClass  The class of the agent that received the input.
          * @param userMessage The {@link UserMessage} that was received.
          */
-        void inputReceived(Object agent, Class<?> agentClass, UserMessage userMessage);
+        void inputReceived(Object agent, Class<?> agentClass, Object userMessage);
     }
 
     /**

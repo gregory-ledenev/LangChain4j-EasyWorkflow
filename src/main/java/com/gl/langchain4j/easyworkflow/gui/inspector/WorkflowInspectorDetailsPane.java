@@ -24,7 +24,6 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.HeaderPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
@@ -40,8 +39,11 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
@@ -59,7 +61,8 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
     private final ValuesPane pnlValues;
     private final ValueDetailsPane pnlValueDetails;
     private Map<String, Object> values;
-
+    public static final String PROP_SELECTED_VARIABLE = "selectedVariable";
+    private String selectedVariable;
     /**
      * Constructs a new {@code WorkflowInspectorDetailsPane}. Initializes the two sub-panes and sets up the selection
      * listener for the tree view.
@@ -72,13 +75,20 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
         pnlValues = new ValuesPane();
         pnlValueDetails = new ValueDetailsPane();
         pnlValueDetails.setPreferredSize(new Dimension(400, 200));
-        pnlValues.getTree().addTreeSelectionListener(e -> {
-            ValuesPane.NamedValue namedValue = (ValuesPane.NamedValue) ((DefaultMutableTreeNode) e.getPath().getLastPathComponent()).getUserObject();
-            pnlValueDetails.setValue(namedValue.value() != null ? namedValue.value().toString() : "null");
-        });
+        pnlValues.getTree().addTreeSelectionListener(e -> selectedValueChanged());
         setTopComponent(pnlValues);
         setBottomComponent(pnlValueDetails);
         setResizeWeight(0.7);
+    }
+
+    private void selectedValueChanged() {
+        ValuesPane.NamedValue namedValue = pnlValues.getSelectedValue();
+        pnlValueDetails.setValue(namedValue != null && namedValue.value() != null ? namedValue.value().toString() : null);
+
+        String oldSelectedVariable = selectedVariable;
+        selectedVariable = pnlValues.getSelectedVariable();
+        if (!Objects.equals(oldSelectedVariable, selectedVariable))
+            firePropertyChange(PROP_SELECTED_VARIABLE, oldSelectedVariable, selectedVariable);
     }
 
     @Override
@@ -288,7 +298,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             return UISupport.getPreferences().node("Inspector.ValuesPane");
         }
 
-        private static NamedValue createNamedValue(String icon, String name, Object value) {
+        private static NamedValue   createNamedValue(String icon, String name, Object value) {
             int openParen = name.indexOf('(');
             int closeParen = name.indexOf(')');
             if (openParen != -1 && closeParen != -1 && closeParen > openParen) {
@@ -459,6 +469,22 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             return (NamedValue) selectedNode.getUserObject();
         }
 
+        public String getSelectedVariable() {
+
+            TreePath selectionPath = treeValues.getSelectionPath();
+            if (selectionPath == null)
+                return null;
+
+            DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) selectionPath.getLastPathComponent();
+            if (selectedNode.getUserObject() instanceof NamedValue namedValue && namedValue.subName() != null)
+                return namedValue.subName();
+
+            while (selectedNode != null && selectedNode.getParent() != agenticScopeNode && selectedNode.getParent() != progressionNode) {
+                selectedNode = (DefaultMutableTreeNode) selectedNode.getParent();
+            }
+            return selectedNode != null && selectedNode.getUserObject() instanceof NamedValue namedValue ? namedValue.name() : null;
+        }
+
         /**
          * Returns the {@code JTree} component used to display the values.
          *
@@ -488,6 +514,7 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             this.values = values;
             if (this.values == null) {
                 treeValues.setModel(null);
+                treeValues.clearSelection();
             } else {
                 DefaultMutableTreeNode root = new DefaultMutableTreeNode("Values");
                 buildTree(root, this.values);
@@ -506,41 +533,49 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             setPlaceHolderVisible(this.values == null || this.values.isEmpty());
         }
 
+        @SuppressWarnings("unchecked")
         private void buildTree(DefaultMutableTreeNode parent, Object data) {
             if (data instanceof Map) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> map = (Map<String, Object>) data;
-                map.entrySet().stream()
-                        .sorted(Map.Entry.comparingByKey())
-                        .forEach(entry -> {
-                            String key = entry.getKey();
-                            Object value = entry.getValue();
-                            if (value instanceof Map || value instanceof List) {
-                                DefaultMutableTreeNode node = new DefaultMutableTreeNode(
-                                        createNamedValue(value instanceof Map ? "❖" : "≡", key, value));
-                                if (NODE_AGENTIC_SCOPE.equals(key))
-                                    agenticScopeNode = node;
-                                else if (NODE_PROGRESSION.equals(key))
-                                    progressionNode = node;
-
-                                parent.add(node);
-                                buildTree(node, value);
-                            } else {
-                                parent.add(new DefaultMutableTreeNode(createNamedValue("•", key, value)));
-                            }
-                        });
+                buildTree(parent, (Map<String, Object>) data);
             } else if (data instanceof List<?> list) {
-                for (int i = 0; i < list.size(); i++) {
-                    Object item = list.get(i);
-                    if (item instanceof Map || item instanceof List) {
-                        DefaultMutableTreeNode node = new DefaultMutableTreeNode(createNamedValue(item instanceof Map ? "❖" : "≡", "[" + i + "]", item));
-                        parent.add(node);
-                        buildTree(node, item);
-                    } else {
-                        parent.add(new DefaultMutableTreeNode(createNamedValue("•", "[" + i + "]", item)));
-                    }
+                buildTree(parent, list);
+            } else if (data.getClass().isArray())
+                buildTree(parent, Arrays.asList((Object[]) data));
+        }
+
+        private void buildTree(DefaultMutableTreeNode parent, List<?> list) {
+            for (int i = 0; i < list.size(); i++) {
+                Object item = list.get(i);
+                if (item instanceof Map || item instanceof List) {
+                    DefaultMutableTreeNode node = new DefaultMutableTreeNode(createNamedValue(item instanceof Map ? "❖" : "≡", "[" + i + "]", item));
+                    parent.add(node);
+                    buildTree(node, item);
+                } else {
+                    parent.add(new DefaultMutableTreeNode(createNamedValue("•", "[" + i + "]", item)));
                 }
             }
+        }
+
+        private void buildTree(DefaultMutableTreeNode parent, Map<String, Object> data) {
+            data.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> {
+                        String key = entry.getKey();
+                        Object value = entry.getValue();
+                        if (value instanceof Map || value instanceof List || (value != null && value.getClass().isArray())) {
+                            DefaultMutableTreeNode node = new DefaultMutableTreeNode(
+                                    createNamedValue(value instanceof Map ? "❖" : "≡", key, value));
+                            if (NODE_AGENTIC_SCOPE.equals(key))
+                                agenticScopeNode = node;
+                            else if (NODE_PROGRESSION.equals(key))
+                                progressionNode = node;
+
+                            parent.add(node);
+                            buildTree(node, value);
+                        } else {
+                            parent.add(new DefaultMutableTreeNode(createNamedValue("•", key, value)));
+                        }
+                    });
         }
 
         @Override

@@ -41,7 +41,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 /**
  * A GUI-based playground for interacting with an agent.

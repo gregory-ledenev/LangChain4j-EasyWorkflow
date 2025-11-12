@@ -95,11 +95,11 @@ public class SampleConditionalAgents {
             ex.printStackTrace();
         }
 
-//        out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
-//        out.println(workflowDebugger.toString(true));
+        out.println(expertRouterAgent.ask("I broke my leg, what should I do?"));
+        out.println(workflowDebugger.toString(true));
         out.println(expertRouterAgent.ask("Should I sue my neighbor who caused this damage?"));
-//        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
-//        out.println(expertRouterAgent.ask("What is the meaning of life?"));
+        out.println(expertRouterAgent.ask("How to configure a VPN on Windows 10?"));
+        out.println(expertRouterAgent.ask("What is the meaning of life?"));
     }
 
     public enum RequestCategory {
