@@ -624,10 +624,24 @@ public class UISupport {
                 toolbar.addSeparator();
             }
         }
+        if (toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)
+            toolbar.remove(toolbar.getComponentCount() - 1);
     }
 
     private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
-        toolbar.add(action instanceof StateAction ? createToolbarToggleButton(action, false, buttonGroupMap) : createToolbarButton(action));
+        if (action instanceof Actions.ComponentAction componentAction) {
+            if (componentAction.getValue(Action.NAME) != null) {
+                JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
+                label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
+                toolbar.add(label);
+            }
+            toolbar.add(componentAction.getComponent());
+        } else if (action instanceof StateAction) {
+            toolbar.add(createToolbarToggleButton(action, false, buttonGroupMap));
+        } else {
+            toolbar.add(createToolbarButton(action));
+        }
+
     }
 
     /**

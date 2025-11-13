@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow;
 
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.V;
 
 import java.lang.reflect.Method;
@@ -67,8 +68,13 @@ public interface Playground {
     String ARG_TITLE = "title";
 
     /**
-     * Constant for the argument key "workflowDebugger". It can be used by GUI Playground to offer an action that calls
-     * Workflow Expert agent.
+     * Constant for the argument key "chatModels". A value for this key must be a {@code List<PlaygroundChatModel>}
+     */
+    String ARG_CHAT_MODELS = "chatModels";
+
+    /**
+     * Constant for the argument key "workflowDebugger". A value for this key must be a {@link WorkflowDebugger}
+     * instance. This debugger is used to track and visualize the workflow execution.
      */
     String ARG_WORKFLOW_DEBUGGER = "workflowDebugger";
 
@@ -347,6 +353,13 @@ public interface Playground {
         @Override
         public String getHumanResponse(HumanInTheLoop agent) {
             return scanner.nextLine();
+        }
+    }
+
+    record PlaygroundChatModel(String name, ChatModel chatModel) {
+        @Override
+        public String toString() {
+            return name;
         }
     }
 }

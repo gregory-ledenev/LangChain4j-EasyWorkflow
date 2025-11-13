@@ -36,6 +36,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.lang.reflect.Parameter;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -64,7 +66,12 @@ public class GUIPlayground extends Playground.BasicPlayground {
     @Override
     public void setup(Map<String, Object> arguments) {
         super.setup(arguments);
-        this.arguments = arguments;
+        if (this.arguments != null) {
+            this.arguments = new HashMap<>(this.arguments);
+            this.arguments.putAll(arguments);
+        } else {
+            this.arguments = arguments;
+        }
     }
 
     /**
@@ -73,9 +80,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
      * @return The {@link WorkflowDebugger} instance if present, otherwise {@code null}.
      */
     public WorkflowDebugger getWorkflowDebugger() {
-        if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER))
-            return (WorkflowDebugger) arguments.get(ARG_WORKFLOW_DEBUGGER);
-        return null;
+        return (arguments != null && arguments.get(ARG_WORKFLOW_DEBUGGER) instanceof WorkflowDebugger workflowDebugger) ?
+                workflowDebugger : null;
     }
 
     static {
@@ -120,20 +126,14 @@ public class GUIPlayground extends Playground.BasicPlayground {
         Icons.loadIcons();
         ToolbarIcons.loadIcons();
 
-        WorkflowDebugger workflowDebugger;
-        if (arguments != null && arguments.containsKey(ARG_WORKFLOW_DEBUGGER))
-            workflowDebugger = (WorkflowDebugger) arguments.get(ARG_WORKFLOW_DEBUGGER);
-        else {
-            workflowDebugger = null;
-        }
-
-        chatFrame = ChatFrame.showChat(title, new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("icons/logo.png"))),
+        chatFrame = ChatFrame.createChatFrame(title,
+                new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("icons/logo.png"))),
                 new ChatPane.ChatEngine() {
                     @Override
                     public Object send(Map<String, Object> message) {
                         if (chatFrame.getWorkflowDebugger() != null)
                             chatFrame.getWorkflowDebugger().setSessionUID((String) message.get(KEY_SESSION_UID));
-                        return apply(agent, message);
+                        return apply(chatFrame.getAgent(), message);
                     }
 
                     @Override
@@ -151,7 +151,9 @@ public class GUIPlayground extends Playground.BasicPlayground {
                         return EasyWorkflow.getSystemMessageTemplate(agentClass);
                     }
                 },
-                workflowDebugger);
+                agent,
+                getWorkflowDebugger(),
+                getChatModels());
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
                 Application.getSharedApplication().launch(chatFrame);
@@ -159,6 +161,12 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 chatPane.setUserMessage(userMessage);
             }
         });
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<PlaygroundChatModel> getChatModels() {
+        return (arguments != null && arguments.get(ARG_CHAT_MODELS) instanceof List<?> chatModels) ?
+                (List<PlaygroundChatModel>) chatModels : null;
     }
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {
@@ -255,7 +263,16 @@ public class GUIPlayground extends Playground.BasicPlayground {
         public void actionPerformed(ActionEvent e) {
             setEnabled(false);
             chatFrame.getChatPane().setWaitState(true, "Preparing Workflow Expert...");
-            CompletableFuture.supplyAsync(() -> WorkflowExpertSupport.getWorkflowExpert(workflowDebugger)).
+
+            WorkflowDebugger.AgentInvocationTraceEntryArchive archive = chatFrame.getAgentInvocationTraceEntryArchive();
+            String executionLog = archive == null ?
+                    workflowDebugger.toString(true) :
+                    workflowDebugger.toString(archive.workflowInput(),
+                            archive.agentInvocationTraceEntries(),
+                            archive.workflowResult(),
+                            archive.workflowFailure());
+
+            CompletableFuture.supplyAsync(() -> WorkflowExpertSupport.getWorkflowExpert(workflowDebugger, executionLog)).
                     whenComplete((workflowExpert, ex) -> {
                         if (ex == null) {
                             Playground playground = Playground.createPlayground(WorkflowExpert.class, Type.GUI);

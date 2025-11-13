@@ -34,24 +34,19 @@ import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
+import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
 import java.io.File;
-import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -79,6 +74,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
     private static final Logger logger = LoggerFactory.getLogger(ChatFrame.class);
     private final ChatPane pnlChat = new ChatPane();
+    private final List<Playground.PlaygroundChatModel> chatModels;
     private JScrollPane pnlWorkflowSummary;
     private JEditorPane pnlWorkflowSummaryView;
     private JPanel pnlWorkflowContents;
@@ -91,10 +87,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private boolean summaryGenerated = false;
     private boolean summaryGenerating = false;
     private StateAction showExecutionAction;
-    private final Breakpoint sessionStartedBreakpoint = Breakpoint.builder(
-                    Breakpoint.Type.SESSION_STARTED,
-                    (b, m) -> agentInvocationTraceEntryArchive = null)
-            .build();
     private StateAction showStructureAction;
     private StateAction showSummaryAction;
     private BasicAction shareAction;
@@ -107,16 +99,33 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private ActionGroup menuBarEditActionGroup;
     private ActionGroup inspectorToolbarActionGroup;
     private AgentInvocationTraceEntryArchive agentInvocationTraceEntryArchive;
+    private final Breakpoint sessionStartedBreakpoint = Breakpoint.builder(
+                    Breakpoint.Type.SESSION_STARTED,
+                    (b, m) -> agentInvocationTraceEntryArchive = null)
+            .build();
+
+    private Object agent;
+    private ComponentAction chatModelsAction;
 
     /**
      * Constructs a new ChatFrame.
      *
-     * @param title      The title of the chat frame.
-     * @param icon       The icon to be displayed for the chat frame.
-     * @param chatEngine A function that takes a user message and returns a chat engine's response.
+     * @param title            The title of the chat frame.
+     * @param icon             The icon to be displayed for the chat frame.
+     * @param chatEngine       A function that takes a user message and returns a chat engine's response.
+     * @param agent            The agent object associated with this chat frame.
+     * @param workflowDebugger The workflow debugger to be used for inspecting workflows.
+     * @param chatModels       The chat models
      */
-    public ChatFrame(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger) {
+    public ChatFrame(String title, ImageIcon icon,
+                     ChatPane.ChatEngine chatEngine,
+                     Object agent,
+                     WorkflowDebugger workflowDebugger,
+                     List<Playground.PlaygroundChatModel> chatModels) {
         super("chatFrame");
+
+        this.chatModels = chatModels;
+        this.agent = agent;
 
         setWorkflowDebugger(workflowDebugger);
         this.pnlChat.setChatEngine(chatEngine);
@@ -135,7 +144,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
 
         if (workflowDebugger != null) {
-            setMinimumSize(new Dimension(1080, 700));
+            setMinimumSize(new Dimension(1280, 720));
 
             JSplitPane contentPane = new JSplitPane();
             contentPane.setResizeWeight(0);
@@ -232,72 +241,34 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         });
     }
 
+
     /**
-     * Displays a new ChatFrame with the given title, icon, chat engine, and exit behavior.
+     * Displays a new chat frame with the given parameters.
      *
-     * @param title      The title of the chat frame.
-     * @param icon       The icon to be displayed for the chat frame.
-     * @param chatEngine A function that takes a user message and returns a chat engine's response.
-     * @return The created ChatFrame instance.
+     * @param title            The title of the chat frame.
+     * @param icon             The icon to be displayed for the chat frame.
+     * @param chatEngine       A function that takes a user message and returns a chat engine's response.
+     * @param agent            The agent object associated with this chat frame.
+     * @param workflowDebugger The workflow debugger to be used for inspecting workflows.
+     * @param chatModels       The chat models
+     * @return The newly created and displayed ChatFrame instance.
      */
-    public static ChatFrame showChat(String title, ImageIcon icon, ChatPane.ChatEngine chatEngine, WorkflowDebugger workflowDebugger) {
+    public static ChatFrame createChatFrame(String title, ImageIcon icon,
+                                            ChatPane.ChatEngine chatEngine,
+                                            Object agent,
+                                            WorkflowDebugger workflowDebugger,
+                                            List<Playground.PlaygroundChatModel> chatModels) {
         applyAppearance();
 
         ChatFrame chatFrame = new ChatFrame(title,
                 icon,
                 chatEngine,
-                workflowDebugger
+                agent,
+                workflowDebugger,
+                chatModels
         );
 
         return chatFrame;
-    }
-
-    /**
-     * Displays a new ChatFrame configured to interact with a WorkflowExpert.
-     *
-     * @param userMessage      The initial message to be displayed in the chat pane.
-     * @param workflowDebugger The WorkflowDebugger instance to be used by the WorkflowExpert.
-     * @return The created ChatFrame instance.
-     */
-
-    public static ChatFrame showChat(Map<String, Object> userMessage, WorkflowDebugger workflowDebugger) {
-        String title = "Chat with Workflow";
-        System.setProperty("apple.awt.application.name", title);
-        System.setProperty("apple.awt.application.appearance", "system");
-        System.setProperty("apple.laf.useScreenMenuBar", "true");
-        final WorkflowExpert workflowExpert = WorkflowExpertSupport.getWorkflowExpert(workflowDebugger);
-        ChatFrame result = ChatFrame.showChat(title,
-                LOGO_ICON,
-                new ChatPane.ChatEngine() {
-                    private static Method getAskMethod() {
-                        return EasyWorkflow.getAgentMethod(WorkflowExpert.class);
-                    }
-
-                    @Override
-                    public Object send(Map<String, Object> message) {
-                        return workflowExpert.askMap(message);
-                    }
-
-                    @Override
-                    public Parameter[] getMessageParameters() {
-                        return getAskMethod().getParameters();
-                    }
-
-                    @Override
-                    public String getUserMessageTemplate() {
-                        return EasyWorkflow.getUserMessageTemplate(WorkflowExpert.class);
-                    }
-
-                    @Override
-                    public String getSystemMessageTemplate() {
-                        return EasyWorkflow.getSystemMessageTemplate(WorkflowExpert.class);
-                    }
-                }
-                ,
-                workflowDebugger);
-        SwingUtilities.invokeLater(() -> result.getChatPane().setUserMessage(userMessage));
-
-        return result;
     }
 
     private static void visitSite(String url) {
@@ -309,6 +280,34 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 e.printStackTrace();
             }
         }
+    }
+
+    /**
+     * Returns the agent object associated with this chat frame.
+     *
+     * @return The agent object.
+     */
+    public Object getAgent() {
+        return agent;
+    }
+
+    /**
+     * Sets the agent object for this chat frame.
+     *
+     * @param aAgent The agent object to be set.
+     */
+    public void setAgent(Object aAgent) {
+        agent = aAgent;
+    }
+
+    /**
+     * Returns the {@link AgentInvocationTraceEntryArchive} associated with the currently displayed execution details.
+     * This archive contains a snapshot of the workflow's state and execution trace for a specific invocation.
+     *
+     * @return The {@link AgentInvocationTraceEntryArchive} for the current execution, or {@code null} if none is set.
+     */
+    public AgentInvocationTraceEntryArchive getAgentInvocationTraceEntryArchive() {
+        return agentInvocationTraceEntryArchive;
     }
 
     private void setupMenuBar() {
@@ -422,31 +421,31 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         menuBarFileActionGroup = new ActionGroup("File", null, true,
                 new ActionGroup("Share", new AutoIcon(ICON_SHARE), true,
                         new ActionGroup(null, null, false,
-                                new BasicAction("Chat", null,
+                                new BasicAction("Chat...", null,
                                         e -> shareChat(),
                                         a -> a.setEnabled(!pnlChat.getChatMessages().isEmpty()))
                         ),
                         new ActionGroup(null, null, false,
-                                new BasicAction("Structure", null, e -> shareStructure()),
-                                new BasicAction("Execution", null,
+                                new BasicAction("Structure...", null, e -> shareStructure()),
+                                new BasicAction("Execution...", null,
                                         e -> shareExecution(),
                                         a -> a.setEnabled(pnlWorkflowInspectorExecution.hasContent())),
-                                new BasicAction("Summary", null,
+                                new BasicAction("Summary...", null,
                                         e -> shareSummary(),
                                         a -> a.setEnabled(summaryGenerated))
                         ),
                         new ActionGroup(null, null, false,
-                                new BasicAction("Flow Chart", null, e -> shareFlowChart())
+                                new BasicAction("Flow Chart...", null, e -> shareFlowChart())
                         ),
                         new ActionGroup(null, null, false,
                                 new StateAction("Open File After Sharing", null, null,
-                                        e -> getOptions().setOpenFileAfterSharing(! getOptions().isOpenFileAfterSharing()),
+                                        e -> getOptions().setOpenFileAfterSharing(!getOptions().isOpenFileAfterSharing()),
                                         a -> a.setSelected(getOptions().isOpenFileAfterSharing()))
                         )
                 )
         );
 
-        if (! isMac()) {
+        if (!isMac()) {
             BasicAction exitAction = new BasicAction("Exit", null, e -> Application.getSharedApplication().exit(false));
             exitAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F4, KeyEvent.ALT_DOWN_MASK));
 
@@ -589,6 +588,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         showSummaryAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_4,
                 Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
 
+        setupModelsAction();
+
         this.copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY),
                 e -> copy(),
                 aBasicAction -> {
@@ -613,11 +614,47 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
     }
 
+    private void setupModelsAction() {
+        if (chatModels != null && chatModels.size() > 1) {
+            JComboBox modelsCombobox = new JComboBox(chatModels.toArray()) {
+                @Override
+                public String getToolTipText(MouseEvent event) {
+                    return getSelectedItem().toString();
+                }
+            };
+            modelsCombobox.setToolTipText("");
+            ChatModel chatModel = workflowDebugger.getAgentWorkflowBuilder().getChatModel();
+            for (Playground.PlaygroundChatModel playgroundChatModel : chatModels) {
+                if (playgroundChatModel.chatModel().equals(chatModel)) {
+                    modelsCombobox.setSelectedItem(playgroundChatModel);
+                    break;
+                }
+            }
+
+            modelsCombobox.setFocusable(false);
+            Dimension preferredSize = modelsCombobox.getPreferredSize();
+            preferredSize.width = 150;
+            modelsCombobox.setPreferredSize(preferredSize);
+            modelsCombobox.setMaximumSize(preferredSize);
+            chatModelsAction = new ComponentAction("Model: ", modelsCombobox, e ->
+                    setChatModel(((Playground.PlaygroundChatModel) modelsCombobox.getSelectedItem()).chatModel()));
+        }
+    }
+
+    private void setChatModel(ChatModel chatModel) {
+        workflowDebugger.getAgentWorkflowBuilder().chatModel(chatModel);
+        agent = workflowDebugger.getAgentWorkflowBuilder().build();
+    }
+
     private void setupToolbar(JToolBar toolbar) {
         inspectorToolbarActionGroup = new ActionGroup(
-                showStructureAction,
-                showExecutionAction,
-                showSummaryAction
+                new ActionGroup(
+                        showStructureAction,
+                        showExecutionAction,
+                        showSummaryAction),
+                chatModelsAction != null ? new ActionGroup(
+                        chatModelsAction
+                ) : null
         );
         UISupport.setupToolbar(toolbar, inspectorToolbarActionGroup);
     }

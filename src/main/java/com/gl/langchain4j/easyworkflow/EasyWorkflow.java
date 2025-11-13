@@ -1091,7 +1091,13 @@ public class EasyWorkflow {
                     });
         }
 
-        ChatModel getChatModel() {
+        /**
+         * Retrieves the {@link ChatModel} for this workflow. If not explicitly set for this builder, it delegates to
+         * the parent builder.
+         *
+         * @return The {@link ChatModel} to be used by agents.
+         */
+        public ChatModel getChatModel() {
             return chatModel == null && parentBuilder != null ? parentBuilder.getChatModel() : chatModel;
         }
 
