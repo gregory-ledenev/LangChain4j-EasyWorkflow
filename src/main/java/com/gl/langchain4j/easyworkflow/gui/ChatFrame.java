@@ -106,6 +106,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
     private Object agent;
     private ComponentAction chatModelsAction;
+    private BasicAction editUserMessageAction;
 
     /**
      * Constructs a new ChatFrame.
@@ -590,6 +591,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
         setupModelsAction();
 
+        editUserMessageAction = new BasicAction("Edit User Message...", new AutoIcon(ICON_COMPOSE),
+                e -> editUserMessage(),
+                a -> a.setEnabled(pnlWorkflowInspectorStructure.getSelectedWorkflowItem() != null &&
+                        pnlWorkflowInspectorStructure.getSelectedWorkflowItem().getType().equals(EasyWorkflow.JSON_TYPE_AGENT)));
+        editUserMessageAction.setShortDescription("Edit user message");
+
         this.copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY),
                 e -> copy(),
                 aBasicAction -> {
@@ -614,6 +621,10 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
     }
 
+    private void editUserMessage() {
+
+    }
+
     private void setupModelsAction() {
         if (chatModels != null && chatModels.size() > 1) {
             JComboBox modelsCombobox = new JComboBox(chatModels.toArray()) {
@@ -633,7 +644,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
             modelsCombobox.setFocusable(false);
             Dimension preferredSize = modelsCombobox.getPreferredSize();
-            preferredSize.width = 150;
+            preferredSize.width = 120;
             modelsCombobox.setPreferredSize(preferredSize);
             modelsCombobox.setMaximumSize(preferredSize);
             chatModelsAction = new ComponentAction("Model: ", modelsCombobox, e ->
@@ -652,6 +663,9 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         showStructureAction,
                         showExecutionAction,
                         showSummaryAction),
+                new ActionGroup(
+                        editUserMessageAction
+                ),
                 chatModelsAction != null ? new ActionGroup(
                         chatModelsAction
                 ) : null
@@ -668,6 +682,9 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 ),
                 new ActionGroup(
                         copyAction
+                ),
+                new ActionGroup(
+                        editUserMessageAction
                 )
         );
         JPopupMenu popupMenu = new JPopupMenu();

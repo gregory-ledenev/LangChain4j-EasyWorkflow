@@ -28,7 +28,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
@@ -749,6 +748,15 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             case Failed -> "✘";
             case Running -> "▶";
         };
+    }
+
+    /**
+     * Represents a single item in the workflow list, holding its properties and state.
+     * This class is used by the {@link WorkflowInspectorListPane} to display information
+     * about each step or component of a workflow.
+     */
+    public WorkflowItem getSelectedWorkflowItem() {
+        return list.getSelectedValue();
     }
 
     /**

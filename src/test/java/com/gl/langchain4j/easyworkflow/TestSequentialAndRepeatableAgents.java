@@ -204,7 +204,7 @@ public class TestSequentialAndRepeatableAgents {
     }
 
     public interface NovelCreator {
-        @Agent(outputName = "story")
+        @Agent(outputKey = "story")
         Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
     }
 
@@ -215,7 +215,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The topic is {{topic}}.
                      """)
-        @Agent(value = "Generates a story based on the given topic", outputName = "story")
+        @Agent(value = "Generates a story based on the given topic", outputKey = "story")
         public String generateStory(@V("topic") String topic) {
             inputReceived(expandUserMessage(Map.of("topic", topic)));
             String result = """
@@ -232,7 +232,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The story is "{{story}}".
                      """)
-        @Agent(value = "Edits a story to better fit a given audience", outputName = "story")
+        @Agent(value = "Edits a story to better fit a given audience", outputKey = "story")
         public String editStory(@V("story") String story, @V("audience") String audience) {
             inputReceived(expandUserMessage(Map.of(
                     "story", story,
@@ -251,7 +251,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The story is "{{story}}".
                      """)
-        @Agent(value = "Edits a story to better fit a given style", outputName = "story")
+        @Agent(value = "Edits a story to better fit a given style", outputKey = "story")
         public String editStory(@V("story") String story, @V("style") String style) {
             inputReceived(expandUserMessage(Map.of(
                     "story", story,
@@ -269,7 +269,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the score and nothing else.
                      The story is: "{{story}}"
                      """)
-        @Agent(value = "Scores a story based on how well it aligns with a given style", outputName = "score")
+        @Agent(value = "Scores a story based on how well it aligns with a given style", outputKey = "score")
         public double scoreStyle(@V("story") String story, @V("style") String style) {
             inputReceived(expandUserMessage(Map.of(
                     "story", story,
@@ -284,7 +284,7 @@ public class TestSequentialAndRepeatableAgents {
     public static class QualityScorer implements WorkflowDebuggerSupport {
         private WorkflowDebugger workflowDebugger;
 
-        @Agent(outputName = "quality")
+        @Agent(outputKey = "quality")
         public double scoreStyle(@V("story") String story) {
             double result = 0.74;
             if (workflowDebugger != null) {

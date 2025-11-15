@@ -119,7 +119,7 @@ public class SampleSwitchAgents {
                      Prepare a short 1-2 sentences summary for provided information.
                      The information is: '{{response}}'.
                      """)
-        @Agent(value = "Categorizes a user request", outputName = "summary")
+        @Agent(value = "Categorizes a user request", outputKey = "summary")
         String summary(@V("response") String response);
     }
 
@@ -132,7 +132,7 @@ public class SampleSwitchAgents {
                      Reply with only one of those words and nothing else.
                      The user request is: '{{request}}'.
                      """)
-        @Agent(value = "Categorizes a user request", outputName = "category")
+        @Agent(value = "Categorizes a user request", outputKey = "category")
         RequestCategory classify(@V("request") String request);
     }
 
@@ -144,7 +144,7 @@ public class SampleSwitchAgents {
                      Analyze the following user request under a medical point of view and provide the best possible answer.
                      The user request is {{request}}.
                      """)
-        @Agent(value = "A medical expert", outputName = "response")
+        @Agent(value = "A medical expert", outputKey = "response")
         String medical(
                 @MemoryId String memoryId,
                 @V("request") String request);
@@ -158,7 +158,7 @@ public class SampleSwitchAgents {
                      Analyze the following user request under a legal point of view and provide the best possible answer.
                      The user request is {{request}}.
                      """)
-        @Agent(value = "A legal expert", outputName = "response")
+        @Agent(value = "A legal expert", outputKey = "response")
         String legal(
                 @MemoryId String memoryId,
                 @V("request") String request);
@@ -171,7 +171,7 @@ public class SampleSwitchAgents {
                      Analyze the following user request under a technical point of view and provide the best possible answer.
                      The user request is {{request}}.
                      """)
-        @Agent(value = "A technical expert", outputName = "response")
+        @Agent(value = "A technical expert", outputKey = "response")
         String technical(
                 @MemoryId String memoryId,
                 @V("request") String request);
@@ -180,7 +180,7 @@ public class SampleSwitchAgents {
     @SuppressWarnings("unused")
     public interface ExpertRouterAgent {
 
-        @Agent(outputName = "response")
+        @Agent(outputKey = "response")
         Map<String, String> ask(@V("request") String request);
 
     }

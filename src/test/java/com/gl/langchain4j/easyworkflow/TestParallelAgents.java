@@ -124,7 +124,7 @@ public class TestParallelAgents {
 
     @SuppressWarnings("unused")
     public static class FoodExpert extends WorkflowDebuggerSupport.Impl {
-        @Agent(outputName = "meals")
+        @Agent(outputKey = "meals")
         public List<String> findMeal(@V("mood") String mood) {
             inputReceived(mood);
             List<String> result = List.of("Chicken Fajitas", "Grilled Cheeseburgers", "Seafood Paella");
@@ -136,7 +136,7 @@ public class TestParallelAgents {
 
     @SuppressWarnings("unused")
     public static class MovieExpert extends WorkflowDebuggerSupport.Impl {
-        @Agent(outputName = "movies")
+        @Agent(outputKey = "movies")
         public List<String> findMovie(@V("mood") String mood) {
             inputReceived(mood);
             List<String> result = List.of("The Princess Briden", "Elf", "Amélie");

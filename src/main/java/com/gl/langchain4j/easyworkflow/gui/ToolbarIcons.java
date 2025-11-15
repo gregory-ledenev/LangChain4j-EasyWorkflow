@@ -26,6 +26,7 @@ public class ToolbarIcons {
     public static final String ICON_TOOLBAR_PLAY = "toolbar-play";
     public static final String ICON_TIMER = "timer";
     public static final String ICON_FILING_CABINET = "filling-cabinet";
+    public static final String ICON_COMPOSE = "compose";
 
     public static void loadIcons()  {
         loadIcon(ICON_COPY, "icons/toolbar/copy");
@@ -49,6 +50,7 @@ public class ToolbarIcons {
         loadIcon(ICON_TOOLBAR_PLAY, "icons/toolbar/play-toolbar");
         loadIcon(ICON_TIMER, "icons/toolbar/timer");
         loadIcon(ICON_FILING_CABINET, "icons/toolbar/filing-cabinet");
+        loadIcon(ICON_COMPOSE, "icons/toolbar/compose");
     }
 
     public static void loadIcon(String iconKey, String fileName) {

@@ -137,13 +137,13 @@ public class TestConditionalAgents {
 
     public interface ExpertRouterAgent {
 
-        @Agent(outputName = "response")
+        @Agent(outputKey = "response")
         Map<String, String> ask(@V("request") String request);
     }
 
     @SuppressWarnings("unused")
     public static class SummaryAgent extends WorkflowDebuggerSupport.Impl {
-        @Agent(value = "Summarises a user request", outputName = "summary")
+        @Agent(value = "Summarises a user request", outputKey = "summary")
         public String summary(@V("response") String response) {
             inputReceived(response != null && !response.isEmpty() ? response : "None");
             String result = "Summary: " + response;
@@ -154,7 +154,7 @@ public class TestConditionalAgents {
 
     @SuppressWarnings("unused")
     public static class CategoryRouter extends WorkflowDebuggerSupport.Impl {
-        @Agent(value = "Categorizes a user request", outputName = "category")
+        @Agent(value = "Categorizes a user request", outputKey = "category")
         public RequestCategory classify(@V("request") String request) {
             inputReceived(request);
 
@@ -175,7 +175,7 @@ public class TestConditionalAgents {
 
     @SuppressWarnings("unused")
     public static class MedicalExpert extends WorkflowDebuggerSupport.Impl {
-        @Agent(value = "A medical expert", outputName = "response")
+        @Agent(value = "A medical expert", outputKey = "response")
         public String medical(@MemoryId String memoryId, @V("request") String request) {
             inputReceived(request);
             outputProduced(RESPONSE_MEDICAL);
@@ -185,7 +185,7 @@ public class TestConditionalAgents {
 
     @SuppressWarnings("unused")
     public static class LegalExpert extends WorkflowDebuggerSupport.Impl {
-        @Agent(value = "A legal expert", outputName = "response")
+        @Agent(value = "A legal expert", outputKey = "response")
         public String legal(@MemoryId String memoryId, @V("request") String request) {
             inputReceived(request);
             outputProduced(RESPONSE_LEGAL);
@@ -195,7 +195,7 @@ public class TestConditionalAgents {
 
     @SuppressWarnings("unused")
     public static class TechnicalExpert extends WorkflowDebuggerSupport.Impl {
-        @Agent(value = "A technical expert", outputName = "response")
+        @Agent(value = "A technical expert", outputKey = "response")
         public String technical(@MemoryId String memoryId, @V("request") String request) {
             inputReceived(request);
             outputProduced(RESPONSE_TECHNICAL);

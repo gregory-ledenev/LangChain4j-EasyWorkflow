@@ -145,7 +145,7 @@ public class SampleParallelAgents {
                      For each meal, just give the name of the meal.
                      Provide a list with the 3 items and nothing else.
                      """)
-        @Agent(outputName = "meals")
+        @Agent(outputKey = "meals")
         List<String> findMeal(@V("mood") String mood);
     }
 
@@ -157,7 +157,7 @@ public class SampleParallelAgents {
                      The mood is {{mood}}.
                      Provide a list with the 3 items and nothing else.
                      """)
-        @Agent(outputName = "movies")
+        @Agent(outputKey = "movies")
         List<String> findMovie(@V("mood") String mood);
     }
 

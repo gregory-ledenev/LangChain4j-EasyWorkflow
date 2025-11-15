@@ -356,6 +356,9 @@ public interface Playground {
         }
     }
 
+    /**
+     * Represents a chat model used within the playground, associating a name with a {@link ChatModel} instance.
+     */
     record PlaygroundChatModel(String name, ChatModel chatModel) {
         @Override
         public String toString() {

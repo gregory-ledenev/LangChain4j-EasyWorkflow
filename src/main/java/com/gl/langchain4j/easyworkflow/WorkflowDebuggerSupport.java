@@ -86,7 +86,7 @@ public interface WorkflowDebuggerSupport {
         for (Method method : getClass().getDeclaredMethods()) {
             Agent annotation = method.getAnnotation(Agent.class);
             if (annotation != null) {
-                getWorkflowDebugger().stateChanged(this, getClass(), annotation.outputName(), output);
+                getWorkflowDebugger().stateChanged(this, getClass(), annotation.outputKey(), output);
                 break;
             }
         }

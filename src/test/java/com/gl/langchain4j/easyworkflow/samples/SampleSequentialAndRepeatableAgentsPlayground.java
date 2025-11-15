@@ -28,6 +28,12 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
                 .build();
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+        workflowDebugger.setUserMessageTemplate(SampleSequentialAndRepeatableAgents.CreativeWriter.class,
+                """
+                     You are a super, mega creative writer. Generate a draft of a story no more than 3 sentences long around the
+                      topic of space empire. The story should describe events occurred in the land of Neverland.
+                     Return only the story and nothing else.
+                     """);
         EasyWorkflow.AgentWorkflowBuilder<SampleSequentialAndRepeatableAgents.NovelCreator> builder = EasyWorkflow.builder(SampleSequentialAndRepeatableAgents.NovelCreator.class)
                 .chatModel(metaLlamaModel)
                 .workflowDebugger(workflowDebugger)
