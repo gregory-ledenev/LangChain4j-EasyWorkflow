@@ -177,6 +177,11 @@ public class AppDialog<T> extends JDialog {
      */
     public void addButton(JButton button, boolean isLeft) {
         pnlButtons.add(button, isLeft ? 0 : pnlButtons.getComponentCount());
+
+        if (isLeft && pnlButtons.getComponent(1) instanceof JButton)
+            pnlButtons.add(Box.createHorizontalStrut(10), 1);
+        else if (!isLeft && pnlButtons.getComponent(pnlButtons.getComponentCount() - 2) instanceof JButton)
+            pnlButtons.add(Box.createHorizontalStrut(10), pnlButtons.getComponentCount() - 1);
     }
 
     /**
@@ -238,5 +243,32 @@ public class AppDialog<T> extends JDialog {
      */
     public void showMessage(String title, String message) {
         JOptionPane.showMessageDialog(this, message, title != null ? title : getTitle(), JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    /**
+     * Displays a question dialog with Yes, No, and Cancel options.
+     *
+     * @param title   The title of the question dialog. If null, the dialog's own title is used.
+     * @param message The message to display.
+     * @return An integer indicating the user's choice (e.g., {@link JOptionPane#YES_OPTION},
+     * {@link JOptionPane#NO_OPTION}, {@link JOptionPane#CANCEL_OPTION}).
+     */
+    public int question(String title, String message) {
+        return question(title, message, JOptionPane.YES_NO_OPTION);
+    }
+
+    /**
+     * Displays a question dialog with Yes, No, and Cancel options.
+     *
+     * @param title      The title of the question dialog. If null, the dialog's own title is used.
+     * @param message    The message to display.
+     * @param optionType option type as bitwise combination of {@link JOptionPane#YES_OPTION},
+     *                   {@link JOptionPane#NO_OPTION}, {@link JOptionPane#CANCEL_OPTION}).
+     * @return An integer indicating the user's choice (e.g., {@link JOptionPane#YES_OPTION},
+     * {@link JOptionPane#NO_OPTION}, {@link JOptionPane#CANCEL_OPTION}).
+     */
+    public int question(String title, String message, int optionType) {
+        //noinspection MagicConstant
+        return JOptionPane.showConfirmDialog(this, message, title != null ? title : getTitle(), optionType);
     }
 }

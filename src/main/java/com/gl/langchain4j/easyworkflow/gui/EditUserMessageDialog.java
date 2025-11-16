@@ -49,6 +49,7 @@ public class EditUserMessageDialog extends AppDialog<String> {
     public static final String ACTION_COMMAND_RESET = "reset";
 
     private final UserMessageEditor edtUserMessage = new UserMessageEditor();
+    private final JButton btnReset;
 
     /**
      * Constructs a new {@code EditUserMessageDialog}.
@@ -58,19 +59,20 @@ public class EditUserMessageDialog extends AppDialog<String> {
     public EditUserMessageDialog(JFrame owner) {
         super(owner, "Edit User Message");
 
-        setSize(400, 300);
-        setPreferredSize(new Dimension(400, 300));
+        setSize(450, 300);
+        setPreferredSize(new Dimension(450, 300));
         setLocationRelativeTo(getParent());
         setMinimumSize(new Dimension(400, 300));
         setMaximumSize(new Dimension(600, 400));
 
         JScrollPane content = new JScrollPane(edtUserMessage);
+        content.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         setContent(content);
 
-        JButton resetButton = new JButton("Reset");
-        resetButton.setActionCommand(ACTION_COMMAND_RESET);
-        resetButton.addActionListener(e -> reset());
-        addButton(resetButton, true);
+        btnReset = new JButton("Reset");
+        btnReset.setActionCommand(ACTION_COMMAND_RESET);
+        btnReset.addActionListener(e -> reset());
+        addButton(btnReset, true);
     }
 
     /**
@@ -78,8 +80,10 @@ public class EditUserMessageDialog extends AppDialog<String> {
      * and making the dialog invisible.
      */
     public void reset() {
-        setModalResult(ACTION_COMMAND_RESET);
-        setVisible(false);
+        if (question(null, "Are you sure you want to reset user message?") == JOptionPane.YES_OPTION) {
+            setModalResult(ACTION_COMMAND_RESET);
+            setVisible(false);
+        }
     }
 
     /**
@@ -141,7 +145,7 @@ public class EditUserMessageDialog extends AppDialog<String> {
      * @param variables A list of variables that can be inserted into the message.
      * @return A {@link Result} object containing the modal result and the edited user message.
      */
-    public static Result editUserMessage(JFrame owner, String userMessage, List<String> variables) {
+    public static Result editUserMessage(JFrame owner, String userMessage, List<String> variables, boolean canReset) {
         EditUserMessageDialog dialog = new EditUserMessageDialog(owner);
 
         Actions.ActionGroup insertActionGroup = null;
@@ -153,6 +157,7 @@ public class EditUserMessageDialog extends AppDialog<String> {
         }
 
         UISupport.setupPopupMenu(dialog.edtUserMessage, insertActionGroup);
+        dialog.btnReset.setVisible(canReset);
 
         dialog.setUserMessage(userMessage);
         String result = dialog.executeModal(userMessage);
@@ -169,17 +174,18 @@ public class EditUserMessageDialog extends AppDialog<String> {
          * @param variableName The name of the variable to insert.
          */
         public InsertVariableAction(EditUserMessageDialog dialog, String variableName) {
-            super(variableName, null, e -> {
-                dialog.edtUserMessage.replaceSelection("{{%s}}".formatted(variableName));
-            });
+            super("{\uD835\uDC65}  "+variableName, null, e -> dialog.edtUserMessage.replaceSelection("{{%s}}".formatted(variableName)));
         }
     }
 
     static class UserMessageEditor extends JTextPane {
         private static final Pattern TAG_PATTERN = Pattern.compile("\\{\\{.*?}}");
+        private final UISupport.DefaultUndoableEditListener undoableEditListener;
 
         public UserMessageEditor() {
             super(new DefaultStyledDocument());
+            setFont(getFont().deriveFont(14f));
+            undoableEditListener = UISupport.setupUndomanager(this);
             getDocument().addDocumentListener(new DocumentListener() {
                 @Override
                 public void insertUpdate(DocumentEvent e) {
@@ -196,21 +202,32 @@ public class EditUserMessageDialog extends AppDialog<String> {
             });
         }
 
-        private void highlight() {
-            DefaultStyledDocument doc = (DefaultStyledDocument) getDocument();
-            StyleContext sc = StyleContext.getDefaultStyleContext();
-            doc.setCharacterAttributes(0, doc.getLength(), sc.getEmptySet(), true);
+        @Override
+        public void setText(String t) {
+            super.setText(t);
+            undoableEditListener.getUndoManager().discardAllEdits();
+        }
 
-            SimpleAttributeSet boldStyle = new SimpleAttributeSet();
-            StyleConstants.setBold(boldStyle, true);
+        private void highlight() {
+            undoableEditListener.setEnabled(false);
             try {
-                String text = doc.getText(0, doc.getLength());
-                Matcher matcher = TAG_PATTERN.matcher(text);
-                while (matcher.find()) {
-                    doc.setCharacterAttributes(matcher.start(), matcher.end() - matcher.start(), boldStyle, false);
+                DefaultStyledDocument doc = (DefaultStyledDocument) getDocument();
+                StyleContext sc = StyleContext.getDefaultStyleContext();
+                doc.setCharacterAttributes(0, doc.getLength(), sc.getEmptySet(), true);
+
+                SimpleAttributeSet boldStyle = new SimpleAttributeSet();
+                StyleConstants.setBold(boldStyle, true);
+                try {
+                    String text = doc.getText(0, doc.getLength());
+                    Matcher matcher = TAG_PATTERN.matcher(text);
+                    while (matcher.find()) {
+                        doc.setCharacterAttributes(matcher.start(), matcher.end() - matcher.start(), boldStyle, false);
+                    }
+                } catch (BadLocationException e) {
+                    e.printStackTrace();
                 }
-            } catch (BadLocationException e) {
-                e.printStackTrace();
+            } finally {
+                undoableEditListener.setEnabled(true);
             }
         }
     }

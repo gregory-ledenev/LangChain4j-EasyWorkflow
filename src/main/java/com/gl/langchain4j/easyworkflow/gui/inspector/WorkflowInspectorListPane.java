@@ -64,6 +64,7 @@ import static javax.swing.BoxLayout.Y_AXIS;
 public abstract class WorkflowInspectorListPane extends AppPane {
     public static final String NODE_AGENTIC_SCOPE = "| Agentic Scope |";
     public static final String NODE_PROGRESSION = "| Progression |";
+    public static final String NODE_USER_MESSAGE = "| User Message |";
     public static final String NODE_RESULT = "result";
     public static final String NODE_FAILURE = "failure";
 
@@ -353,6 +354,12 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                                 passResult.put("failure", convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
                             }
                         }
+                    }
+
+                    if (selectedValue.type.equals(JSON_TYPE_AGENT)) {
+                        String userMessage = workflowDebugger.getUserMessageTemplate(selectedValue.getAgentClassName());
+                        if (userMessage != null)
+                            result.put(NODE_USER_MESSAGE, userMessage);
                     }
                 }
                 default -> {
@@ -751,12 +758,27 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     /**
-     * Represents a single item in the workflow list, holding its properties and state.
-     * This class is used by the {@link WorkflowInspectorListPane} to display information
-     * about each step or component of a workflow.
+     * Represents a single item in the workflow list, holding its properties and state. This class is used by the
+     * {@link WorkflowInspectorListPane} to display information about each step or component of a workflow.
+     *
+     * @return The currently selected {@link WorkflowItem} from the list, or {@code null} if no item is selected.
      */
     public WorkflowItem getSelectedWorkflowItem() {
         return list.getSelectedValue();
+    }
+
+    /**
+     * Retrieves the user message template associated with a given agent class.
+     *
+     * @param agentClass The {@link Class} object representing the agent.
+     * @return The user message template string for the agent, or {@code null} if not found.
+     */
+    public String getUserMessage(Class<?> agentClass) {
+        for (WorkflowItem workflowItem : listModel) {
+            if (agentClass.getName().equals(workflowItem.getAgentClassName()))
+                return workflowItem.getUserMessage();
+        }
+        return null;
     }
 
     /**
@@ -797,7 +819,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         public String getAgentClassName() {
-            return (String) node.get(JSON_KEY_AGENT_CLASS_NAME);
+            return node != null ? (String) node.get(JSON_KEY_AGENT_CLASS_NAME) : null;
         }
 
         public String getUserMessage() {
@@ -1225,7 +1247,13 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             pnlStateIndicator.setPreferredSize(new Dimension(50, 0));
 
             lblIcon.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
-            lblTitle.setText(value.getTitle());
+            String title = value.getTitle();
+            if (value != null && listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null)
+                title = "<html>%s<span style=\"color: %s;\"> %s</span></html>".formatted(
+                        title,
+                        isSelected && cellHasFocus ? "white" : "gray",
+                        "✽");
+            lblTitle.setText(title);
 
             String[] subTitles = listPane.getSubTitles(value, index);
             if (subTitles.length > 0) {

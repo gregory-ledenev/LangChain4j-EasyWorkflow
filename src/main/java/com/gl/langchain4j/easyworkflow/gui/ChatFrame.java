@@ -27,6 +27,7 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
@@ -43,10 +44,14 @@ import javax.swing.filechooser.FileFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -70,6 +75,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     public static final String PROP_STRUCTURE_FILE = "structure-file";
     public static final String PROP_EXECUTION_FILE = "execution-file";
     public static final String PROP_SUMMARY_FILE = "summary-file";
+    public static final String PROP_USER_MESSAGES_FILE = "user-messages-file";
     public static final String PROP_CHAT_FILE = "chat-file";
 
     private static final Logger logger = LoggerFactory.getLogger(ChatFrame.class);
@@ -150,6 +156,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             JSplitPane contentPane = new JSplitPane();
             contentPane.setResizeWeight(0);
             contentPane.setLeftComponent(pnlChat);
+            pnlChat.setBorder(UISupport.createCustomLineBorder(UISupport.getDefaultBorderColor(), false, false, false, true));
+            pnlChat.getHeaderPane().setVisible(true);
 
             pnlWorkflowInspectorStructure = new WorkflowInspectorListPane.Structure();
             pnlWorkflowInspectorStructure.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
@@ -163,17 +171,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             pnlWorkflowInspectorExecution.setPlaceHolderText("Run workflow to see execution results");
             pnlWorkflowInspectorExecution.setPlaceHolderIcon(new AutoIcon(ICON_INFO_PLAIN));
             pnlWorkflowInspectorExecution.setPlaceHolderVisible(true);
-
-            BasicAction focusInspectorAction = new BasicAction("focusInspector", null, e -> pnlWorkflowInspectorDetails.requestFocus());
-            KeyStroke keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);
-            UISupport.bindAction(pnlWorkflowInspectorStructure.getListView(),
-                    "focusInspector",
-                    keyStroke,
-                    focusInspectorAction);
-            UISupport.bindAction(pnlWorkflowInspectorExecution.getListView(),
-                    "focusInspector",
-                    keyStroke,
-                    focusInspectorAction);
 
             pnlWorkflowSummaryView = new JEditorPane() {
                 @Override
@@ -194,6 +191,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             pnlWorkflowContentsHost.add(headerPane, BorderLayout.NORTH);
             setupActions();
             setupMenuBar();
+            setupChatToolbar(pnlChat.getHeaderPane().getToolbar());
             setupToolbar(headerPane.getToolbar());
             setupPopupMenu();
 
@@ -436,6 +434,11 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                                         a -> a.setEnabled(summaryGenerated))
                         ),
                         new ActionGroup(null, null, false,
+                                new BasicAction("User Messages...", null,
+                                        e -> shareUserMessages(),
+                                        a -> a.setEnabled(canShareUserMessages()))
+                        ),
+                        new ActionGroup(null, null, false,
                                 new BasicAction("Flow Chart...", null, e -> shareFlowChart())
                         ),
                         new ActionGroup(null, null, false,
@@ -494,6 +497,110 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             if (action != null)
                 action.actionPerformed(new ActionEvent(c, 0, null));
         }
+    }
+
+    public static record UserMessageEntry(String agentClassName, String originalUserMessage, String userMessage) {}
+    private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
+
+    private String getUserMessagesAsJson() {
+        Map<Class<?>, String> userMessageTemplates = workflowDebugger.getUserMessageTemplates();
+        if (userMessageTemplates.isEmpty())
+            return null;
+
+        List<UserMessageEntry> userMessageEntries = new ArrayList<>();
+        userMessageTemplates.forEach((agentClass, userMessage) -> {
+            userMessageEntries.add(new UserMessageEntry(agentClass.getName(),
+                    pnlWorkflowInspectorStructure.getUserMessage(agentClass),
+                    userMessage));
+        });
+
+        try {
+            return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(userMessageEntries);
+        } catch (JsonProcessingException ex) {
+            logger.error("Failed to serialize user messages", ex);;
+            return null;
+        }
+    }
+
+    static final String USER_HOME_FOLDER = ".EasyWorkflow";
+
+    /**
+     * Stores the user-defined user messages for the agents in the current workflow to a file.
+     */
+    public void storeUserMessages() {
+        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        if (!userHome.exists())
+            userHome.mkdirs();
+
+        Class<?> agentClass = workflowDebugger.getAgentWorkflowBuilder().getAgentClass();
+        File agentFile = new File(userHome, agentClass.getName() + ".json");
+
+        if (! workflowDebugger.hasUserMessageTemplates()) {
+            if (agentFile.exists())
+                agentFile.delete();
+        } else {
+            try {
+                Files.write(Paths.get(agentFile.getAbsolutePath()), getUserMessagesAsJson().getBytes());
+            } catch (Exception ex) {
+                logger.error("Failed to store user messages for agent {}", agentClass.getName(), ex);
+            }
+        }
+    }
+
+    /**
+     * Loads the user-defined user messages from a file for the current agent.
+     */
+    public void loadUserMessages() {
+        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        if (!userHome.exists())
+            return;
+
+        Class<?> agentClass = workflowDebugger.getAgentWorkflowBuilder().getAgentClass();
+        File agentFile = new File(userHome, agentClass.getName() + ".json");
+
+        if (!agentFile.exists())
+            return;
+
+        try {
+            String json = new String(Files.readAllBytes(Paths.get(agentFile.getAbsolutePath())));
+            List<UserMessageEntry> userMessageEntries = OBJECT_MAPPER.readValue(json,
+                    OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, UserMessageEntry.class));
+
+            userMessageEntries.forEach(userMessageEntry -> {
+                try {
+                    Class<?> currentAgentClass = Class.forName(userMessageEntry.agentClassName());
+                    if (Objects.equals(userMessageEntry.originalUserMessage(), pnlWorkflowInspectorStructure.getUserMessage(currentAgentClass)))
+                        workflowDebugger.setUserMessageTemplate(currentAgentClass, userMessageEntry.userMessage());
+                    else
+                        logger.debug("Skipping custom user message for class: " + currentAgentClass.getName());
+                } catch (ClassNotFoundException e) {
+                    logger.error("Failed to load user message for agent {}", userMessageEntry.agentClassName(), e);
+                }
+            });
+        } catch (IOException ex) {
+            logger.error("Failed to load user messages for agent {}", agentClass.getName(), ex);
+        }
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+
+        CompletableFuture.runAsync(this::loadUserMessages).thenRun(() -> SwingUtilities.invokeLater(() -> repaint()));
+    }
+
+    private boolean canShareUserMessages() {
+        return workflowDebugger.hasUserMessageTemplates();
+    }
+
+    private void shareUserMessages() {
+        String userMessagesAsJson = getUserMessagesAsJson();
+        if (userMessagesAsJson != null)
+            shareContent(userMessagesAsJson,
+                    PROP_USER_MESSAGES_FILE,
+                    "user-messages.json");
+        else
+            logger.warn("No user messages to share");
     }
 
     private void shareChat() {
@@ -596,6 +703,11 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 a -> a.setEnabled(pnlWorkflowInspectorStructure.getSelectedWorkflowItem() != null &&
                         pnlWorkflowInspectorStructure.getSelectedWorkflowItem().getType().equals(EasyWorkflow.JSON_TYPE_AGENT)));
         editUserMessageAction.setShortDescription("Edit user message");
+        UISupport.bindAction(pnlWorkflowInspectorStructure.getListView(),
+                "editUserMessage",
+                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
+                editUserMessageAction);
+        UISupport.bindDoubleClickAction(pnlWorkflowInspectorStructure.getListView(), editUserMessageAction);
 
         this.copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY),
                 e -> copy(),
@@ -629,24 +741,38 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         try {
             Class<?> agentClass = Class.forName(workflowItem.getAgentClassName());
             String userMessage = workflowDebugger.getUserMessageTemplate(agentClass);
+            boolean canReset = userMessage != null;
             if (userMessage == null)
                 userMessage = workflowItem.getUserMessage();
 
             EditUserMessageDialog.Result result = EditUserMessageDialog.editUserMessage(this,
                     userMessage,
-                    EasyWorkflow.getAgentMethodParameterNames(EasyWorkflow.getAgentMethod(agentClass)));
+                    EasyWorkflow.getAgentMethodParameterNames(EasyWorkflow.getAgentMethod(agentClass)),
+                    canReset);
             switch (result.modalResult()) {
                 case AppDialog.ACTION_COMMAND_OK:
-                    workflowDebugger.setUserMessageTemplate(agentClass, result.userMessage());
+                    if (!Objects.equals(userMessage, result.userMessage())) {
+                        workflowDebugger.setUserMessageTemplate(agentClass, result.userMessage());
+                        agentsChanged();
+                    }
                     break;
                 case EditUserMessageDialog.ACTION_COMMAND_RESET:
                     workflowDebugger.setUserMessageTemplate(agentClass, null);
+                    agentsChanged();
                     break;
                 default:
             }
         } catch (ClassNotFoundException ex) {
             logger.error("Failed to edit user message", ex);
         }
+    }
+
+    private void agentsChanged() {
+        storeUserMessages();
+
+        pnlWorkflowInspectorStructure.repaint();
+        pnlWorkflowInspectorExecution.repaint();
+        pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
     }
 
     private void setupModelsAction() {
@@ -668,7 +794,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
             modelsCombobox.setFocusable(false);
             Dimension preferredSize = modelsCombobox.getPreferredSize();
-            preferredSize.width = 120;
+            preferredSize.width = 150;
             modelsCombobox.setPreferredSize(preferredSize);
             modelsCombobox.setMaximumSize(preferredSize);
             chatModelsAction = new ComponentAction("Model: ", modelsCombobox, e ->
@@ -689,12 +815,20 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         showSummaryAction),
                 new ActionGroup(
                         editUserMessageAction
-                ),
-                chatModelsAction != null ? new ActionGroup(
-                        chatModelsAction
-                ) : null
+                )
         );
         UISupport.setupToolbar(toolbar, inspectorToolbarActionGroup);
+    }
+
+    private void setupChatToolbar(JToolBar toolbar) {
+        if (chatModelsAction != null) {
+            ActionGroup chatToolbarActionGroup = new ActionGroup(
+                    new ActionGroup(
+                            chatModelsAction
+                    )
+            );
+            UISupport.setupToolbar(toolbar, chatToolbarActionGroup);
+        }
     }
 
     private void setupPopupMenu() {

@@ -30,6 +30,7 @@ import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormPanel;
+import com.gl.langchain4j.easyworkflow.gui.platform.HeaderPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
@@ -92,6 +93,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     };
     private final JLabel lblWaiting;
     private final JToolBar toolsToolbar;
+    private final HeaderPane pnlHeader;
     private ChatEngine chatEngine;
     private boolean waitingForResponse;
     private boolean waitState;
@@ -126,6 +128,13 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         contentPanel.setOpaque(false);
         layeredPane.add(contentPanel, JLayeredPane.DEFAULT_LAYER);
         contentPanel.add(chatMessagesHostPane, BorderLayout.CENTER);
+
+        // Header pane
+        pnlHeader = new HeaderPane(false);
+        pnlHeader.setTitle("Chat");
+        pnlHeader.setSubtitle("Chat with the agent to test it out");
+        contentPanel.add(pnlHeader, BorderLayout.NORTH);
+        pnlHeader.setVisible(false);
 
         // Wait panel
         waitPanel.setOpaque(false);
@@ -200,6 +209,15 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         inputPanel.add(pnlButtons, BorderLayout.EAST);
 
         setupActions();
+    }
+
+    /**
+     * Returns the header pane of this chat panel.
+     *
+     * @return The {@link HeaderPane} instance used in this chat panel.
+     */
+    public HeaderPane getHeaderPane() {
+        return pnlHeader;
     }
 
     /**

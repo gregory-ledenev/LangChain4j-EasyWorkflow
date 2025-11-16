@@ -64,11 +64,14 @@ public class HeaderPane extends JPanel{
         Box pnlTitle = new Box(BoxLayout.X_AXIS);
         pnlTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
         pnlTitle.add(lblTitle);
+        JComponent fillY = new JPanel();
+        fillY.setPreferredSize(new Dimension(0, 34));
+        pnlTitle.add(fillY);
         pnlTitle.add(Box.createHorizontalGlue());
         pnlTitle.add(toolbar);
         add(pnlTitle);
 
-        lblTitle.setFont(lblTitle.getFont().deriveFont(18f));
+        lblTitle.setFont(lblTitle.getFont().deriveFont(20f));
         add(lblSubtitle);
         lblSubtitle.setForeground(Color.gray);
 

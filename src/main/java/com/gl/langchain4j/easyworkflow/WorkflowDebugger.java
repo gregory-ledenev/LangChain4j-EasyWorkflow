@@ -888,11 +888,48 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     /**
-     * Sets the user message template for a given agent class. Use this method to alter a user message for a particular agent class.
+     * Returns an unmodifiable map of user message templates, where keys are agent classes and values are their
+     * corresponding user message template strings.
      *
-     * @param agentClass The class of the agent.
-     * @param userMessageTemplate The user message template string to associate with the agent class.
+     * @return An unmodifiable map of user message templates.
      */
+    public Map<Class<?>, String> getUserMessageTemplates() {
+        return Collections.unmodifiableMap(userMessageTemplates);
+    }
+
+    /**
+     * Checks if there are any user message templates configured.
+     *
+     * @return {@code true} if there are user message templates, {@code false} otherwise.
+     */
+    public boolean hasUserMessageTemplates() {
+        return ! userMessageTemplates.isEmpty();
+    }
+
+    /**
+     * Returns the user message template associated with the given agent class name.
+     *
+     * @param agentClassName The fully qualified name of the agent class.
+     * @return The user message template string, or {@code null} if not found or if the class cannot be loaded.
+     */
+    public String getUserMessageTemplate(String agentClassName) {
+        if (agentClassName == null)
+            return null;
+
+        try {
+            return userMessageTemplates.get(Class.forName(agentClassName));
+        } catch (ClassNotFoundException e) {
+            logger.error("Class not found for agentClassName: {}", agentClassName, e);
+            return null;
+        }
+    }
+
+        /**
+         * Sets the user message template for a given agent class. Use this method to alter a user message for a particular agent class.
+         *
+         * @param agentClass The class of the agent.
+         * @param userMessageTemplate The user message template string to associate with the agent class.
+         */
     public void setUserMessageTemplate(Class<?> agentClass, String userMessageTemplate) {
         if (userMessageTemplate != null)
             userMessageTemplates.put(agentClass, userMessageTemplate);

@@ -100,8 +100,10 @@ public class Actions {
         }
 
         private void defaultActionPerformed(ActionEvent e) {
-            actionListener.accept(e);
             update();
+            if (isEnabled()) {
+                actionListener.accept(e);
+            }
         }
 
         /**
