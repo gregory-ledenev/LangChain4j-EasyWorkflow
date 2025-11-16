@@ -36,7 +36,6 @@ import java.awt.*;
  * A dialog that provides a chat interface. It can be used to display a chat conversation and interact with a chat
  * engine.
  */
-@SuppressWarnings("ALL")
 public class ChatDialog extends JDialog implements Application.ScheduledUpdatable {
 
     private final ChatPane chatPane = new ChatPane();

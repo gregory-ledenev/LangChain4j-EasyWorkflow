@@ -181,7 +181,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             populateListModel(listModel, builder);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
-            model.addElement(new WorkflowItem(null, null, null, null, "Error parsing workflow", e.getMessage(), 0));
+            model.addElement(new WorkflowItem((Map<String, Object>) null, null, null, "Error parsing workflow", e.getMessage(), 0));
         }
     }
 
@@ -189,12 +189,12 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     private void populateListModel(List<WorkflowItem> listModel, AgentWorkflowBuilder<?> builder) throws JsonProcessingException {
         String jsonString = builder.toJson();
         List<Map<String, Object>> workflowData = objectMapper.readValue(jsonString, List.class);
-        listModel.add(new WorkflowItem(null, TYPE_START, null, ICON_PLAY, "Start",
+        listModel.add(new WorkflowItem(TYPE_START, null, ICON_PLAY, "Start",
                 formatParametersForAgentClass(builder.getAgentClass()),
                 0));
         populateListModel(listModel, workflowData, 0);
         String outputName = builder.getComputedOutputName();
-        listModel.add(new WorkflowItem(null, TYPE_END, outputName, ICON_STOP, "End",
+        listModel.add(new WorkflowItem(TYPE_END, outputName, ICON_STOP, "End",
                 "(%s %s)".formatted(Objects.requireNonNull(getAgentMethod(builder.getAgentClass())).getReturnType().getSimpleName(), outputName), 0));
 
         for (WorkflowItem workflowItem : listModel) {
@@ -226,7 +226,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 populateListModel(listModel, (List<Map<String, Object>>) node.get("block"), indentation + 1);
             }
             if (node.containsKey("elseBlock")) {
-                listModel.add(new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), null, null, "else", "", indentation));
+                listModel.add(new WorkflowItem(node, null, null, "else", "", indentation));
                 populateListModel(listModel, (List<Map<String, Object>>) node.get("elseBlock"), indentation + 1);
             }
         }
@@ -280,7 +280,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 break;
         }
 
-        return new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), outputName, iconKey, title, subtitle, indentation);
+        return new WorkflowItem(node, outputName, iconKey, title, subtitle, indentation);
     }
 
     protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
@@ -768,25 +768,40 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         private final String title;
         private final String subtitle;
         private final String uid;
-        private final String type;
+        private String type;
         private final String outputName;
         private final Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> traceEntriesByIndex = new HashMap<>();
+        private final Map<String, Object> node;
         private int indentation;
         private State state = State.Unknown;
         private int passCount;
 
-        public WorkflowItem(String uid, String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
+        public WorkflowItem(String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
+            this((Map<String, Object>) null, outputName, iconKey, title, subtitle, indentation);
+            this.type = type;
+        }
+
+        public WorkflowItem(Map<String, Object> node, String outputName, String iconKey, String title, String subtitle, int indentation) {
+            this.node = node;
             this.iconKey = iconKey;
             this.title = title;
             this.subtitle = subtitle;
             this.indentation = indentation;
-            this.uid = uid;
-            this.type = type;
+            this.uid = node != null ? (String) node.get(JSON_KEY_UID) : null;
+            this.type = node != null ? (String) node.get(JSON_KEY_TYPE) : null;
             this.outputName = outputName;
         }
 
         public Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> getTraceEntriesByIndex() {
             return traceEntriesByIndex;
+        }
+
+        public String getAgentClassName() {
+            return (String) node.get(JSON_KEY_AGENT_CLASS_NAME);
+        }
+
+        public String getUserMessage() {
+            return (String) node.get(JSON_KEY_USER_MESSAGE);
         }
 
         /**

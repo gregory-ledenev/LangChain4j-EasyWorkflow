@@ -894,7 +894,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * @param userMessageTemplate The user message template string to associate with the agent class.
      */
     public void setUserMessageTemplate(Class<?> agentClass, String userMessageTemplate) {
-        userMessageTemplates.put(agentClass, userMessageTemplate);
+        if (userMessageTemplate != null)
+            userMessageTemplates.put(agentClass, userMessageTemplate);
+        else
+            userMessageTemplates.remove(agentClass);
     }
 
     protected InputGuardrail createAlterInputGuardrail(Class<?> agentClass) {

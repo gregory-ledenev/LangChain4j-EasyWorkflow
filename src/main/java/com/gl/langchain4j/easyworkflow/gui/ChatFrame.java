@@ -622,7 +622,31 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void editUserMessage() {
+        WorkflowInspectorListPane.WorkflowItem workflowItem = pnlWorkflowInspectorStructure.getSelectedWorkflowItem();
+        if (workflowItem == null)
+            return;
 
+        try {
+            Class<?> agentClass = Class.forName(workflowItem.getAgentClassName());
+            String userMessage = workflowDebugger.getUserMessageTemplate(agentClass);
+            if (userMessage == null)
+                userMessage = workflowItem.getUserMessage();
+
+            EditUserMessageDialog.Result result = EditUserMessageDialog.editUserMessage(this,
+                    userMessage,
+                    EasyWorkflow.getAgentMethodParameterNames(EasyWorkflow.getAgentMethod(agentClass)));
+            switch (result.modalResult()) {
+                case AppDialog.ACTION_COMMAND_OK:
+                    workflowDebugger.setUserMessageTemplate(agentClass, result.userMessage());
+                    break;
+                case EditUserMessageDialog.ACTION_COMMAND_RESET:
+                    workflowDebugger.setUserMessageTemplate(agentClass, null);
+                    break;
+                default:
+            }
+        } catch (ClassNotFoundException ex) {
+            logger.error("Failed to edit user message", ex);
+        }
     }
 
     private void setupModelsAction() {

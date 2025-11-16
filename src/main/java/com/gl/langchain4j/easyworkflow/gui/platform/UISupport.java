@@ -66,8 +66,6 @@ import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 @SuppressWarnings("ALL")
 public class UISupport {
 
-
-
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
     private static final Map<String, ImageIcon> icons = new HashMap<>();
@@ -81,7 +79,25 @@ public class UISupport {
         icons.put(getIconKey(iconKey, true), loadImageIcon(images, ImageFilter.Inverted));
     }
 
+    /**
+     * Sets up a context menu (popup menu) for a given {@link JTextComponent} with standard text editing actions (Cut,
+     * Copy, Paste).
+     *
+     * @param textComponent The {@link JTextComponent} to which the popup menu will be attached.
+     */
     public static void setupPopupMenu(JTextComponent textComponent) {
+        setupPopupMenu(textComponent, null);
+    }
+
+    /**
+     * Sets up a context menu (popup menu) for a given {@link JTextComponent} with standard text editing actions (Cut,
+     * Copy, Paste) and optionally additional custom actions.
+     *
+     * @param textComponent     The {@link JTextComponent} to which the popup menu will be attached.
+     * @param additionalActions An {@link ActionGroup} containing additional actions to be included in the popup menu.
+     *                          Can be {@code null}.
+     */
+    public static void setupPopupMenu(JTextComponent textComponent, ActionGroup additionalActions) {
         JPopupMenu popupMenu = new JPopupMenu();
 
         ActionGroup actionGroup = new ActionGroup(
@@ -95,7 +111,8 @@ public class UISupport {
                         new BasicAction("Paste", new AutoIcon(ICON_PASTE),
                                 e -> textComponent.paste(),
                                 a -> a.setEnabled(textComponent.isEditable()))
-                )
+                ),
+                additionalActions
         );
         setupPopupMenu(popupMenu, actionGroup);
         textComponent.setComponentPopupMenu(popupMenu);
@@ -629,7 +646,7 @@ public class UISupport {
     }
 
     private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
-        if (action instanceof Actions.ComponentAction componentAction) {
+        if (action instanceof ComponentAction componentAction) {
             if (componentAction.getValue(Action.NAME) != null) {
                 JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
                 label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
