@@ -38,11 +38,14 @@ import java.awt.*;
  */
 @SuppressWarnings("MagicConstant")
 public class AppSplitPane extends JSplitPane {
+
+    public static final int DIVIDER_SIZE = 3;
+
     /**
      * Constructs a new {@code AppSplitPane} with a default divider size of 1.
      */
     public AppSplitPane() {
-        setDividerSize(1);
+        setDividerSize(DIVIDER_SIZE);
     }
 
     /**
@@ -54,7 +57,7 @@ public class AppSplitPane extends JSplitPane {
      */
     public AppSplitPane(int newOrientation) {
         super(newOrientation);
-        setDividerSize(1);
+        setDividerSize(DIVIDER_SIZE);
     }
 
     /**
@@ -69,7 +72,7 @@ public class AppSplitPane extends JSplitPane {
      */
     public AppSplitPane(int newOrientation, boolean newContinuousLayout) {
         super(newOrientation, newContinuousLayout);
-        setDividerSize(1);
+        setDividerSize(DIVIDER_SIZE);
     }
 
     /**
@@ -83,7 +86,7 @@ public class AppSplitPane extends JSplitPane {
      */
     public AppSplitPane(int newOrientation, boolean newContinuousLayout, Component newLeftComponent, Component newRightComponent) {
         super(newOrientation, newContinuousLayout, newLeftComponent, newRightComponent);
-        setDividerSize(1);
+        setDividerSize(DIVIDER_SIZE);
     }
 
     /**
@@ -96,13 +99,50 @@ public class AppSplitPane extends JSplitPane {
      */
     public AppSplitPane(int newOrientation, Component newLeftComponent, Component newRightComponent) {
         super(newOrientation, newLeftComponent, newRightComponent);
-        setDividerSize(1);
+        setDividerSize(DIVIDER_SIZE);
     }
 
     @Override
     public void updateUI() {
         setUI(new BasicSplitPaneUIEx());
+        setOpaque(false);
         revalidate();
+    }
+
+    @Override
+    public void doLayout() {
+        super.doLayout();
+        if (getOrientation() == JSplitPane.HORIZONTAL_SPLIT) {
+            Component left = getLeftComponent();
+            if (left != null) {
+                Rectangle bounds = left.getBounds();
+                bounds.width += 1;
+                left.setBounds(bounds);
+            }
+
+            Component right = getRightComponent();
+            if (right != null) {
+                Rectangle bounds = right.getBounds();
+                bounds.x -= 2;
+                bounds.width += 2;
+                right.setBounds(bounds);
+            }
+        } else {
+            Component top = getTopComponent();
+            if (top != null) {
+                Rectangle bounds = top.getBounds();
+                bounds.height += 1;
+                top.setBounds(bounds);
+            }
+
+            Component bottom = getBottomComponent();
+            if (bottom != null) {
+                Rectangle bounds = bottom.getBounds();
+                bounds.y -= 2;
+                bounds.height += 2;
+                bottom.setBounds(bounds);
+            }
+        }
     }
 
     /**
@@ -135,14 +175,12 @@ public class AppSplitPane extends JSplitPane {
         public void paint(Graphics g) {
             super.paint(g);
             g.setColor(UISupport.getDefaultBorderColor());
-            // Draw a line along the divider to visually separate the components.
-            // For horizontal split, draw a vertical line.
-            // For vertical split, draw a horizontal line.
-
             if (splitPane.getOrientation() == JSplitPane.HORIZONTAL_SPLIT) {
-                g.drawLine(0, 0, 0, getHeight());
+                int x = getWidth() / 2;
+                g.drawLine(x, 0, x, getHeight());
             } else {
-                g.drawLine(0, 0, getWidth(), 0);
+                int y = getHeight() / 2;
+                g.drawLine(0, y, getWidth(), y);
             }
         }
     }
