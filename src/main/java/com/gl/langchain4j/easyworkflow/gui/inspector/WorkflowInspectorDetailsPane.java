@@ -24,15 +24,11 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
-import com.gl.langchain4j.easyworkflow.gui.platform.HeaderPane;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.langchain4j.easyworkflow.gui.platform.*;
 
 import javax.swing.*;
 import javax.swing.event.TreeSelectionEvent;
 import javax.swing.event.TreeSelectionListener;
-import javax.swing.text.html.HTMLEditorKit;
-import javax.swing.text.html.StyleSheet;
 import javax.swing.tree.*;
 import java.awt.*;
 import java.awt.datatransfer.StringSelection;
@@ -57,7 +53,7 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
  * selected value.
  */
 @SuppressWarnings("ALL")
-public class WorkflowInspectorDetailsPane extends JSplitPane {
+public class WorkflowInspectorDetailsPane extends AppSplitPane {
     private final ValuesPane pnlValues;
     private final ValueDetailsPane pnlValueDetails;
     private Map<String, Object> values;
@@ -130,37 +126,18 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
      * A panel that displays the detailed value of a selected item from the {@link ValuesPane} tree.
      */
     static class ValueDetailsPane extends JPanel implements PropertyChangeListener {
-        private final JEditorPane edtValue = new JEditorPane() {
-            /**
-             * {@inheritDoc}
-             */
-            @Override
-            public boolean getScrollableTracksViewportWidth() {
-                return true;
-            }
-        };
+        private final PreviewTextPane edtValue = new PreviewTextPane();
         private String value;
 
         /**
          * Constructs a new {@code ValueDetailsPane}. Initializes the editor pane and sets up its properties.
          */
         public ValueDetailsPane() {
-            HTMLEditorKit kit = new HTMLEditorKit();
-            edtValue.setEditorKit(kit);
-            StyleSheet styleSheet = kit.getStyleSheet();
-            styleSheet.addRule("ul, ol { padding-top: 0; padding-bottom: 0; }");
-            styleSheet.addRule("ul, ol { margin-top: -5; margin-bottom: -5: margin-left-ltr: 50; margin-right-rtl: 50; list-style-type: decimal;}");
-            styleSheet.addRule("li { margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }");
-            styleSheet.addRule("p { margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; }");
-            styleSheet.addRule("ul, ol, li, p { line-height: 1.0; }");
-            edtValue.setContentType("text/html");
-            edtValue.setEditable(false);
-            edtValue.setFont(edtValue.getFont().deriveFont(15f));
             setMinimumSize(new Dimension(200, 100));
             setOpaque(false);
             setLayout(new BorderLayout());
             edtValue.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
-            JScrollPane scrollPane = UISupport.createScrollPane(edtValue, true, true, true, false, false);
+            JScrollPane scrollPane = UISupport.createScrollPane(edtValue, false, false, false, false, false);
             scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
             add(scrollPane, BorderLayout.CENTER);
 
@@ -266,9 +243,9 @@ public class WorkflowInspectorDetailsPane extends JSplitPane {
             pnlContent.setOpaque(false);
             setContent(pnlContent);
 
-            headerPane = new HeaderPane(false);
+            headerPane = new HeaderPane();
             pnlContent.add(headerPane, BorderLayout.NORTH);
-            JScrollPane scrollPane = UISupport.createScrollPane(treeValues, true, false, true, true, false);
+            JScrollPane scrollPane = UISupport.createScrollPane(treeValues, false, false, false, false, false);
             headerPane.setTitle("Inspector");
             headerPane.setSubtitle("Execution results and details for a selected agent");
             pnlContent.add(scrollPane, BorderLayout.CENTER);

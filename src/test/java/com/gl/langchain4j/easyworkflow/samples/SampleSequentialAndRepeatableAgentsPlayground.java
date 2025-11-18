@@ -54,6 +54,7 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
         playground.play(novelCreator, Map.of(
                 "topic", "dragons and wizards",
                 "audience", "infants",
-                "style", "fantasy"));
+                "style", "fantasy",
+                "numberOfParagraphs", 3));
     }
 }

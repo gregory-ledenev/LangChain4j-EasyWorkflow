@@ -128,7 +128,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         list.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setCellRenderer(new WorkflowItemRenderer());
-        JScrollPane scrollPane = UISupport.createScrollPane(list, true, false, true, false, true);
+        JScrollPane scrollPane = UISupport.createScrollPane(list, false, false, false, false, false);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         setContent(scrollPane);
 
@@ -498,7 +498,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             return null;
 
         try {
-            if (value.getClass().isPrimitive() || value instanceof String || value instanceof Number || value.getClass().isEnum())
+            if (value.getClass().isPrimitive() || value instanceof String ||
+                    value instanceof Number || value instanceof Boolean || value.getClass().isEnum())
                 return value;
             else if (value.getClass().isArray() || value instanceof List)
                 return OBJECT_MAPPER.convertValue(value, List.class);
@@ -768,14 +769,14 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     /**
-     * Retrieves the user message template associated with a given agent class.
+     * Retrieves the user message template associated with a given agent class name.
      *
      * @param agentClass The {@link Class} object representing the agent.
      * @return The user message template string for the agent, or {@code null} if not found.
      */
-    public String getUserMessage(Class<?> agentClass) {
+    public String getUserMessage(String agentClassName) {
         for (WorkflowItem workflowItem : listModel) {
-            if (agentClass.getName().equals(workflowItem.getAgentClassName()))
+            if (agentClassName.equals(workflowItem.getAgentClassName()))
                 return workflowItem.getUserMessage();
         }
         return null;

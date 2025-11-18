@@ -203,4 +203,16 @@ public class ChatMessagesPane extends JPanel implements Scrollable, PropertyChan
             updateRenderers();
         }
     }
+
+    /**
+     * Retrieves the last outgoing chat message from the list of messages.
+     * An outgoing message is typically one sent by the user.
+     * @return The last {@link ChatMessage} that is outgoing, or {@code null} if no outgoing messages are found.
+     */
+    public ChatMessage getLastOutgoingMessage() {
+        return chatMessages.stream()
+                .filter(ChatMessage::outgoing)
+                .reduce((first, second) -> second)
+                .orElse(null);
+    }
 }

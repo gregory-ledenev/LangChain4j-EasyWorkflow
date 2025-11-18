@@ -319,8 +319,11 @@ public class UISupport {
             case Auto -> setDarkAppearance(osThemeDetector.isDark());
         }
 
-        for (Window window : Window.getWindows())
+        for (Window window : Window.getWindows()) {
             SwingUtilities.updateComponentTreeUI(window);
+            window.revalidate();
+            window.repaint();
+        }
     }
 
     private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
@@ -472,7 +475,7 @@ public class UISupport {
      * @return {@link Color#DARK_GRAY} if the dark appearance is active, otherwise {@link Color#LIGHT_GRAY}.
      */
     public static Color getDefaultBorderColor() {
-        return isDarkAppearance() ? Color.DARK_GRAY : Color.LIGHT_GRAY;
+        return isDarkAppearance() ? Color.GRAY : Color.LIGHT_GRAY;
     }
 
     /**

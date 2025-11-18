@@ -119,12 +119,23 @@ public class EditUserMessageDialog extends AppDialog<String> {
      * {@inheritDoc}
      */
     @Override
-    public boolean canClose() {
-        boolean result = getUserMessage() != null && ! getUserMessage().isBlank();
-        if (! result) {
-            showMessage(null, "User message cannot be empty");
-            edtUserMessage.requestFocus();
+    public boolean canClose(String modalResult) {
+        boolean result = true;
+
+        if (ACTION_COMMAND_OK.equals(modalResult)) {
+            result = getUserMessage() != null && !getUserMessage().isBlank();
+            if (!result) {
+                showMessage(null, "User message cannot be empty");
+                edtUserMessage.requestFocus();
+            }
+        } else if (ACTION_COMMAND_CANCEL.equals(modalResult)) {
+            result = ! edtUserMessage.hasChanges();
+            if (! result) {
+                result = question(null, "User message was changed. Discard changes?") == JOptionPane.YES_OPTION;
+                edtUserMessage.requestFocus();
+            }
         }
+
         return result;
     }
 
@@ -200,6 +211,10 @@ public class EditUserMessageDialog extends AppDialog<String> {
                 @Override
                 public void changedUpdate(DocumentEvent e) { }
             });
+        }
+
+        public boolean hasChanges() {
+            return undoableEditListener.getUndoManager().canUndo();
         }
 
         @Override

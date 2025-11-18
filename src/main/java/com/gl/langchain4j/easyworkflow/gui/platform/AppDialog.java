@@ -30,6 +30,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
@@ -119,6 +120,10 @@ public class AppDialog<T> extends JDialog {
             }
         });
 
+        getRootPane().registerKeyboardAction(e -> close(ACTION_COMMAND_CANCEL),
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+
         setLocationRelativeTo(getParent());
 
         contentPane = new JPanel(new BorderLayout());
@@ -154,16 +159,11 @@ public class AppDialog<T> extends JDialog {
 
     /**
      * Closes the dialog with the specified modal result.
-     * If the modal result is {@link #ACTION_COMMAND_OK}, {@link #canClose()} is checked before closing.
+     * If the modal result is {@link #ACTION_COMMAND_OK}, {@link #canClose(String)} is checked before closing.
      * @param modalResult The string representing the modal result (e.g., {@link #ACTION_COMMAND_OK}, {@link #ACTION_COMMAND_CANCEL}).
      */
     public void close(String modalResult) {
-        boolean shouldClose = true;
-
-        if (modalResult.equals(ACTION_COMMAND_OK))
-            shouldClose = canClose();
-
-        if (shouldClose) {
+        if (canClose(modalResult)) {
             setModalResult(modalResult);
             setVisible(false);
         }
@@ -209,7 +209,7 @@ public class AppDialog<T> extends JDialog {
      *
      * @return true if the dialog can be closed, false otherwise.
      */
-    public boolean canClose() {
+    public boolean canClose(String modalResult) {
         return true;
     }
 

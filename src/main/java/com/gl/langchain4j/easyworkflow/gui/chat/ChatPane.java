@@ -130,7 +130,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         contentPanel.add(chatMessagesHostPane, BorderLayout.CENTER);
 
         // Header pane
-        pnlHeader = new HeaderPane(false);
+        pnlHeader = new HeaderPane();
         pnlHeader.setTitle("Chat");
         pnlHeader.setSubtitle("Chat with the agent to test it out");
         contentPanel.add(pnlHeader, BorderLayout.NORTH);
@@ -332,14 +332,27 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         BasicAction resendAction = new BasicAction("Resend", new AutoIcon(ICON_TOOLBAR_SEND), e ->
                 resendLast(),
                 a -> a.setEnabled(canResendLast()));
-        resendAction.setShortDescription("Resend");
+        resendAction.setShortDescription("Resend last message");
+        BasicAction resetExecutionAction = new BasicAction("Reset Execution", new AutoIcon(ICON_TOOLBAR_PLAY), e ->
+                resetExecutionDetails(),
+                a -> a.setEnabled(canResetExecutionDetails()));
+        resetExecutionAction.setShortDescription("Reset execution details");
         toolsActionGroup = new ActionGroup(
                 new ActionGroup(
-                        resendAction
+                        resendAction,
+                        resetExecutionAction
                 )
         );
 
         UISupport.setupToolbar(toolsToolbar, toolsActionGroup);
+    }
+
+    private boolean canResetExecutionDetails() {
+        return canShowExecutionDetails() && getChatMessagesPane().getLastOutgoingMessage() != null;
+    }
+
+    private void resetExecutionDetails() {
+        showExecutionDetails(getChatMessagesPane().getLastOutgoingMessage());
     }
 
     private boolean canResendLast() {
@@ -730,6 +743,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 waitingForResponse = false;
                 updateSendButton();
             });
+        } else {
+            logger.warn("No execution details provider set");
         }
     }
 

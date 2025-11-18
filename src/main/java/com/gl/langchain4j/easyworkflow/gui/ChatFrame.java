@@ -153,10 +153,9 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         if (workflowDebugger != null) {
             setMinimumSize(new Dimension(1280, 720));
 
-            JSplitPane contentPane = new JSplitPane();
+            JSplitPane contentPane = new AppSplitPane();
             contentPane.setResizeWeight(0);
             contentPane.setLeftComponent(pnlChat);
-            pnlChat.setBorder(UISupport.createCustomLineBorder(UISupport.getDefaultBorderColor(), false, false, false, true));
             pnlChat.getHeaderPane().setVisible(true);
 
             pnlWorkflowInspectorStructure = new WorkflowInspectorListPane.Structure();
@@ -172,16 +171,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             pnlWorkflowInspectorExecution.setPlaceHolderIcon(new AutoIcon(ICON_INFO_PLAIN));
             pnlWorkflowInspectorExecution.setPlaceHolderVisible(true);
 
-            pnlWorkflowSummaryView = new JEditorPane() {
-                @Override
-                public boolean getScrollableTracksViewportWidth() {
-                    return true;
-                }
-            };
-            pnlWorkflowSummaryView.setContentType("text/html");
-            pnlWorkflowSummaryView.setEditable(false);
-            pnlWorkflowSummaryView.setFont(pnlWorkflowSummaryView.getFont().deriveFont(15f));
-            pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, true, false, true, false, true);
+            pnlWorkflowSummaryView = new PreviewTextPane();
+            pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, false, false, false, false, false);
             pnlWorkflowSummary.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
             JPanel pnlWorkflowContentsHost = new JPanel(new BorderLayout());
@@ -189,6 +180,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             headerPane.setTitle("Workflow");
             headerPane.setSubtitle("Workflow structure, its agents, execution steps, and summary");
             pnlWorkflowContentsHost.add(headerPane, BorderLayout.NORTH);
+
             setupActions();
             setupMenuBar();
             setupChatToolbar(pnlChat.getHeaderPane().getToolbar());
@@ -202,7 +194,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
             pnlWorkflowContentsHost.add(pnlWorkflowContents, BorderLayout.CENTER);
 
-            JSplitPane pnlWorkflow = new JSplitPane();
+            JSplitPane pnlWorkflow = new AppSplitPane();
             pnlWorkflow.setLeftComponent(pnlWorkflowContentsHost);
             pnlWorkflowInspectorDetails = new WorkflowInspectorDetailsPane();
 
@@ -503,14 +495,14 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
 
     private String getUserMessagesAsJson() {
-        Map<Class<?>, String> userMessageTemplates = workflowDebugger.getUserMessageTemplates();
+        Map<String, String> userMessageTemplates = workflowDebugger.getUserMessageTemplates();
         if (userMessageTemplates.isEmpty())
             return null;
 
         List<UserMessageEntry> userMessageEntries = new ArrayList<>();
-        userMessageTemplates.forEach((agentClass, userMessage) -> {
-            userMessageEntries.add(new UserMessageEntry(agentClass.getName(),
-                    pnlWorkflowInspectorStructure.getUserMessage(agentClass),
+        userMessageTemplates.forEach((agentClassName, userMessage) -> {
+            userMessageEntries.add(new UserMessageEntry(agentClassName,
+                    pnlWorkflowInspectorStructure.getUserMessage(agentClassName),
                     userMessage));
         });
 
@@ -567,15 +559,11 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                     OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, UserMessageEntry.class));
 
             userMessageEntries.forEach(userMessageEntry -> {
-                try {
-                    Class<?> currentAgentClass = Class.forName(userMessageEntry.agentClassName());
-                    if (Objects.equals(userMessageEntry.originalUserMessage(), pnlWorkflowInspectorStructure.getUserMessage(currentAgentClass)))
-                        workflowDebugger.setUserMessageTemplate(currentAgentClass, userMessageEntry.userMessage());
-                    else
-                        logger.debug("Skipping custom user message for class: " + currentAgentClass.getName());
-                } catch (ClassNotFoundException e) {
-                    logger.error("Failed to load user message for agent {}", userMessageEntry.agentClassName(), e);
-                }
+                String agentClassName = userMessageEntry.agentClassName();
+                if (Objects.equals(userMessageEntry.originalUserMessage(), pnlWorkflowInspectorStructure.getUserMessage(agentClassName)))
+                    workflowDebugger.setUserMessageTemplate(agentClassName, userMessageEntry.userMessage());
+                else
+                    logger.debug("Skipping custom user message for class: " + agentClassName);
             });
         } catch (IOException ex) {
             logger.error("Failed to load user messages for agent {}", agentClass.getName(), ex);
@@ -700,14 +688,18 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
         editUserMessageAction = new BasicAction("Edit User Message...", new AutoIcon(ICON_COMPOSE),
                 e -> editUserMessage(),
-                a -> a.setEnabled(pnlWorkflowInspectorStructure.getSelectedWorkflowItem() != null &&
-                        pnlWorkflowInspectorStructure.getSelectedWorkflowItem().getType().equals(EasyWorkflow.JSON_TYPE_AGENT)));
+                a -> a.setEnabled(canEditUserMessage()));
         editUserMessageAction.setShortDescription("Edit user message");
         UISupport.bindAction(pnlWorkflowInspectorStructure.getListView(),
                 "editUserMessage",
                 KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
                 editUserMessageAction);
+        UISupport.bindAction(pnlWorkflowInspectorExecution.getListView(),
+                "editUserMessage",
+                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
+                editUserMessageAction);
         UISupport.bindDoubleClickAction(pnlWorkflowInspectorStructure.getListView(), editUserMessageAction);
+        UISupport.bindDoubleClickAction(pnlWorkflowInspectorExecution.getListView(), editUserMessageAction);
 
         this.copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY),
                 e -> copy(),
@@ -729,18 +721,38 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             );
             workflowExpertAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_E,
                     KeyEvent.SHIFT_DOWN_MASK | Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()));
-            pnlChat.setupToolActions(workflowExpertAction);
         }
     }
 
+    private boolean canEditUserMessage() {
+        WorkflowInspectorListPane pane = getVisibleWorkflowInspectorListPane();
+
+        return pane != null &&
+                pane.isVisible() &&
+                pane.getSelectedWorkflowItem() != null &&
+                pane.getSelectedWorkflowItem().getType().equals(EasyWorkflow.JSON_TYPE_AGENT);
+    }
+
+    private WorkflowInspectorListPane getVisibleWorkflowInspectorListPane() {
+        WorkflowInspectorListPane pane = null;
+        if (pnlWorkflowInspectorStructure.isVisible())
+            pane = pnlWorkflowInspectorStructure;
+        else if (pnlWorkflowInspectorExecution.isVisible())
+            pane = pnlWorkflowInspectorExecution;
+        return pane;
+    }
+
     private void editUserMessage() {
-        WorkflowInspectorListPane.WorkflowItem workflowItem = pnlWorkflowInspectorStructure.getSelectedWorkflowItem();
+        WorkflowInspectorListPane pane = getVisibleWorkflowInspectorListPane();
+
+        WorkflowInspectorListPane.WorkflowItem workflowItem = pane != null ? pane.getSelectedWorkflowItem() : null;
         if (workflowItem == null)
             return;
 
         try {
-            Class<?> agentClass = Class.forName(workflowItem.getAgentClassName());
-            String userMessage = workflowDebugger.getUserMessageTemplate(agentClass);
+            String agentClassName = workflowItem.getAgentClassName();
+            Class<?> agentClass = Class.forName(agentClassName);
+            String userMessage = workflowDebugger.getUserMessageTemplate(agentClass.getName());
             boolean canReset = userMessage != null;
             if (userMessage == null)
                 userMessage = workflowItem.getUserMessage();
@@ -752,12 +764,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             switch (result.modalResult()) {
                 case AppDialog.ACTION_COMMAND_OK:
                     if (!Objects.equals(userMessage, result.userMessage())) {
-                        workflowDebugger.setUserMessageTemplate(agentClass, result.userMessage());
+                        workflowDebugger.setUserMessageTemplate(agentClassName, result.userMessage());
                         agentsChanged();
                     }
                     break;
                 case EditUserMessageDialog.ACTION_COMMAND_RESET:
-                    workflowDebugger.setUserMessageTemplate(agentClass, null);
+                    workflowDebugger.setUserMessageTemplate(agentClassName, null);
                     agentsChanged();
                     break;
                 default:
@@ -770,9 +782,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private void agentsChanged() {
         storeUserMessages();
 
-        pnlWorkflowInspectorStructure.repaint();
-        pnlWorkflowInspectorExecution.repaint();
-        pnlWorkflowInspectorDetails.setValues(pnlWorkflowInspectorStructure.getSelectedData());
+        WorkflowInspectorListPane pane = getVisibleWorkflowInspectorListPane();
+
+        if (pane != null) {
+            pane.repaint();
+            pnlWorkflowInspectorDetails.setValues(pane.getSelectedData());
+        }
     }
 
     private void setupModelsAction() {
@@ -821,14 +836,14 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void setupChatToolbar(JToolBar toolbar) {
-        if (chatModelsAction != null) {
-            ActionGroup chatToolbarActionGroup = new ActionGroup(
-                    new ActionGroup(
-                            chatModelsAction
-                    )
-            );
-            UISupport.setupToolbar(toolbar, chatToolbarActionGroup);
-        }
+        ActionGroup chatModelsActionGroup = chatModelsAction != null ? new ActionGroup(chatModelsAction) : null;
+        ActionGroup chatToolbarActionGroup =new ActionGroup(
+                chatModelsActionGroup,
+                new ActionGroup(
+                        workflowExpertAction
+                )
+        );
+        UISupport.setupToolbar(toolbar, chatToolbarActionGroup);
     }
 
     private void setupPopupMenu() {

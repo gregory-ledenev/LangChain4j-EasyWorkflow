@@ -89,7 +89,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     private Throwable workflowFailure;
     private String sessionUID;
     private String archiveSessionUID;
-    private Map<Class<?>, String> userMessageTemplates = new ConcurrentHashMap<>();
+    private Map<String, String> userMessageTemplates = new ConcurrentHashMap<>();// agent class name -> template
 
     /**
      * Constructs a new {@code WorkflowDebugger}. Initializes a new {@link WorkflowContext} and registers itself as the
@@ -878,22 +878,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     /**
-     * Returns the user message template associated with the given agent class.
-     *
-     * @param agentClass The class of the agent.
-     * @return The user message template string, or {@code null} if not found.
-     */
-    public String getUserMessageTemplate(Class<?> agentClass) {
-        return userMessageTemplates.get(agentClass);
-    }
-
-    /**
      * Returns an unmodifiable map of user message templates, where keys are agent classes and values are their
      * corresponding user message template strings.
      *
      * @return An unmodifiable map of user message templates.
      */
-    public Map<Class<?>, String> getUserMessageTemplates() {
+    public Map<String, String> getUserMessageTemplates() {
         return Collections.unmodifiableMap(userMessageTemplates);
     }
 
@@ -916,25 +906,21 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         if (agentClassName == null)
             return null;
 
-        try {
-            return userMessageTemplates.get(Class.forName(agentClassName));
-        } catch (ClassNotFoundException e) {
-            logger.error("Class not found for agentClassName: {}", agentClassName, e);
-            return null;
-        }
+            return userMessageTemplates.get(agentClassName);
     }
 
-        /**
-         * Sets the user message template for a given agent class. Use this method to alter a user message for a particular agent class.
-         *
-         * @param agentClass The class of the agent.
-         * @param userMessageTemplate The user message template string to associate with the agent class.
-         */
-    public void setUserMessageTemplate(Class<?> agentClass, String userMessageTemplate) {
+    /**
+     * Sets the user message template for a given agent class name. Use this method to alter a user message for a particular
+     * agent class.
+     *
+     * @param agentClass          The class of the agent.
+     * @param userMessageTemplate The user message template string to associate with the agent class.
+     */
+    public void setUserMessageTemplate(String agentClassName, String userMessageTemplate) {
         if (userMessageTemplate != null)
-            userMessageTemplates.put(agentClass, userMessageTemplate);
+            userMessageTemplates.put(agentClassName, userMessageTemplate);
         else
-            userMessageTemplates.remove(agentClass);
+            userMessageTemplates.remove(agentClassName);
     }
 
     protected InputGuardrail createAlterInputGuardrail(Class<?> agentClass) {
@@ -950,7 +936,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
         @Override
         public InputGuardrailResult validate(InputGuardrailRequest params) {
-            String userMessageTemplate = getUserMessageTemplate(agentClass);
+            String userMessageTemplate = getUserMessageTemplate(agentClass.getName());
             if (userMessageTemplate != null) {
                 GuardrailRequestParams requestParams = params.requestParams();
                 try {
