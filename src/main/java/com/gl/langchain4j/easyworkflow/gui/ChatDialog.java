@@ -36,7 +36,6 @@ import java.awt.*;
  * A dialog that provides a chat interface. It can be used to display a chat conversation and interact with a chat
  * engine.
  */
-@SuppressWarnings("ALL")
 public class ChatDialog extends JDialog implements Application.ScheduledUpdatable {
 
     private final ChatPane chatPane = new ChatPane();
@@ -79,7 +78,9 @@ public class ChatDialog extends JDialog implements Application.ScheduledUpdatabl
         JPanel buttonPane = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         buttonPane.setOpaque(false);
         buttonPane.setBorder(new EmptyBorder(0, 0, 10, 0));
-        JButton okButton = new JButton("OK");
+        JButton okButton = new JButton("Close");
+        okButton.setDefaultCapable(true);
+        getRootPane().setDefaultButton(okButton);
         okButton.addActionListener(e -> dispose());
         buttonPane.add(okButton);
 

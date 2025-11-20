@@ -8,6 +8,7 @@ import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
@@ -15,10 +16,15 @@ public class SampleSupervisedAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
 
     public static void main(String[] args) {
-        OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
+        OpenAiChatModel metaLlamaModel = new OpenAiChatModel.OpenAiChatModelBuilder()
                 .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
                 .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
                 .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
+                .build();
+        OpenAiChatModel openAIModel = new OpenAiChatModel.OpenAiChatModelBuilder()
+                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("openai/gpt-oss-120b") // or another model
                 .build();
 
         SampleSupervisedAgents.BankTool bankTool = new SampleSupervisedAgents.BankTool();
@@ -37,7 +43,7 @@ public class SampleSupervisedAgentsPlayground {
 
         EasyWorkflow.AgentWorkflowBuilder<SampleSupervisedAgents.SupervisorAgent> workflowBuilder = EasyWorkflow.builder(SampleSupervisedAgents.SupervisorAgent.class);
         SampleSupervisedAgents.SupervisorAgent supervisorAgent = workflowBuilder
-                .chatModel(BASE_MODEL)
+                .chatModel(metaLlamaModel)
                 .workflowDebugger(workflowDebugger)
                 .doAsGroup()
                 .agent(SampleSupervisedAgents.WithdrawAgent.class, builder -> builder.tools(bankTool))
@@ -53,7 +59,11 @@ public class SampleSupervisedAgentsPlayground {
             ex.printStackTrace();
         }
 
-        playground.setup(Map.of(Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger));
+        playground.setup(Map.of(
+                Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
+                Playground.ARG_CHAT_MODELS, List.of(
+                        new Playground.PlaygroundChatModel("meta-llama/llama-4-scout-17b-16e-instruct", metaLlamaModel),
+                        new Playground.PlaygroundChatModel("openai/gpt-oss-120b", openAIModel))));
         playground.play(supervisorAgent, Map.of("request", "Transfer 100 EUR from Mario's account to Georgios' one"));
     }
 }

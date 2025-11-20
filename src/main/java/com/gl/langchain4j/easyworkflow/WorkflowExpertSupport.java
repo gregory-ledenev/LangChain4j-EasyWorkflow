@@ -38,11 +38,27 @@ public class WorkflowExpertSupport {
     public static WorkflowExpert getWorkflowExpert(WorkflowDebugger workflowDebugger) {
         Objects.requireNonNull(workflowDebugger, "workflowDebugger cannot be null");
 
+        String executionLog = workflowDebugger.toString(true);
+
+        return getWorkflowExpert(workflowDebugger, executionLog);
+    }
+
+    /**
+     * Initializes and returns a WorkflowExpert instance. Uses RAG to supply a context to a chat, including workflow
+     * structure and details about its execution.
+     *
+     * @param workflowDebugger The WorkflowDebugger instance to use for expert initialization.
+     * @param executionLog     The execution log of the workflow, that can be obtained via {@code workflowDebugger.toString(true)}.
+     * @return A new WorkflowExpert instance.
+     */
+    public static WorkflowExpert getWorkflowExpert(WorkflowDebugger workflowDebugger, String executionLog) {
+        Objects.requireNonNull(workflowDebugger, "workflowDebugger cannot be null");
+
         Logger platformLogger = Logger.getLogger("ai.djl.util.Platform");
         platformLogger.setLevel(Level.WARNING);
 
         List<Document> documents = new ArrayList<>();
-        documents.add(new DefaultDocument(workflowDebugger.toString(true)));
+        documents.add(new DefaultDocument(executionLog));
         documents.add(new DefaultDocument(workflowDebugger.getAgentWorkflowBuilder().toJson()));
 
         if (workflowDebugger.getAgenticScope() != null) {

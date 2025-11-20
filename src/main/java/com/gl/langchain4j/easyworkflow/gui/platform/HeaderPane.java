@@ -39,24 +39,13 @@ public class HeaderPane extends JPanel{
     private final JLabel lblTitle = new JLabel();
     private final JLabel lblSubtitle = new JLabel();
     private final JToolBar toolbar = new JToolBar();
-    private final boolean paintBorderAtRight;
-
-    /**
-     * Constructs a new HeaderPane. Initializes the layout, sets up the title and subtitle labels, and applies a
-     * border.
-     */
-    public HeaderPane() {
-        this(true);
-    }
 
     /**
      * Constructs a new HeaderPane.
-     * Initializes the layout, sets up the title and subtitle labels, and applies a border.
+     * Initializes the layout, sets up the title and subtitle labels
      */
-    public HeaderPane(boolean paintBorderAtRight) {
+    public HeaderPane() {
         setOpaque(false);
-
-        this.paintBorderAtRight = paintBorderAtRight;
 
         BoxLayout mgr = new BoxLayout(this, BoxLayout.Y_AXIS);
         setLayout(mgr);
@@ -64,11 +53,14 @@ public class HeaderPane extends JPanel{
         Box pnlTitle = new Box(BoxLayout.X_AXIS);
         pnlTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
         pnlTitle.add(lblTitle);
+        JComponent fillY = new JPanel();
+        fillY.setPreferredSize(new Dimension(0, 34));
+        pnlTitle.add(fillY);
         pnlTitle.add(Box.createHorizontalGlue());
         pnlTitle.add(toolbar);
         add(pnlTitle);
 
-        lblTitle.setFont(lblTitle.getFont().deriveFont(18f));
+        lblTitle.setFont(lblTitle.getFont().deriveFont(20f));
         add(lblSubtitle);
         lblSubtitle.setForeground(Color.gray);
 
@@ -95,7 +87,7 @@ public class HeaderPane extends JPanel{
         super.updateUI();
 
         setBorder(BorderFactory.createCompoundBorder(
-                createCustomLineBorder(getDefaultBorderColor(), false, true,true, paintBorderAtRight),
+                createCustomLineBorder(getDefaultBorderColor(), false, false,true, false),
                 BorderFactory.createEmptyBorder(2, 10, 2, 10)));
     }
 

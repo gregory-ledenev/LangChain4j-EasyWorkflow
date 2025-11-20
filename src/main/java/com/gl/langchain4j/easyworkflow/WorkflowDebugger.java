@@ -33,6 +33,10 @@ import dev.langchain4j.agentic.agent.MissingArgumentException;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.guardrail.GuardrailRequestParams;
+import dev.langchain4j.guardrail.InputGuardrail;
+import dev.langchain4j.guardrail.InputGuardrailRequest;
+import dev.langchain4j.guardrail.InputGuardrailResult;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,6 +57,7 @@ import java.util.function.Predicate;
 import static com.gl.langchain4j.easyworkflow.BreakpointActions.log;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_END;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.FLOW_CHART_NODE_START;
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.expandTemplate;
 
 /**
  * A debugger for the EasyWorkflow framework, allowing users to set breakpoints and inspect the workflow's flow and
@@ -84,6 +89,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     private Throwable workflowFailure;
     private String sessionUID;
     private String archiveSessionUID;
+    private Map<String, String> userMessageTemplates = new ConcurrentHashMap<>();// agent class name -> template
 
     /**
      * Constructs a new {@code WorkflowDebugger}. Initializes a new {@link WorkflowContext} and registers itself as the
@@ -137,6 +143,96 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
         objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
         return objectMapper;
+    }
+
+    /**
+     * Performs a deep clone of the given object. This method attempts to clone collections, maps, arrays, and objects
+     * implementing {@link Cloneable}. For other objects, it returns the original object.
+     *
+     * @param object The object to deep clone.
+     * @param <T>    The type of the object.
+     * @return A deep clone of the object, or the original object if cloning is not supported or fails.
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T deepClone(T object) {
+        if (object == null) {
+            return null;
+        }
+
+        if (object instanceof Collection<?>) {
+            return (T) deepCloneCollection(object);
+        }
+
+        if (object instanceof Map<?, ?>) {
+            return (T) deepCloneMap((Map<?, ?>) object);
+        }
+
+        if (object.getClass().isArray()) {
+            return (T) deepCloneArray(object);
+        }
+
+        if (object instanceof Cloneable) {
+            return (T) deepCloneCloneable(object);
+        }
+
+        return object;
+    }
+
+    private static Object deepCloneCloneable(Object object) {
+        try {
+            Method cloneMethod = object.getClass().getMethod("clone");
+            return cloneMethod.invoke(object);
+        } catch (NoSuchMethodException e) {
+            // If clone method is not public or not found, proceed to return original
+        } catch (Exception e) {
+            logger.warn("Failed to clone object of type {}. Returning original object.", object);
+        }
+        return object;
+    }
+
+    private static Object deepCloneArray(Object object) {
+        if (object instanceof Object[] array) {
+            Object[] clonedArray = (Object[]) java.lang.reflect.Array.newInstance(array.getClass().getComponentType(), array.length);
+            for (int i = 0; i < array.length; i++) {
+                clonedArray[i] = deepClone(array[i]);
+            }
+            return clonedArray;
+        } else {
+            // For primitive arrays, a simple clone is enough as value copies elements
+            try {
+                Method cloneMethod = object.getClass().getMethod("clone");
+                return cloneMethod.invoke(object);
+            } catch (Exception e) {
+                // If cloning fails for a primitive array, return original
+                return object;
+            }
+        }
+    }
+
+    private static Map<Object, Object> deepCloneMap(Map<?, ?> object) {
+        Map<Object, Object> clonedMap = new HashMap<>();
+        for (Map.Entry<?, ?> entry : object.entrySet()) {
+            clonedMap.put(deepClone(entry.getKey()), deepClone(entry.getValue()));
+        }
+        return clonedMap;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static Collection<Object> deepCloneCollection(Object object) {
+        if (object instanceof List) {
+            List<Object> clonedList = new ArrayList<>();
+            for (Object item : (List) object) {
+                clonedList.add(deepClone(item));
+            }
+            return clonedList;
+        } else if (object instanceof Set) {
+            Set<Object> clonedSet = new HashSet<>();
+            for (Object item : (Set) object) {
+                clonedSet.add(deepClone(item));
+            }
+            return clonedSet;
+        }
+        return null;
     }
 
     /**
@@ -252,7 +348,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Resets the debugger's internal state, clearing all recorded events.
      */
     public void reset() {
-        if (! agentInvocationTraceEntries.isEmpty())
+        if (!agentInvocationTraceEntries.isEmpty())
             agentInvocationTraceEntryArchives.add(new AgentInvocationTraceEntryArchive(
                     archiveSessionUID,
                     deepClone(workflowInput),
@@ -265,95 +361,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         workflowResult = null;
         workflowFailure = null;
         agentInvocationTraceEntries.clear();
-    }
-
-    /**
-     * Performs a deep clone of the given object. This method attempts to clone collections, maps, arrays,
-     * and objects implementing {@link Cloneable}. For other objects, it returns the original object.
-     * @param object The object to deep clone.
-     * @param <T> The type of the object.
-     * @return A deep clone of the object, or the original object if cloning is not supported or fails.
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> T deepClone(T object) {
-        if (object == null) {
-            return null;
-        }
-
-        if (object instanceof Collection<?>) {
-            return (T) deepCloneCollection(object);
-        }
-
-        if (object instanceof Map<?, ?>) {
-            return (T) deepCloneMap((Map<?, ?>) object);
-        }
-
-        if (object.getClass().isArray()) {
-            return (T) deepCloneArray(object);
-        }
-
-        if (object instanceof Cloneable) {
-            return (T) deepCloneCloneable(object);
-        }
-
-        return object;
-    }
-
-    private static Object deepCloneCloneable(Object object) {
-        try {
-            Method cloneMethod = object.getClass().getMethod("clone");
-            return cloneMethod.invoke(object);
-        } catch (NoSuchMethodException e) {
-            // If clone method is not public or not found, proceed to return original
-        } catch (Exception e) {
-            logger.warn("Failed to clone object of type {}. Returning original object.", object);
-        }
-        return object;
-    }
-
-    private static Object deepCloneArray(Object object) {
-        if (object instanceof Object[] array) {
-            Object[] clonedArray = (Object[]) java.lang.reflect.Array.newInstance(array.getClass().getComponentType(), array.length);
-            for (int i = 0; i < array.length; i++) {
-                clonedArray[i] = deepClone(array[i]);
-            }
-            return clonedArray;
-        } else {
-            // For primitive arrays, a simple clone is enough as value copies elements
-            try {
-                Method cloneMethod = object.getClass().getMethod("clone");
-                return cloneMethod.invoke(object);
-            } catch (Exception e) {
-                // If cloning fails for a primitive array, return original
-                return object;
-            }
-        }
-    }
-
-    private static Map<Object, Object> deepCloneMap(Map<?, ?> object) {
-        Map<Object, Object> clonedMap = new HashMap<>();
-        for (Map.Entry<?, ?> entry : object.entrySet()) {
-            clonedMap.put(deepClone(entry.getKey()), deepClone(entry.getValue()));
-        }
-        return clonedMap;
-    }
-
-    @SuppressWarnings("rawtypes")
-    private static Collection<Object> deepCloneCollection(Object object) {
-        if (object instanceof List) {
-            List<Object> clonedList = new ArrayList<>();
-            for (Object item : (List) object) {
-                clonedList.add(deepClone(item));
-            }
-            return clonedList;
-        } else if (object instanceof Set) {
-            Set<Object> clonedSet = new HashSet<>();
-            for (Object item : (Set) object) {
-                clonedSet.add(deepClone(item));
-            }
-            return clonedSet;
-        }
-        return null;
     }
 
     /**
@@ -610,13 +617,14 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     /**
-     * Returns a string representation of the workflow debugger's state, including detailed information about
-     * workflow input, agent invocations, and the final result.
+     * Returns a string representation of the workflow debugger's state, including detailed information about workflow
+     * input, agent invocations, and the final result.
      *
-     * @param workflowInput The input parameters of the workflow.
-     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent invocations.
-     * @param workflowResult The final result of the workflow execution.
-     * @param workflowFailure The {@link Throwable} that caused the workflow to fail, if any.
+     * @param workflowInput               The input parameters of the workflow.
+     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence
+     *                                    of agent invocations.
+     * @param workflowResult              The final result of the workflow execution.
+     * @param workflowFailure             The {@link Throwable} that caused the workflow to fail, if any.
      * @return A string representation of the workflow execution details.
      */
     public String toString(Map<String, Object> workflowInput,
@@ -694,19 +702,19 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                 getWorkflowInput(), getAgentInvocationTraceEntries(), getWorkflowResult(), getWorkflowFailure());
     }
 
-
     /**
      * Generates an HTML string with a visual representation of the workflow execution. It includes a flow chart diagram
      * and an inspector that allows checking results of agent invocations. This method allows specifying custom workflow
      * input, agent invocation trace entries, workflow result, and workflow failure for rendering.
      *
-     * @param title The title for the HTML page.
-     * @param subTitle The subtitle for the HTML page.
-     * @param isIncludeSummary Specifies whether to include an AI generated workflow summary.
-     * @param aWorkflowInput The input parameters of the workflow.
-     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent invocations.
-     * @param workflowResult The final result of the workflow execution.
-     * @param workflowFailure The {@link Throwable} that caused the workflow to fail, if any.
+     * @param title                       The title for the HTML page.
+     * @param subTitle                    The subtitle for the HTML page.
+     * @param isIncludeSummary            Specifies whether to include an AI generated workflow summary.
+     * @param aWorkflowInput              The input parameters of the workflow.
+     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence
+     *                                    of agent invocations.
+     * @param workflowResult              The final result of the workflow execution.
+     * @param workflowFailure             The {@link Throwable} that caused the workflow to fail, if any.
      * @return An HTML string representing the workflow execution.
      */
     public String toHtml(String title,
@@ -790,14 +798,15 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
     /**
      * Generates an HTML string with a visual representation of the workflow execution. The title is "Workflow Diagram"
-     * and the subtitle includes the current timestamp. This method allows specifying custom workflow input,
-     * agent invocation trace entries, workflow result, and workflow failure for rendering.
+     * and the subtitle includes the current timestamp. This method allows specifying custom workflow input, agent
+     * invocation trace entries, workflow result, and workflow failure for rendering.
      *
-     * @param isIncludeSummary Specifies whether to include an AI generated workflow summary.
-     * @param aWorkflowInput The input parameters of the workflow.
-     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent invocations.
-     * @param workflowResult The final result of the workflow execution.
-     * @param workflowFailure The {@link Throwable} that caused the workflow to fail, if any.
+     * @param isIncludeSummary            Specifies whether to include an AI generated workflow summary.
+     * @param aWorkflowInput              The input parameters of the workflow.
+     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence
+     *                                    of agent invocations.
+     * @param workflowResult              The final result of the workflow execution.
+     * @param workflowFailure             The {@link Throwable} that caused the workflow to fail, if any.
      * @return An HTML string representing the workflow execution.
      */
     public String toHtml(boolean isIncludeSummary,
@@ -869,13 +878,88 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     /**
+     * Returns an unmodifiable map of user message templates, where keys are agent classes and values are their
+     * corresponding user message template strings.
+     *
+     * @return An unmodifiable map of user message templates.
+     */
+    public Map<String, String> getUserMessageTemplates() {
+        return Collections.unmodifiableMap(userMessageTemplates);
+    }
+
+    /**
+     * Checks if there are any user message templates configured.
+     *
+     * @return {@code true} if there are user message templates, {@code false} otherwise.
+     */
+    public boolean hasUserMessageTemplates() {
+        return ! userMessageTemplates.isEmpty();
+    }
+
+    /**
+     * Returns the user message template associated with the given agent class name.
+     *
+     * @param agentClassName The fully qualified name of the agent class.
+     * @return The user message template string, or {@code null} if not found or if the class cannot be loaded.
+     */
+    public String getUserMessageTemplate(String agentClassName) {
+        if (agentClassName == null)
+            return null;
+
+            return userMessageTemplates.get(agentClassName);
+    }
+
+    /**
+     * Sets the user message template for a given agent class name. Use this method to alter a user message for a particular
+     * agent class.
+     *
+     * @param agentClassName          The class name of the agent.
+     * @param userMessageTemplate The user message template string to associate with the agent class.
+     */
+    public void setUserMessageTemplate(String agentClassName, String userMessageTemplate) {
+        if (userMessageTemplate != null)
+            userMessageTemplates.put(agentClassName, userMessageTemplate);
+        else
+            userMessageTemplates.remove(agentClassName);
+    }
+
+    protected InputGuardrail createAlterInputGuardrail(Class<?> agentClass) {
+        return new AlterInputGuardrail(agentClass);
+    }
+
+    class AlterInputGuardrail implements InputGuardrail, LeadingGuardrail {
+        private final Class<?> agentClass;
+
+        public AlterInputGuardrail(Class<?> aAgentClass) {
+            agentClass = aAgentClass;
+        }
+
+        @Override
+        public InputGuardrailResult validate(InputGuardrailRequest params) {
+            String userMessageTemplate = getUserMessageTemplate(agentClass.getName());
+            if (userMessageTemplate != null) {
+                GuardrailRequestParams requestParams = params.requestParams();
+                try {
+                    return successWith(expandTemplate(userMessageTemplate, requestParams.variables()));
+                } catch (Exception ex) {
+                    String error = "Failed to expand user message template: " + userMessageTemplate;
+                    logger.error(error, ex);
+                    return failure(error, ex);
+                }
+            } else {
+                return success();
+            }
+        }
+    }
+
+    /**
      * Represents an archived collection of agent invocation trace entries, along with the workflow's input and final
      * result. This record is used for storing and retrieving a complete history of a workflow execution.
      *
-     * @param workflowInput  A map containing the input parameters of the workflow.
-     * @param workflowResult The final result of the workflow execution.
-     * @param agentInvocationTraceEntries   A list of {@link AgentInvocationTraceEntry} objects, representing the sequence of agent
-     *                       invocations.
+     * @param workflowInput               A map containing the input parameters of the workflow.
+     * @param workflowResult              The final result of the workflow execution.
+     * @param agentInvocationTraceEntries A list of {@link AgentInvocationTraceEntry} objects, representing the sequence
+     *                                    of agent invocations.
      */
     public record AgentInvocationTraceEntryArchive(
             String uid,
@@ -1111,7 +1195,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * An agent that, when invoked, executes the action of a {@link LineBreakpoint}. This class is used internally by
      * {@link LineBreakpoint#createAgent(WorkflowDebugger)}.
      */
-    public static class LineBreakpointAgent implements WorkflowDebuggerSupport{
+    public static class LineBreakpointAgent implements WorkflowDebuggerSupport {
         private final LineBreakpoint lineBreakpoint;
         private WorkflowDebugger workflowDebugger;
 

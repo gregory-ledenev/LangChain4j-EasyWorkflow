@@ -28,7 +28,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
@@ -65,6 +64,7 @@ import static javax.swing.BoxLayout.Y_AXIS;
 public abstract class WorkflowInspectorListPane extends AppPane {
     public static final String NODE_AGENTIC_SCOPE = "| Agentic Scope |";
     public static final String NODE_PROGRESSION = "| Progression |";
+    public static final String NODE_USER_MESSAGE = "| User Message |";
     public static final String NODE_RESULT = "result";
     public static final String NODE_FAILURE = "failure";
 
@@ -128,7 +128,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         list.setBorder(BorderFactory.createEmptyBorder(5, 0, 5, 0));
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setCellRenderer(new WorkflowItemRenderer());
-        JScrollPane scrollPane = UISupport.createScrollPane(list, true, false, true, false, true);
+        JScrollPane scrollPane = UISupport.createScrollPane(list, false, false, false, false, false);
         scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         setContent(scrollPane);
 
@@ -182,7 +182,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             populateListModel(listModel, builder);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
-            model.addElement(new WorkflowItem(null, null, null, null, "Error parsing workflow", e.getMessage(), 0));
+            model.addElement(new WorkflowItem((Map<String, Object>) null, null, null, "Error parsing workflow", e.getMessage(), 0));
         }
     }
 
@@ -190,12 +190,12 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     private void populateListModel(List<WorkflowItem> listModel, AgentWorkflowBuilder<?> builder) throws JsonProcessingException {
         String jsonString = builder.toJson();
         List<Map<String, Object>> workflowData = objectMapper.readValue(jsonString, List.class);
-        listModel.add(new WorkflowItem(null, TYPE_START, null, ICON_PLAY, "Start",
+        listModel.add(new WorkflowItem(TYPE_START, null, ICON_PLAY, "Start",
                 formatParametersForAgentClass(builder.getAgentClass()),
                 0));
         populateListModel(listModel, workflowData, 0);
         String outputName = builder.getComputedOutputName();
-        listModel.add(new WorkflowItem(null, TYPE_END, outputName, ICON_STOP, "End",
+        listModel.add(new WorkflowItem(TYPE_END, outputName, ICON_STOP, "End",
                 "(%s %s)".formatted(Objects.requireNonNull(getAgentMethod(builder.getAgentClass())).getReturnType().getSimpleName(), outputName), 0));
 
         for (WorkflowItem workflowItem : listModel) {
@@ -227,7 +227,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 populateListModel(listModel, (List<Map<String, Object>>) node.get("block"), indentation + 1);
             }
             if (node.containsKey("elseBlock")) {
-                listModel.add(new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), null, null, "else", "", indentation));
+                listModel.add(new WorkflowItem(node, null, null, "else", "", indentation));
                 populateListModel(listModel, (List<Map<String, Object>>) node.get("elseBlock"), indentation + 1);
             }
         }
@@ -281,7 +281,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 break;
         }
 
-        return new WorkflowItem((String) node.get(JSON_KEY_UID), (String) node.get(JSON_KEY_TYPE), outputName, iconKey, title, subtitle, indentation);
+        return new WorkflowItem(node, outputName, iconKey, title, subtitle, indentation);
     }
 
     protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
@@ -354,6 +354,12 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                                 passResult.put("failure", convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
                             }
                         }
+                    }
+
+                    if (selectedValue.type.equals(JSON_TYPE_AGENT)) {
+                        String userMessage = workflowDebugger.getUserMessageTemplate(selectedValue.getAgentClassName());
+                        if (userMessage != null)
+                            result.put(NODE_USER_MESSAGE, userMessage);
                     }
                 }
                 default -> {
@@ -492,7 +498,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             return null;
 
         try {
-            if (value.getClass().isPrimitive() || value instanceof String || value instanceof Number || value.getClass().isEnum())
+            if (value.getClass().isPrimitive() || value instanceof String ||
+                    value instanceof Number || value instanceof Boolean || value.getClass().isEnum())
                 return value;
             else if (value.getClass().isArray() || value instanceof List)
                 return OBJECT_MAPPER.convertValue(value, List.class);
@@ -752,6 +759,30 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     /**
+     * Represents a single item in the workflow list, holding its properties and state. This class is used by the
+     * {@link WorkflowInspectorListPane} to display information about each step or component of a workflow.
+     *
+     * @return The currently selected {@link WorkflowItem} from the list, or {@code null} if no item is selected.
+     */
+    public WorkflowItem getSelectedWorkflowItem() {
+        return list.getSelectedValue();
+    }
+
+    /**
+     * Retrieves the user message template associated with a given agent class name.
+     *
+     * @param agentClass The {@link Class} object representing the agent.
+     * @return The user message template string for the agent, or {@code null} if not found.
+     */
+    public String getUserMessage(String agentClassName) {
+        for (WorkflowItem workflowItem : listModel) {
+            if (agentClassName.equals(workflowItem.getAgentClassName()))
+                return workflowItem.getUserMessage();
+        }
+        return null;
+    }
+
+    /**
      * Represents a single item in the workflow list, holding its properties and state.
      */
     public static class WorkflowItem implements Cloneable {
@@ -760,25 +791,40 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         private final String title;
         private final String subtitle;
         private final String uid;
-        private final String type;
+        private String type;
         private final String outputName;
         private final Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> traceEntriesByIndex = new HashMap<>();
+        private final Map<String, Object> node;
         private int indentation;
         private State state = State.Unknown;
         private int passCount;
 
-        public WorkflowItem(String uid, String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
+        public WorkflowItem(String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
+            this((Map<String, Object>) null, outputName, iconKey, title, subtitle, indentation);
+            this.type = type;
+        }
+
+        public WorkflowItem(Map<String, Object> node, String outputName, String iconKey, String title, String subtitle, int indentation) {
+            this.node = node;
             this.iconKey = iconKey;
             this.title = title;
             this.subtitle = subtitle;
             this.indentation = indentation;
-            this.uid = uid;
-            this.type = type;
+            this.uid = node != null ? (String) node.get(JSON_KEY_UID) : null;
+            this.type = node != null ? (String) node.get(JSON_KEY_TYPE) : null;
             this.outputName = outputName;
         }
 
         public Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> getTraceEntriesByIndex() {
             return traceEntriesByIndex;
+        }
+
+        public String getAgentClassName() {
+            return node != null ? (String) node.get(JSON_KEY_AGENT_CLASS_NAME) : null;
+        }
+
+        public String getUserMessage() {
+            return (String) node.get(JSON_KEY_USER_MESSAGE);
         }
 
         /**
@@ -1202,7 +1248,13 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             pnlStateIndicator.setPreferredSize(new Dimension(50, 0));
 
             lblIcon.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
-            lblTitle.setText(value.getTitle());
+            String title = value.getTitle();
+            if (value != null && listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null)
+                title = "<html>%s<span style=\"color: %s;\"> %s</span></html>".formatted(
+                        title,
+                        isSelected && cellHasFocus ? "white" : "gray",
+                        "✽");
+            lblTitle.setText(title);
 
             String[] subTitles = listPane.getSubTitles(value, index);
             if (subTitles.length > 0) {

@@ -449,12 +449,14 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     private class CompactStringEditor implements Editor {
         private final JTextField textField;
         private final FormElement formElement;
+        private final DefaultUndoableEditListener undoableEditListener;
 
         public CompactStringEditor(FormElement formElement) {
             this.formElement = formElement;
             this.textField = new JTextField(20);
             textField.getDocument().addDocumentListener(FormPanel.this);
             textField.setToolTipText(getTooltipText(formElement));
+            undoableEditListener = setupUndomanager(textField);
             setupPopupMenu(textField);
             setupShortcuts(textField);
             setValue(formElement.defaultValue());
@@ -463,6 +465,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         @Override
         public void setValue(Object value) {
             textField.setText(value != null ? value.toString() : null);
+            undoableEditListener.getUndoManager().discardAllEdits();
         }
 
         @Override
@@ -492,6 +495,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         private final TextEditor textArea;
         private final JScrollPane scrollPane;
         private final FormElement formElement;
+        private final DefaultUndoableEditListener undoableEditListener;
 
         public StringEditor(FormElement formElement) {
             this.formElement = formElement;
@@ -500,6 +504,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             textArea.setToolTipText(getTooltipText(formElement));
             setupPopupMenu(textArea);
             setupShortcuts(textArea);
+            undoableEditListener = setupUndomanager(textArea);
 
             this.scrollPane = new JScrollPane(textArea) {
                 @Override
@@ -522,6 +527,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         @Override
         public void setValue(Object value) {
             textArea.setText(value != null ? value.toString() : null);
+            undoableEditListener.getUndoManager().discardAllEdits();
         }
 
         @Override
@@ -554,6 +560,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     private class NumberEditor implements Editor {
         private final JTextField textField;
         private final FormElement formElement;
+        private final DefaultUndoableEditListener undoableEditListener;
 
         public NumberEditor(FormElement formElement) {
             this.formElement = formElement;
@@ -561,6 +568,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             setupFont(this.textField);
             textField.getDocument().addDocumentListener(FormPanel.this);
             textField.setToolTipText(getTooltipText(formElement));
+            undoableEditListener = setupUndomanager(textField);
             setupPopupMenu(textField);
             setupShortcuts(textField);
             setValue(formElement.defaultValue());
@@ -569,6 +577,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         @Override
         public void setValue(Object value) {
             textField.setText(value != null ? value.toString() : null);
+            undoableEditListener.getUndoManager().discardAllEdits();
         }
 
         @Override
@@ -642,12 +651,14 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     private class MapEditor implements Editor {
         private final TextEditor textArea;
         private final FormElement formElement;
+        private final DefaultUndoableEditListener undoableEditListener;
 
         public MapEditor(FormElement formElement) {
             this.formElement = formElement;
             this.textArea = new TextEditor(5, 20);
             textArea.getDocument().addDocumentListener(FormPanel.this);
             textArea.setToolTipText(getTooltipText(formElement));
+            undoableEditListener = setupUndomanager(textArea);
             setupPopupMenu(textArea);
             setupShortcuts(textArea);
             setValue(formElement.defaultValue());
@@ -664,6 +675,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             } catch (JsonProcessingException e) {
                 textArea.setText("Error converting value to JSON: " + e.getMessage());
             }
+            undoableEditListener.getUndoManager().discardAllEdits();
         }
 
         @Override
@@ -772,6 +784,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     private class EditableDropdownEditor implements Editor {
         private final JComboBox<Object> comboBox;
         private final FormElement formElement;
+        private final DefaultUndoableEditListener undoableEditListener;
 
         public EditableDropdownEditor(FormElement formElement) {
             this.formElement = formElement;
@@ -783,6 +796,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
 
             JTextComponent textComponent = (JTextComponent) comboBox.getEditor().getEditorComponent();
             textComponent.getDocument().addDocumentListener(FormPanel.this);
+            undoableEditListener = setupUndomanager(textComponent);
             setupPopupMenu(textComponent);
             setupShortcuts(textComponent);
 
@@ -792,6 +806,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         @Override
         public void setValue(Object value) {
             comboBox.setSelectedItem(value);
+            undoableEditListener.getUndoManager().discardAllEdits();
         }
 
         @Override

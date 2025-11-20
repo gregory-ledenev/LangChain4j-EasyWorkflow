@@ -41,12 +41,18 @@ import javax.swing.border.AbstractBorder;
 import javax.swing.border.Border;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
+import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.UndoableEditListener;
 import javax.swing.plaf.UIResource;
 import javax.swing.text.JTextComponent;
+import javax.swing.undo.UndoManager;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.image.*;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -66,8 +72,6 @@ import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 @SuppressWarnings("ALL")
 public class UISupport {
 
-
-
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
     private static final Map<String, ImageIcon> icons = new HashMap<>();
@@ -81,9 +85,31 @@ public class UISupport {
         icons.put(getIconKey(iconKey, true), loadImageIcon(images, ImageFilter.Inverted));
     }
 
+    /**
+     * Sets up a context menu (popup menu) for a given {@link JTextComponent} with standard text editing actions (Cut,
+     * Copy, Paste).
+     *
+     * @param textComponent The {@link JTextComponent} to which the popup menu will be attached.
+     */
     public static void setupPopupMenu(JTextComponent textComponent) {
+        setupPopupMenu(textComponent, null);
+    }
+
+    /**
+     * Sets up a context menu (popup menu) for a given {@link JTextComponent} with standard text editing actions (Cut,
+     * Copy, Paste) and optionally additional custom actions.
+     *
+     * @param textComponent     The {@link JTextComponent} to which the popup menu will be attached.
+     * @param additionalActions An {@link ActionGroup} containing additional actions to be included in the popup menu.
+     *                          Can be {@code null}.
+     */
+    public static void setupPopupMenu(JTextComponent textComponent, ActionGroup additionalActions) {
         JPopupMenu popupMenu = new JPopupMenu();
 
+        Action action = textComponent.getActionMap().get("delete");
+        if (action == null)
+            textComponent.getActionMap().put("delete", new BasicAction("Delete", null,
+                    e -> textComponent.replaceSelection("")));
         ActionGroup actionGroup = new ActionGroup(
                 new ActionGroup(
                         new BasicAction("Cut", new AutoIcon(ICON_CUT),
@@ -94,11 +120,113 @@ public class UISupport {
                                 a -> a.setEnabled(textComponent.getSelectedText() != null)),
                         new BasicAction("Paste", new AutoIcon(ICON_PASTE),
                                 e -> textComponent.paste(),
-                                a -> a.setEnabled(textComponent.isEditable()))
-                )
+                                a -> a.setEnabled(textComponent.isEditable())),
+                        new BasicAction("Delete", null,
+                                e -> {
+                                    Action deleteAction = textComponent.getActionMap().get("delete");
+                                    if (deleteAction != null)
+                                        deleteAction.actionPerformed(new ActionEvent(textComponent, ActionEvent.ACTION_PERFORMED, null));
+                                },
+                                a -> a.setEnabled(textComponent.isEditable() && textComponent.getSelectedText() != null))
+                ),
+                new ActionGroup(
+                        new BasicAction("Select All", null,
+                                e -> textComponent.selectAll(),
+                                a -> a.setEnabled(textComponent.isEditable() &&
+                                        textComponent.getText() != null &&
+                                        ! textComponent.getText().isEmpty()))
+
+                ),
+                additionalActions
         );
         setupPopupMenu(popupMenu, actionGroup);
         textComponent.setComponentPopupMenu(popupMenu);
+    }
+
+    /**
+     * An {@link UndoableEditListener} implementation that manages undo/redo operations for a {@link JTextComponent}.
+     */
+    public static class DefaultUndoableEditListener implements UndoableEditListener {
+        private final UndoManager undoManager = new UndoManager();
+        private boolean enabled = true;
+
+        @Override
+        public void undoableEditHappened(UndoableEditEvent e) {
+            if (isEnabled())
+                undoManager.addEdit(e.getEdit());
+        }
+
+        /**
+         * Returns the {@link UndoManager} associated with this listener.
+         *
+         * @return The {@link UndoManager} instance.
+         */
+        public UndoManager getUndoManager() {
+            return undoManager;
+        }
+
+        /**
+         * Checks if undo/redo functionality is currently enabled.
+         *
+         * @return {@code true} if enabled, {@code false} otherwise.
+         */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /**
+         * Sets whether undo/redo functionality should be enabled.
+         *
+         * @param aEnabled {@code true} to enable, {@code false} to disable.
+         */
+        public void setEnabled(boolean aEnabled) {
+            enabled = aEnabled;
+        }
+    }
+
+    /**
+     * Sets up undo/redo functionality for a given {@link JTextComponent}.
+     * This method adds an {@link UndoableEditListener} to the text component's document
+     * and binds undo/redo actions to standard keyboard shortcuts (Ctrl+Z/Cmd+Z and Ctrl+Shift+Z/Cmd+Shift+Z).
+     *
+     * @param textComponent The {@link JTextComponent} for which to set up undo/redo.
+     * @return A {@link DefaultUndoableEditListener} instance managing the undo/redo operations.
+     */
+    public static DefaultUndoableEditListener setupUndomanager(JTextComponent textComponent) {
+        DefaultUndoableEditListener result = new DefaultUndoableEditListener();
+        textComponent.getDocument().addUndoableEditListener(result);
+
+        bindAction(textComponent, "undo",
+                KeyStroke.getKeyStroke(KeyEvent.VK_Z, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()),
+                new BasicAction("Undo", null, e -> {
+                    if (result.getUndoManager().canUndo())
+                        result.getUndoManager().undo();
+                }));
+
+        bindAction(textComponent, "redo",
+                KeyStroke.getKeyStroke(KeyEvent.VK_Z, KeyEvent.SHIFT_DOWN_MASK | Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()),
+                new BasicAction("Redo", null, e -> {
+                    if (result.getUndoManager().canRedo()) result.getUndoManager().redo();
+                }));
+
+        return result;
+    }
+
+    /**
+     * Sets up a double-click action for a given {@link JComponent}.
+     * When the component is double-clicked with the left mouse button, the provided {@link Action} is performed.
+     * @param c The {@link JComponent} to which the double-click listener will be added.
+     * @param action The {@link Action} to be performed on a double-click.
+     */
+    public static void bindDoubleClickAction(JComponent c, Action action) {
+        c.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+                    action.actionPerformed(new ActionEvent(c, ActionEvent.ACTION_PERFORMED, null));
+                }
+            }
+        });
     }
 
     enum ImageFilter {
@@ -191,8 +319,11 @@ public class UISupport {
             case Auto -> setDarkAppearance(osThemeDetector.isDark());
         }
 
-        for (Window window : Window.getWindows())
+        for (Window window : Window.getWindows()) {
             SwingUtilities.updateComponentTreeUI(window);
+            window.revalidate();
+            window.repaint();
+        }
     }
 
     private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
@@ -344,7 +475,7 @@ public class UISupport {
      * @return {@link Color#DARK_GRAY} if the dark appearance is active, otherwise {@link Color#LIGHT_GRAY}.
      */
     public static Color getDefaultBorderColor() {
-        return isDarkAppearance() ? Color.DARK_GRAY : Color.LIGHT_GRAY;
+        return isDarkAppearance() ? Color.GRAY : Color.LIGHT_GRAY;
     }
 
     /**
@@ -624,10 +755,24 @@ public class UISupport {
                 toolbar.addSeparator();
             }
         }
+        if (toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)
+            toolbar.remove(toolbar.getComponentCount() - 1);
     }
 
     private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
-        toolbar.add(action instanceof StateAction ? createToolbarToggleButton(action, false, buttonGroupMap) : createToolbarButton(action));
+        if (action instanceof ComponentAction componentAction) {
+            if (componentAction.getValue(Action.NAME) != null) {
+                JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
+                label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
+                toolbar.add(label);
+            }
+            toolbar.add(componentAction.getComponent());
+        } else if (action instanceof StateAction) {
+            toolbar.add(createToolbarToggleButton(action, false, buttonGroupMap));
+        } else {
+            toolbar.add(createToolbarButton(action));
+        }
+
     }
 
     /**

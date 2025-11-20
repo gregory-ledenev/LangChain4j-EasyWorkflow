@@ -27,10 +27,7 @@ package com.gl.langchain4j.easyworkflow;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.guardrail.InputGuardrail;
-import dev.langchain4j.guardrail.InputGuardrailResult;
-import dev.langchain4j.guardrail.OutputGuardrail;
-import dev.langchain4j.guardrail.OutputGuardrailResult;
+import dev.langchain4j.guardrail.*;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.output.ServiceOutputParser;
 import org.slf4j.Logger;
@@ -85,7 +82,8 @@ public class WorkflowContext {
      */
 
     InputGuardrailResult validate(Input inputGuardrail, UserMessage userMessage) {
-        InputGuardrailResult result = InputGuardrailResult.success();
+        //// TODO: 11/14/25 It is a workaround as calling success() clears result of text alteration done by previous guardrails. Bug I think
+        InputGuardrailResult result = InputGuardrailResult.successWith(userMessage.singleText());
 
         UserMessage message = userMessage;
         if (result.isSuccess() && result.successfulText() != null)
@@ -117,7 +115,7 @@ public class WorkflowContext {
                     if (method.isAnnotationPresent(Agent.class)) {
                         try {
                             Object parsedOutput = serviceOutputParser.parse(
-                                    ChatResponse.builder().aiMessage(new AiMessage(result.successfulText() != null ? result.successfulText() : responseFromLLM.text())).build(),
+                                    ChatResponse.builder().aiMessage(new AiMessage(responseFromLLM.text())).build(),
                                     method.getGenericReturnType());
 
                             if (stateChangeHandler != null)

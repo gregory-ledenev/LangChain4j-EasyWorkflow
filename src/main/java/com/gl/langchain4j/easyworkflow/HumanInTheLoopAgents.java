@@ -49,7 +49,7 @@ public class HumanInTheLoopAgents {
         return AgenticServices
                 .humanInTheLoopBuilder()
                 .description(description)
-                .outputName(outputName)
+                .outputKey(outputName)
                 .requestWriter(request -> {
                     System.out.println(request);
                     System.out.print("> ");
@@ -80,7 +80,7 @@ public class HumanInTheLoopAgents {
         final HumanInTheLoop humanInTheLoop = AgenticServices
                 .humanInTheLoopBuilder()
                 .description(description)
-                .outputName(outputName)
+                .outputKey(outputName)
                 .requestWriter(requestWriter)
                 .responseReader(responseReader)
                 .build();

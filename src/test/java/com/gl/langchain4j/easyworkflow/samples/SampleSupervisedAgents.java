@@ -140,7 +140,7 @@ public class SampleSupervisedAgents {
 
     @SuppressWarnings("unused")
     public interface SupervisorAgent {
-        @Agent(outputName = "response", description = "Perform a transaction described in a request")
+        @Agent(outputKey = "response", description = "Perform a transaction described in a request")
         String makeTransaction(@V("request") String request);
     }
 

@@ -440,8 +440,8 @@ public class EasyWorkflow {
                 Method[] declaredMethods = agentClass.getDeclaredMethods();
                 if (declaredMethods.length > 0) {
                     Agent annotation = declaredMethods[0].getAnnotation(Agent.class);
-                    if (annotation != null && !annotation.outputName().isEmpty())
-                        result = annotation.outputName();
+                    if (annotation != null && !annotation.outputKey().isEmpty())
+                        result = annotation.outputKey();
                 }
             }
 
@@ -1018,7 +1018,7 @@ public class EasyWorkflow {
 
             SequentialAgentService<T> builder = AgenticServices.sequenceBuilder(agentClass)
                     .subAgents(agents.toArray())
-                    .outputName(outputName != null && !outputName.isEmpty() ? outputName : getOutputName(agentClass));
+                    .outputKey(outputName != null && !outputName.isEmpty() ? outputName : getOutputName(agentClass));
             if (outputComposer != null)
                 builder.output(outputComposer);
 
@@ -1091,7 +1091,13 @@ public class EasyWorkflow {
                     });
         }
 
-        ChatModel getChatModel() {
+        /**
+         * Retrieves the {@link ChatModel} for this workflow. If not explicitly set for this builder, it delegates to
+         * the parent builder.
+         *
+         * @return The {@link ChatModel} to be used by agents.
+         */
+        public ChatModel getChatModel() {
             return chatModel == null && parentBuilder != null ? parentBuilder.getChatModel() : chatModel;
         }
 
@@ -1234,7 +1240,7 @@ public class EasyWorkflow {
                          - UID's
                          The JSON representation is: '{{jsonRepresentation}}'.
                          """)
-            @Agent(value = "prepares summary for a workflow", outputName = "summary")
+            @Agent(value = "prepares summary for a workflow", outputKey = "summary")
             public String getSummary(String jsonRepresentation);
 
         }
@@ -1640,7 +1646,7 @@ public class EasyWorkflow {
         @Override
         public Object createAgent() {
             return AgenticServices.supervisorBuilder()
-                    .outputName(agentWorkflowBuilder.outputName)
+                    .outputKey(agentWorkflowBuilder.outputName)
                     .chatModel(agentWorkflowBuilder.getChatModel())
                     .subAgents(getBlocks().get(0).createAgents().toArray())
                     .responseStrategy(SupervisorResponseStrategy.SUMMARY)
@@ -1726,7 +1732,7 @@ public class EasyWorkflow {
                     .parallelBuilder()
                     .subAgents(getBlocks().get(0).createAgents().toArray())
                     .executor(executor != null ? executor : getSharedExecutorService())
-                    .outputName(agentWorkflowBuilder.getOutputName());
+                    .outputKey(agentWorkflowBuilder.getOutputName());
 
             if (agentWorkflowBuilder.isLogOutput() && composer != null) {
                 builder.output(composer.andThen(result -> {
@@ -1815,7 +1821,7 @@ public class EasyWorkflow {
                 AgentBuilder<?> agentBuilder = createAgentBuilder()
                         .chatModel(agentWorkflowBuilder.getChatModel());
                 if (outName != null && !outName.isEmpty())
-                    agentBuilder.outputName(outName);
+                    agentBuilder.outputKey(outName);
                 ChatMemory chatMemory = agentWorkflowBuilder.getChatMemory();
                 if (chatMemory != null)
                     agentBuilder.chatMemoryProvider(memoryId -> chatMemory);
@@ -1860,8 +1866,8 @@ public class EasyWorkflow {
                 if (agentAnnotation != null) {
                     if (!agentAnnotation.value().isBlank())
                         json.put(JSON_KEY_DESCRIPTION, agentAnnotation.value());
-                    if (!agentAnnotation.outputName().isBlank())
-                        json.put(JSON_KEY_OUTPUT_NAME, agentAnnotation.outputName());
+                    if (!agentAnnotation.outputKey().isBlank())
+                        json.put(JSON_KEY_OUTPUT_NAME, agentAnnotation.outputKey());
 
                     json.put(JSON_KEY_OUTPUT_TYPE, method.getReturnType().getName());
 
@@ -1952,7 +1958,7 @@ public class EasyWorkflow {
                 return null;
 
             WorkflowContext.Input input = workflowDebugger.getWorkflowContext().input(agentClass);
-            agentBuilder.inputGuardrails(input);
+            agentBuilder.inputGuardrails(workflowDebugger.createAlterInputGuardrail(agentClass), input);
             WorkflowContext.Output output = workflowDebugger.getWorkflowContext().output(agentClass, outputName);
             agentBuilder.outputGuardrails(output);
 
@@ -2040,11 +2046,14 @@ public class EasyWorkflow {
                 private <G> G[] mergeGuardrails(G[] existing, G[] newGuardrails, Class<G> guardrailClass) {
                     List<G> mergedList = new ArrayList<>();
                     List<G> trailingGuardrails = new ArrayList<>();
+                    List<G> leadingGuardrails = new ArrayList<>();
 
                     if (existing != null) {
                         for (G guardrail : existing) {
                             if (guardrail instanceof TrailingGuardrail) {
                                 trailingGuardrails.add(guardrail);
+                            } else if (guardrail instanceof LeadingGuardrail) {
+                                leadingGuardrails.add(guardrail);
                             } else {
                                 mergedList.add(guardrail);
                             }
@@ -2055,23 +2064,29 @@ public class EasyWorkflow {
                         for (G guardrail : newGuardrails) {
                             if (guardrail instanceof TrailingGuardrail) {
                                 trailingGuardrails.add(guardrail);
+                            } else if (guardrail instanceof LeadingGuardrail) {
+                                leadingGuardrails.add(guardrail);
                             } else {
                                 mergedList.add(guardrail);
                             }
                         }
                     }
-                    mergedList.addAll(trailingGuardrails);
-                    return mergedList.toArray((G[]) Array.newInstance(guardrailClass, 0));
+                    leadingGuardrails.addAll(mergedList);
+                    leadingGuardrails.addAll(trailingGuardrails);
+                    return leadingGuardrails.toArray((G[]) Array.newInstance(guardrailClass, 0));
                 }
 
                 private Class[] mergeGuardrailClasses(Class[] existing, Class[] newGuardrailClasses) {
                     List<Class> mergedList = new ArrayList<>();
                     List<Class> trailingGuardrailClasses = new ArrayList<>();
+                    List<Class> leadingGuardrailClasses = new ArrayList<>();
 
                     if (existing != null) {
                         for (Class<?> guardrailClass : existing) {
                             if (TrailingGuardrail.class.isAssignableFrom(guardrailClass)) {
                                 trailingGuardrailClasses.add(guardrailClass);
+                            } else if (LeadingGuardrail.class.isAssignableFrom(guardrailClass)) {
+                                leadingGuardrailClasses.add(guardrailClass);
                             } else {
                                 mergedList.add(guardrailClass);
                             }
@@ -2082,13 +2097,16 @@ public class EasyWorkflow {
                         for (Class<?> guardrailClass : newGuardrailClasses) {
                             if (TrailingGuardrail.class.isAssignableFrom(guardrailClass)) {
                                 trailingGuardrailClasses.add(guardrailClass);
+                            } else if (LeadingGuardrail.class.isAssignableFrom(guardrailClass)) {
+                                leadingGuardrailClasses.add(guardrailClass);
                             } else {
                                 mergedList.add(guardrailClass);
                             }
                         }
                     }
-                    mergedList.addAll(trailingGuardrailClasses);
-                    return mergedList.toArray(new Class[0]);
+                    leadingGuardrailClasses.addAll(mergedList);
+                    leadingGuardrailClasses.addAll(trailingGuardrailClasses);
+                    return leadingGuardrailClasses.toArray(new Class[0]);
                 }
             };
         }
@@ -2152,7 +2170,7 @@ public class EasyWorkflow {
                 String outName = getOutputName();
                 A2AClientBuilder<?> agentBuilder = AgenticServices.a2aBuilder(url, getAgentClass());
                 if (outName != null && !outName.isEmpty())
-                    agentBuilder.outputName(outName);
+                    agentBuilder.outputKey(outName);
                 result = agentBuilder.build();
             }
 

@@ -25,11 +25,11 @@
 package com.gl.langchain4j.easyworkflow.gui.platform;
 
 import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+import javax.swing.text.JTextComponent;
 import java.awt.event.ActionEvent;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 
 @SuppressWarnings("ALL")
@@ -100,8 +100,10 @@ public class Actions {
         }
 
         private void defaultActionPerformed(ActionEvent e) {
-            actionListener.accept(e);
             update();
+            if (isEnabled()) {
+                actionListener.accept(e);
+            }
         }
 
         /**
@@ -331,6 +333,64 @@ public class Actions {
             for (Action action : actions)
                 if (action instanceof BasicAction basicAction)
                     basicAction.update();
+        }
+    }
+
+    public static class ComponentAction extends BasicAction {
+        private final JComponent component;
+
+        public ComponentAction(String name, JComponent component) {
+            super(name, null, null);
+
+            Objects.requireNonNull(component);
+            this.component = component;
+        }
+
+        public ComponentAction(String name, AbstractButton component, Consumer<ActionEvent> actionListener) {
+            super(name, null, actionListener);
+
+            Objects.requireNonNull(component);
+            this.component = component;
+            component.addActionListener(e -> actionListener.accept(e));
+        }
+
+        public ComponentAction(String name, JTextComponent component, Consumer<ActionEvent> actionListener) {
+            super(name, null, actionListener);
+
+            Objects.requireNonNull(component);
+            this.component = component;
+            component.getDocument().addDocumentListener(createDocumentListener(component, actionListener));
+        }
+
+        public ComponentAction(String name, JComboBox component, Consumer<ActionEvent> actionListener) {
+            super(name, null, actionListener);
+            this.component = component;
+            if (component.isEditable() && component.getEditor().getEditorComponent() instanceof JTextComponent textComponent)
+                textComponent.getDocument().addDocumentListener(createDocumentListener(textComponent, actionListener));
+            component.addActionListener(e -> actionListener.accept(e));
+        }
+
+        private static DocumentListener createDocumentListener(JTextComponent component, Consumer<ActionEvent> actionListener) {
+            return new DocumentListener() {
+                @Override
+                public void insertUpdate(DocumentEvent e) {
+                    actionListener.accept(new ActionEvent(component, 0, "insertUpdate"));
+                }
+
+                @Override
+                public void removeUpdate(DocumentEvent e) {
+                    actionListener.accept(new ActionEvent(component, 0, "removeUpdate"));
+                }
+
+                @Override
+                public void changedUpdate(DocumentEvent e) {
+                    actionListener.accept(new ActionEvent(component, 0, "changedUpdate"));
+                }
+            };
+        }
+
+        public JComponent getComponent() {
+            return component;
         }
     }
 }

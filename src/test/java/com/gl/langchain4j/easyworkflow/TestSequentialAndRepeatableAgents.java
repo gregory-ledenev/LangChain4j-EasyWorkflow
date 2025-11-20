@@ -171,15 +171,15 @@ public class TestSequentialAndRepeatableAgents {
                      ↓ IN > "topic": dragons and wizards
                      ↓ IN > "style": fantasy
                      -----------------------
-                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a creative writer. Generate a draft of a story no more than 3 sentences long around the\\ngiven topic.\\nReturn only the story and nothing else.\\nThe topic is dragons and wizards.\\n" }] }
+                           ↓ IN: UserMessage { name = null, contents = [TextContent { text = "You are a creative writer. Generate a draft of a story no more than 3 sentences long around the\\ngiven topic.\\nReturn only the story and nothing else.\\nThe topic is dragons and wizards.\\n" }], attributes = {} }
                      1. ▷︎ CreativeWriter
                            ↓ OUT > "story": In the mystical realm of Aethoria, ancient dragons forged an unlikely alliance with powerful wizards, uniting against a dark sorcerer who threatened to destroy their world. The dragons, with their fiery breath and scales as black as coal, soared through the skies alongside the wizards, who wielded magical staffs that crackled with electric energy. Together, they clashed in a spectacular battle against the dark sorcerer's legion of shadow creatures, their combined might shaking the foundations of Aethoria.
                      -----------------------
-                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a professional editor. Analyze and rewrite the following story to better align with the\\ntarget audience of infants.\\nReturn only the story and nothing else.\\nThe story is "In the mystical realm of Aethoria, ancient dragons forged an unlikely alliance with powerful wizards, uniting against a dark sorcerer who threatened to destroy their world. The dragons, with their fiery breath and scales as black as coal, soared through the skies alongside the wizards, who wielded magical staffs that crackled with electric energy. Together, they clashed in a spectacular battle against the dark sorcerer's legion of shadow creatures, their combined might shaking the foundations of Aethoria.".\\n" }] }
+                           ↓ IN: UserMessage { name = null, contents = [TextContent { text = "You are a professional editor. Analyze and rewrite the following story to better align with the\\ntarget audience of infants.\\nReturn only the story and nothing else.\\nThe story is "In the mystical realm of Aethoria, ancient dragons forged an unlikely alliance with powerful wizards, uniting against a dark sorcerer who threatened to destroy their world. The dragons, with their fiery breath and scales as black as coal, soared through the skies alongside the wizards, who wielded magical staffs that crackled with electric energy. Together, they clashed in a spectacular battle against the dark sorcerer's legion of shadow creatures, their combined might shaking the foundations of Aethoria.".\\n" }], attributes = {} }
                      2. ▷︎ AudienceEditor
                            ↓ OUT > "story": In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!
                      -----------------------
-                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based\\non how well it aligns with the style 'fantasy'.\\nReturn only the score and nothing else.\\nThe story is: "In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!"\\n" }] }
+                           ↓ IN: UserMessage { name = null, contents = [TextContent { text = "You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based\\non how well it aligns with the style 'fantasy'.\\nReturn only the score and nothing else.\\nThe story is: "In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!"\\n" }], attributes = {} }
                      3. ▷︎ StyleScorer
                            ↓ OUT > "score": 0.6000000000000001
                      -----------------------
@@ -187,15 +187,15 @@ public class TestSequentialAndRepeatableAgents {
                      4. ▷︎ LineBreakpointAgent
                            ↓ OUT > "": SCORE (INLINE): 0.6000000000000001
                      -----------------------
-                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a professional editor. Analyze and rewrite the following story to better fit and be more\\ncoherent with the fantasy style.\\nReturn only the story and nothing else.\\nThe story is "In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!".\\n" }] }
+                           ↓ IN: UserMessage { name = null, contents = [TextContent { text = "You are a professional editor. Analyze and rewrite the following story to better fit and be more\\ncoherent with the fantasy style.\\nReturn only the story and nothing else.\\nThe story is "In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!".\\n" }], attributes = {} }
                      5. ▷︎ StyleEditor
                            ↓ OUT > "story": 0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!
                      -----------------------
-                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based\\non how well it aligns with the style 'fantasy'.\\nReturn only the score and nothing else.\\nThe story is: "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!"\\n" }] }
+                           ↓ IN: UserMessage { name = null, contents = [TextContent { text = "You are a critical reviewer. Give a review score between 0.0 and 1.0 for the following story based\\non how well it aligns with the style 'fantasy'.\\nReturn only the score and nothing else.\\nThe story is: "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!"\\n" }], attributes = {} }
                      6. ▷︎ StyleScorer
                            ↓ OUT > "score": 0.8
                      -----------------------
-                           ↓ IN: UserMessage { name = null contents = [TextContent { text = "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!" }] }
+                           ↓ IN: UserMessage { name = null, contents = [TextContent { text = "0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!" }], attributes = {} }
                      7. ▷︎ QualityScorer
                            ↓ OUT > "quality": 0.74
                      -----------------------
@@ -204,7 +204,7 @@ public class TestSequentialAndRepeatableAgents {
     }
 
     public interface NovelCreator {
-        @Agent(outputName = "story")
+        @Agent(outputKey = "story")
         Novel createNovel(@V("topic") String topic, @V("audience") String audience, @V("style") String style);
     }
 
@@ -215,7 +215,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The topic is {{topic}}.
                      """)
-        @Agent(value = "Generates a story based on the given topic", outputName = "story")
+        @Agent(value = "Generates a story based on the given topic", outputKey = "story")
         public String generateStory(@V("topic") String topic) {
             inputReceived(expandUserMessage(Map.of("topic", topic)));
             String result = """
@@ -232,7 +232,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The story is "{{story}}".
                      """)
-        @Agent(value = "Edits a story to better fit a given audience", outputName = "story")
+        @Agent(value = "Edits a story to better fit a given audience", outputKey = "story")
         public String editStory(@V("story") String story, @V("audience") String audience) {
             inputReceived(expandUserMessage(Map.of(
                     "story", story,
@@ -251,7 +251,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The story is "{{story}}".
                      """)
-        @Agent(value = "Edits a story to better fit a given style", outputName = "story")
+        @Agent(value = "Edits a story to better fit a given style", outputKey = "story")
         public String editStory(@V("story") String story, @V("style") String style) {
             inputReceived(expandUserMessage(Map.of(
                     "story", story,
@@ -269,7 +269,7 @@ public class TestSequentialAndRepeatableAgents {
                      Return only the score and nothing else.
                      The story is: "{{story}}"
                      """)
-        @Agent(value = "Scores a story based on how well it aligns with a given style", outputName = "score")
+        @Agent(value = "Scores a story based on how well it aligns with a given style", outputKey = "score")
         public double scoreStyle(@V("story") String story, @V("style") String style) {
             inputReceived(expandUserMessage(Map.of(
                     "story", story,
@@ -284,7 +284,7 @@ public class TestSequentialAndRepeatableAgents {
     public static class QualityScorer implements WorkflowDebuggerSupport {
         private WorkflowDebugger workflowDebugger;
 
-        @Agent(outputName = "quality")
+        @Agent(outputKey = "quality")
         public double scoreStyle(@V("story") String story) {
             double result = 0.74;
             if (workflowDebugger != null) {

@@ -117,7 +117,7 @@ public class SampleSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The topic is {{topic}}.
                      """)
-        @Agent(value = "Generates a story based on the given topic", outputName = "story")
+        @Agent(value = "Generates a story based on the given topic", outputKey = "story")
         String generateStory(@V("topic") String topic);
     }
 
@@ -128,7 +128,7 @@ public class SampleSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The story is "{{story}}".
                      """)
-        @Agent(value = "Edits a story to better fit a given audience", outputName = "story")
+        @Agent(value = "Edits a story to better fit a given audience", outputKey = "story")
         String editStory(@V("story") String story, @V("audience") String audience);
     }
 
@@ -139,12 +139,12 @@ public class SampleSequentialAndRepeatableAgents {
                      Return only the story and nothing else.
                      The story is "{{story}}".
                      """)
-        @Agent(value = "Edits a story to better fit a given style", outputName = "story")
+        @Agent(value = "Edits a story to better fit a given style", outputKey = "story")
         String editStory(@V("story") String story, @V("style") String style);
     }
 
     public interface NovelCreator extends AgenticScopeOwner {
-        @Agent(outputName = "story")
+        @Agent(outputKey = "story")
         Novel createNovel(
                 @PlaygroundParam(editorType = FormEditorType.Note, description = "Story topic")
                 @V("topic")
@@ -167,14 +167,14 @@ public class SampleSequentialAndRepeatableAgents {
                      Return only the score and nothing else.
                      The story is: "{{story}}"
                      """)
-        @Agent(value = "Scores a story based on how well it aligns with a given style", outputName = "score")
+        @Agent(value = "Scores a story based on how well it aligns with a given style", outputKey = "score")
         double scoreStyle(@V("story") String story, @V("style") String style);
     }
 
     public static class QualityScorer implements WorkflowDebuggerSupport {
         private WorkflowDebugger workflowDebugger;
 
-        @Agent(outputName = "quality")
+        @Agent(outputKey = "quality")
         public double scoreStyle(@V("story") String story) {
             double result = 0.74;
             if (workflowDebugger != null) {
