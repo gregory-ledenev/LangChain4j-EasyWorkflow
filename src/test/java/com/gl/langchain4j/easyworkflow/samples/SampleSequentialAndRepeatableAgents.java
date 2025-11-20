@@ -104,7 +104,7 @@ public class SampleSequentialAndRepeatableAgents {
                 .agent(new QualityScorer())
                 .build();
 
-        Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy", true, 3);
+        Novel novel = novelCreator.createNovel("dragons and wizards", "infants", "fantasy");
         System.out.println(novel);
         System.out.println("Agentic Scope: " + workflowDebugger.getAgenticScope().state());
         System.out.println(workflowDebugger.toString(true));
@@ -156,15 +156,7 @@ public class SampleSequentialAndRepeatableAgents {
 
                 @PlaygroundParam(description = "Story style", editorType = FormEditorType.EditableDropdown, editorChoices = {"comedy", "horror", "fantasy", "romance"})
                 @V("style")
-                String style,
-
-                @PlaygroundParam(description = "Is story explicit", editorType = FormEditorType.Default)
-                @V("explicitContent")
-                boolean explicitContent,
-
-                @PlaygroundParam(label = "Paragraphs", description = "Number of paragraphs to generate", editorType = FormEditorType.Default)
-                @V("numberOfParagraphs")
-                int numberOfParagraphs
+                String style
         );
     }
 

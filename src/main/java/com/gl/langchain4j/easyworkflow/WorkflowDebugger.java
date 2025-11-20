@@ -913,7 +913,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
      * Sets the user message template for a given agent class name. Use this method to alter a user message for a particular
      * agent class.
      *
-     * @param agentClass          The class of the agent.
+     * @param agentClassName          The class name of the agent.
      * @param userMessageTemplate The user message template string to associate with the agent class.
      */
     public void setUserMessageTemplate(String agentClassName, String userMessageTemplate) {

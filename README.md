@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -394,6 +394,15 @@ The GUI playground offers a modern and convenient interface to allow testing the
 
 ![](gui-playground.png)
 
+The following are the main features of GUI Playground:
+* Chat interface to run and test workflows.
+* Ability to switch chat models.
+* Ability to show execution details for any past requests.
+* Ability to share workflow structure, execution details, summary, changed user message templates and chat. 
+* View a workflow as structure, execution stages and AI generated summary.
+* Ability to change user message templates for certain agents to test and fine tune them interactively.
+* Ability to inspect execution details, Agentic Scope, and variables' progression.
+
 By default, GUI Playground shows a simple Chat UI. To show GUI Playground in advanced mode with ability to see structure and execution results — specify a Workflow Debugger.
 
 ```java
@@ -402,7 +411,7 @@ Playground playground = Playground.createPlayground(NovelCreator.class,
         workflowDebugger);
 ```
 
-If an agent requires multiple arguments, they are presented in a form layout for easier input. To customize form - use `@PlaygroundParam` annotation, where you can specify how each agent's method parameter should be rendered, its description, value choices etc.
+If an agent requires multiple arguments, they are presented in a form layout for easier input. To customize form - use `@PlaygroundParam` annotation, where you can specify how each agent's method parameter should be rendered, its description, value choices, etc.
 ```java
 public interface NovelCreator extends AgenticScopeOwner {
     @Agent(outputName = "story")
@@ -421,7 +430,17 @@ public interface NovelCreator extends AgenticScopeOwner {
 }
 ```
 
-You may check the runnable GUI playground  at [SampleConditionalAgentsPlayground.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleConditionalAgentsPlayground.java)
+GUI Playground allows switching chat models to chat with. To allow that — supply several chat models:
+
+```java
+playground.setup(Map.of(
+        Playground.ARG_CHAT_MODELS, List.of(
+                new Playground.PlaygroundChatModel("meta-llama/llama-4-scout-17b-16e-instruct", metaLlamaModel),
+                new Playground.PlaygroundChatModel("openai/gpt-oss-120b", openAIModel)))
+);
+```
+
+You may check the runnable GUI playground at [SampleConditionalAgentsPlayground.java](/src/test/java/com/gl/langchain4j/easyworkflow/samples/SampleConditionalAgentsPlayground.java)
 
 ## Sample for Sequential and Repeatable Agents
 
