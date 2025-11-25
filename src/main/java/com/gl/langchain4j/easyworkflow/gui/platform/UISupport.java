@@ -237,7 +237,7 @@ public class UISupport {
         List<Image> images = imageVariants;
         switch (imageFilter) {
             case Lighter -> images = imageVariants.stream()
-                    .map(image -> createFilteredImage(image, new GrayFilter(true, 55)))
+                    .map(image -> createFilteredImage(image, new GrayFilter(true, 50)))
                     .map(image -> new ImageIcon(image).getImage())
                     .toList();
             case Inverted -> images = imageVariants.stream()

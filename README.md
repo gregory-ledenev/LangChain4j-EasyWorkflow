@@ -48,7 +48,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +57,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -397,6 +397,7 @@ The GUI playground offers a modern and convenient interface to allow testing the
 The following are the main features of GUI Playground:
 * Chat interface to run and test workflows.
 * Ability to switch chat models.
+* Ability to create new chats and open previous ones
 * Ability to show execution details for any past requests.
 * Ability to share workflow structure, execution details, summary, changed user message templates and chat. 
 * View a workflow as structure, execution stages and AI generated summary.

@@ -107,9 +107,11 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
         UISupport.bindDoubleClickAction(list, new Actions.BasicAction(null, null, aActionEvent -> close(ACTION_COMMAND_OK)));
         JScrollPane content = new JScrollPane(list);
         content.setPreferredSize(new Dimension(450, 300));
+        this.setMinimumSize(new Dimension(450, 300));
+        this.setMaximumSize(new Dimension(800, 600));
         setContent(content);
 
-        deleteAction = new Actions.BasicAction("Delete Chart", null,
+        deleteAction = new Actions.BasicAction("Delete Chat", null,
                 e -> deleteSelectedChat(),
                 a -> a.setEnabled(list.getSelectedValue() != null && !deletionInProgress));
         UISupport.bindAction(list, "delete", KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), deleteAction);
@@ -191,6 +193,7 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
             Box content = new Box(BoxLayout.Y_AXIS);
             content.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
             add(content, BorderLayout.CENTER);
+            content.setAlignmentX(Component.LEFT_ALIGNMENT);
 
             Box header = new Box(BoxLayout.X_AXIS);
             lblDate = new JLabel();
@@ -198,12 +201,15 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
             header.add(lblDate);
             header.add(Box.createHorizontalGlue());
             lblCounter = new JLabel(new UISupport.AutoIcon(ICON_CHAT));
+            header.setAlignmentX(Component.LEFT_ALIGNMENT);
             header.add(lblCounter);
             content.add(header);
 
             lblRequest = new JLabel();
+            lblRequest.setAlignmentX(Component.LEFT_ALIGNMENT);
             content.add(lblRequest);
             lblResponse = new JLabel();
+            lblResponse.setAlignmentX(Component.LEFT_ALIGNMENT);
             content.add(lblResponse);
         }
 

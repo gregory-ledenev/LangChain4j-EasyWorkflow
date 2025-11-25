@@ -146,7 +146,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
         setTitle(title);
 
-        setSize(workflowDebugger != null ? 1080 : 500, 700);
+        setSize(workflowDebugger != null ? 1280 : 500, 720);
         setLocationRelativeTo(null);
 
         pnlChat.setPreferredSize(new Dimension(400, 700));
@@ -660,7 +660,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
 
         chatHistoryAction = new BasicAction("Open Chat...", new AutoIcon(ICON_TIMER),
-                e -> showChatHistory((JComponent) e.getSource()),
+                e -> showChats((JComponent) e.getSource()),
                 a -> a.setEnabled(chatHistoryStorage.getChatHistoryItemsSize() > 0));
         chatHistoryAction.setShortDescription("Chat history");
         chatHistoryAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_O, menuShortcutKeyMask));
@@ -707,14 +707,14 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
     }
 
-    private void showChatHistory(JComponent source) {
+    private void showChats(JComponent source) {
         ChatHistoryDialog dialog = new ChatHistoryDialog(this, chatHistoryStorage);
         ChatHistoryStorage.ChatHistoryItem chatHistoryItem = dialog.executeModal(chatHistoryStorage.getChatHistoryItems());
         if (chatHistoryItem != null)
-            restore(chatHistoryItem);
+            openChat(chatHistoryItem);
     }
 
-    private void restore(ChatHistoryStorage.ChatHistoryItem chatHistoryItem) {
+    private void openChat(ChatHistoryStorage.ChatHistoryItem chatHistoryItem) {
         newChat();
         chatHistoryItemUid = chatHistoryItem.uid();
         getChatPane().restore(chatHistoryItem);
@@ -1013,12 +1013,21 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         visitSite(url);
     }
 
+    private boolean isRestoreFrameBounds() {
+        return System.getProperty("com.gl.langchain4j.easyworkflow.gui.ChatFrame.restoreFrameBounds",
+                String.valueOf(true)).
+                equals(String.valueOf(true));
+    }
+
     @Override
     public void restoreState() {
         super.restoreState();
-        Rectangle frameBounds = getOptions().getFrameBounds();
-        if (frameBounds != null)
-            setBounds(frameBounds);
+
+        if (isRestoreFrameBounds()) {
+            Rectangle frameBounds = getOptions().getFrameBounds();
+            if (frameBounds != null)
+                setBounds(frameBounds);
+        }
     }
 
     @Override
