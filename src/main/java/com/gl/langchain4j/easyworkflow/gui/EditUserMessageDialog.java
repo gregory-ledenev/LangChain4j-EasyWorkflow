@@ -42,7 +42,7 @@ import javax.swing.text.*;
 /**
  * A dialog for editing a user message.
  */
-public class EditUserMessageDialog extends AppDialog<String> {
+public class EditUserMessageDialog extends AppDialog<String, String> {
     /**
      * The action command for the reset button.
      */
@@ -59,13 +59,11 @@ public class EditUserMessageDialog extends AppDialog<String> {
     public EditUserMessageDialog(JFrame owner) {
         super(owner, "Edit User Message");
 
-        setSize(450, 300);
-        setPreferredSize(new Dimension(450, 300));
-        setLocationRelativeTo(getParent());
         setMinimumSize(new Dimension(400, 300));
         setMaximumSize(new Dimension(600, 400));
 
         JScrollPane content = new JScrollPane(edtUserMessage);
+        content.setPreferredSize(new Dimension(450, 300));
         content.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         setContent(content);
 

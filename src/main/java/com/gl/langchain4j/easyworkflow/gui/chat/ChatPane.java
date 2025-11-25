@@ -28,6 +28,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
+import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormPanel;
 import com.gl.langchain4j.easyworkflow.gui.platform.HeaderPane;
@@ -95,6 +96,11 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private final JToolBar toolsToolbar;
     private final HeaderPane pnlHeader;
     private ChatEngine chatEngine;
+
+    public boolean isWaitingForResponse() {
+        return waitingForResponse;
+    }
+
     private boolean waitingForResponse;
     private boolean waitState;
     private Timer waitStateTimer;
@@ -348,7 +354,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     private boolean canResetExecutionDetails() {
-        return canShowExecutionDetails() && getChatMessagesPane().getLastOutgoingMessage() != null;
+        return canShowExecutionDetails(getChatMessagesPane().getLastOutgoingMessage());
     }
 
     private void resetExecutionDetails() {
@@ -433,6 +439,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         if (waitingForResponse)
             return;
 
+        edtMessage.requestFocus();
+
         Map<String, Object> message = getUserMessage();
         if (message != null && !message.isEmpty()) {
             String uid = UUID.randomUUID().toString();
@@ -444,7 +452,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             addChatMessage(lastUserMessage);
             if (UISupport.getOptions().isClearAfterSending())
                 edtMessage.clearContent();
-            edtMessage.requestFocus();
 
             setWaitingForResponse(true);
             chatMessagesHostPane.addTypingIndicator();
@@ -567,7 +574,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
     private void addChatMessage(ChatMessage message) {
         chatMessagesHostPane.addChatMessage(message);
-        if (message.type() == ChatMessage.Type.User)
+        if (message.type() == ChatMessage.Type.User && canShowExecutionDetails(message))
             chatMessagesHostPane.getChatMessagesPane().selectChatMessage(message);
     }
 
@@ -705,6 +712,14 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         executionDetailsProvider = aExecutionDetailsProvider;
     }
 
+    public void clearChatMessages() {
+        chatMessagesHostPane.clearChatMessages();
+    }
+
+    public void restore(ChatHistoryStorage.ChatHistoryItem chatHistoryItem) {
+        chatMessagesHostPane.restore(chatHistoryItem);
+    }
+
     /**
      * Interface for providing execution details for a given chat message.
      */
@@ -716,7 +731,17 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
          * @param chatMessage The chat message for which to display execution details.
          * @param completion  The completion lambda that will be called when the execution details are displayed.
          */
-        void showExecutionDetails(ChatMessage chatMessage, Runnable completion);
+        void showExecutionDetails(ChatMessage chatMessage, Consumer<Boolean> completion);
+
+        /**
+         * Checks if execution details can be shown for a given chat message.
+         *
+         * @param chatMessage The chat message to check.
+         * @return {@code true} if execution details can be shown, {@code false} otherwise.
+         */
+        default boolean canShowExecutionDetails(ChatMessage chatMessage) {
+            return true;
+        }
     }
 
     /**
@@ -724,8 +749,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
      *
      * @return {@code true} if an {@link ExecutionDetailsProvider} is set, {@code false} otherwise.
      */
-    public boolean canShowExecutionDetails() {
-        return executionDetailsProvider != null && ! waitingForResponse;
+    public boolean canShowExecutionDetails(ChatMessage chatMessage) {
+        return chatMessage != null && ! chatMessage.history() && executionDetailsProvider != null && ! waitingForResponse;
     }
 
     /**
@@ -739,7 +764,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             getChatMessagesPane().selectChatMessage(chatMessage);
             waitingForResponse = true;
             updateSendButton();
-            executionDetailsProvider.showExecutionDetails(chatMessage, () -> {
+            executionDetailsProvider.showExecutionDetails(chatMessage, b -> {
                 waitingForResponse = false;
                 updateSendButton();
             });

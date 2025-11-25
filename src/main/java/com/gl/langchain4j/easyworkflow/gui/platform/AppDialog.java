@@ -33,6 +33,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * A base class for creating modal dialogs in an application.
@@ -42,7 +44,7 @@ import java.awt.event.WindowEvent;
  *
  * @param <T> The type of data that the dialog can return.
  */
-public class AppDialog<T> extends JDialog {
+public class AppDialog<T, R> extends JDialog {
     /**
      * Action command for the "OK" button.
      */
@@ -56,6 +58,7 @@ public class AppDialog<T> extends JDialog {
     private String modalResult;
     private JComponent content;
     private JPanel contentPane;
+    private final Map<String , JButton> buttonsByActionCommand = new HashMap<>();
 
     /**
      * Constructs a new AppDialog.
@@ -67,6 +70,10 @@ public class AppDialog<T> extends JDialog {
         super(owner, title);
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         init();
+    }
+
+    public JButton getButton(String actionCommand) {
+        return buttonsByActionCommand.get(actionCommand);
     }
 
     /**
@@ -124,8 +131,6 @@ public class AppDialog<T> extends JDialog {
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-        setLocationRelativeTo(getParent());
-
         contentPane = new JPanel(new BorderLayout());
         contentPane.setBorder(new EmptyBorder(10, 10, 10, 10));
 
@@ -178,6 +183,8 @@ public class AppDialog<T> extends JDialog {
     public void addButton(JButton button, boolean isLeft) {
         pnlButtons.add(button, isLeft ? 0 : pnlButtons.getComponentCount());
 
+        buttonsByActionCommand.put(button.getActionCommand(), button);
+
         if (isLeft && pnlButtons.getComponent(1) instanceof JButton)
             pnlButtons.add(Box.createHorizontalStrut(10), 1);
         else if (!isLeft && pnlButtons.getComponent(pnlButtons.getComponentCount() - 2) instanceof JButton)
@@ -199,7 +206,7 @@ public class AppDialog<T> extends JDialog {
      *
      * @return An object of type T populated with data from the form.
      */
-    protected T fromForm() {
+    protected R fromForm() {
         return null;
     }
 
@@ -219,11 +226,12 @@ public class AppDialog<T> extends JDialog {
      * @param data The initial data to populate the dialog's form with.
      * @return An object of type T if the dialog was closed with "OK", otherwise null.
      */
-    public T executeModal(T data) {
-        T result = null;
+    public R executeModal(T data) {
+        R result = null;
         setModal(true);
         toForm(data);
         pack();
+        setLocationRelativeTo(getParent());
         setVisible(true);
         if (getModalResult().equals(ACTION_COMMAND_OK))
             result = fromForm();

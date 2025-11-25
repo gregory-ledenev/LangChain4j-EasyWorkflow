@@ -70,10 +70,13 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
 
         pnlValues = new ValuesPane();
         pnlValueDetails = new ValueDetailsPane();
-        pnlValueDetails.setPreferredSize(new Dimension(400, 200));
+        pnlValues.setMinimumSize(new Dimension(200, 200));
         pnlValues.getTree().addTreeSelectionListener(e -> selectedValueChanged());
         setTopComponent(pnlValues);
+
+        pnlValueDetails.setPreferredSize(new Dimension(400, 200));
         setBottomComponent(pnlValueDetails);
+
         setResizeWeight(0.7);
     }
 

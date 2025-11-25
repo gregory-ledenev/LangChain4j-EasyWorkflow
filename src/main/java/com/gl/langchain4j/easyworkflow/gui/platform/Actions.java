@@ -287,7 +287,7 @@ public class Actions {
 
         public ActionGroup() {
             super(null, null, null);
-            this.actions = List.of();
+            this.actions = new ArrayList<>();
             this.popup = false;
         }
 

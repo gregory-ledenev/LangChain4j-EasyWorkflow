@@ -24,6 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
+import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 
 import javax.swing.*;
@@ -166,12 +167,23 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
         maybeScrollToBottom(wasAtBottom);
     }
 
+    public void addChatMessages(java.util.List<ChatMessage> chatMessages) {
+        for (ChatMessage chatMessage : chatMessages) {
+            getChatMessagesPane().addChatMessage(chatMessage);
+        }
+    }
+
     private void maybeScrollToBottom(boolean wasAtBottom) {
         if (wasAtBottom) {
             scrollToBottomLater();
         } else {
             setHasNewData(true);
         }
+    }
+
+    public void clearChatMessages() {
+        chatMessagesPane.clearChatMessages();
+        updateScrollToBottomButtonLater();
     }
 
     /**
@@ -206,10 +218,13 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
 
     private void scrollToBottomLater() {
         if (scrollToBottomTimer == null) {
-            scrollToBottomTimer = new Timer(50, e -> scrollToBottom());
+            scrollToBottomTimer = new Timer(250, e -> scrollToBottom());
             scrollToBottomTimer.setRepeats(false);
         }
-        scrollToBottomTimer.start();
+        if (scrollToBottomTimer.isRunning())
+            scrollToBottomTimer.restart();
+        else
+            scrollToBottomTimer.start();
     }
 
     private void scrollToBottom() {
@@ -251,5 +266,11 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
     public void propertyChange(PropertyChangeEvent evt) {
         if (evt.getPropertyName().equals(UISupport.Options.PROP_APPEARANCE_DARK))
             appearanceChanged();
+    }
+
+    public void restore(ChatHistoryStorage.ChatHistoryItem chatHistoryItem) {
+        for (ChatMessage chatMessage : chatHistoryItem.chatMessages())
+            addChatMessage(chatMessage);
+        scrollToBottomLater();
     }
 }

@@ -75,6 +75,7 @@ import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
  */
 @SuppressWarnings("ALL")
 public class EasyWorkflow {
+    public static final String USER_HOME_FOLDER = ".EasyWorkflow";
 
     public static final String JSON_TYPE_AGENT = "agent";
     public static final String JSON_TYPE_NON_AI_AGENT = "nonAiAgent";

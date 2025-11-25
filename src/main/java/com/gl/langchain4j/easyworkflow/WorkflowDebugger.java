@@ -927,6 +927,15 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         return new AlterInputGuardrail(agentClass);
     }
 
+    public void clearAgentInvocation() {
+        agenticScope = null;
+        workflowInput.clear();
+        workflowResult = null;
+        workflowFailure = null;
+        agentInvocationTraceEntries.clear();
+        agentInvocationTraceEntryArchives.clear();
+    }
+
     class AlterInputGuardrail implements InputGuardrail, LeadingGuardrail {
         private final Class<?> agentClass;
 

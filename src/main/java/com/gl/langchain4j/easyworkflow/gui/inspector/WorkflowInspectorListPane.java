@@ -445,7 +445,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     workflowDebugger.getWorkflowResult(),
                     workflowDebugger.getWorkflowFailure(),
                     workflowDebugger.getAgentInvocationTraceEntries(),
-                    workflowDebugger.getAgenticScope().state(),
+                    workflowDebugger.getAgenticScope() != null ? workflowDebugger.getAgenticScope().state() : null,
                     completion);
     }
 
@@ -584,7 +584,14 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             list.getSelectionModel().setSelectionInterval(selectedIndex, selectedIndex);
     }
 
-    protected void clearItems() {
+    public void reset() {
+        model.clear();
+        clearItems();
+        revalidate();
+        repaint();
+    }
+
+    public void clearItems() {
         for (WorkflowItem aWorkflowItem : listModel) {
             aWorkflowItem.clear();
         }
@@ -1256,6 +1263,9 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                         "✽");
             lblTitle.setText(title);
 
+            lblSubTitle.setVisible(false);
+            lblSubTitle2.setVisible(false);
+
             String[] subTitles = listPane.getSubTitles(value, index);
             if (subTitles.length > 0) {
                 lblSubTitle.setVisible(true);
@@ -1267,9 +1277,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     lblSubTitle2.setVisible(false);
                     lblSubTitle2.setText(null);
                 }
-            } else {
-                lblSubTitle.setVisible(false);
-                lblSubTitle2.setVisible(false);
             }
 
             int leftIndent = value.getIndentation() * 20;

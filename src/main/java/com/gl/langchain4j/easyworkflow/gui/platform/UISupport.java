@@ -237,7 +237,7 @@ public class UISupport {
         List<Image> images = imageVariants;
         switch (imageFilter) {
             case Lighter -> images = imageVariants.stream()
-                    .map(image -> createFilteredImage(image, new GrayFilter(true, 45)))
+                    .map(image -> createFilteredImage(image, new GrayFilter(true, 55)))
                     .map(image -> new ImageIcon(image).getImage())
                     .toList();
             case Inverted -> images = imageVariants.stream()
@@ -491,16 +491,6 @@ public class UISupport {
     public static Border createCustomLineBorder(Color lineColor, boolean paintTop, boolean paintLeft, boolean paintBottom, boolean paintRight) {
         return new CustomLineBorder(lineColor, new Insets(paintTop ? 1 : 0, paintLeft ? 1 : 0, paintBottom ? 1 : 0, paintRight ? 1 : 0),
                 paintTop, paintLeft, paintBottom, paintRight);
-    }
-
-    /**
-     * Creates a rounded rectangle border with the specified line color.
-     *
-     * @param lineColor The color of the border.
-     * @return A new {@link Border} instance with a rounded rectangle shape.
-     */
-    public static Border RoundRectBorder(Color lineColor) {
-        return new RoundRectBorder(lineColor);
     }
 
     /**
