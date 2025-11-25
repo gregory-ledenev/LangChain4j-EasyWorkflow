@@ -215,4 +215,13 @@ public class ChatMessagesPane extends JPanel implements Scrollable, PropertyChan
                 .reduce((first, second) -> second)
                 .orElse(null);
     }
+
+    public void clearChatMessages() {
+        removeAll();
+        chatMessages.clear();
+        chatMessageRenderers.clear();
+
+        revalidate();
+        repaint();
+    }
 }

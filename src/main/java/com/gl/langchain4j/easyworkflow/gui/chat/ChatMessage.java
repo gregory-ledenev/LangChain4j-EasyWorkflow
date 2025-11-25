@@ -34,12 +34,21 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
  * @param htmlMessage The HTML formatted content of the message. Can be null if only plain text is available.
  * @param type        The type of the message.
  */
-public record ChatMessage(String uid, Object rawMessage, String message, String htmlMessage, Type type) {
+public record ChatMessage(String uid, Object rawMessage, String message, String htmlMessage, Type type, boolean history) {
     public enum Type {
         User,
         Agent,
         System
     }
+
+    public ChatMessage(String aUid, Object aRawMessage, String aMessage, String aHtmlMessage, Type aType) {
+        this(aUid, aRawMessage, aMessage, aHtmlMessage, aType, false);
+    }
+
+    public ChatMessage(ChatMessage aChatMessage, boolean history) {
+        this(aChatMessage.uid(), aChatMessage.rawMessage(), aChatMessage.message(), aChatMessage.htmlMessage(), aChatMessage.type(), history);
+    }
+
     /**
      * Returns the best available representation of the message. Prioritizes HTML content if available, otherwise returns the plain text message.
      * @return The HTML message if {@code htmlMessage} is not null and not empty, otherwise the plain text {@code message}.

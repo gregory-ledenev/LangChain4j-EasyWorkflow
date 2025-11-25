@@ -123,8 +123,8 @@ public class AppSplitPane extends JSplitPane {
             Component right = getRightComponent();
             if (right != null) {
                 Rectangle bounds = right.getBounds();
-                bounds.x -= 2;
-                bounds.width += 2;
+                bounds.x -= 1;
+                bounds.width += 1;
                 right.setBounds(bounds);
             }
         } else {
@@ -138,8 +138,8 @@ public class AppSplitPane extends JSplitPane {
             Component bottom = getBottomComponent();
             if (bottom != null) {
                 Rectangle bounds = bottom.getBounds();
-                bounds.y -= 2;
-                bounds.height += 2;
+                bounds.y -= 1;
+                bounds.height += 1;
                 bottom.setBounds(bounds);
             }
         }
@@ -170,17 +170,21 @@ public class AppSplitPane extends JSplitPane {
          */
         public BasicSplitPaneDividerEx(BasicSplitPaneUI ui) {
             super(ui);
+            setBackground(Color.BLACK);
         }
 
         public void paint(Graphics g) {
             super.paint(g);
-            g.setColor(UISupport.getDefaultBorderColor());
+
+            Graphics2D graphics = (Graphics2D) g.create();
+            graphics.setStroke(new BasicStroke(0.5f));
+            graphics.setColor(UISupport.getDefaultBorderColor());
             if (splitPane.getOrientation() == JSplitPane.HORIZONTAL_SPLIT) {
-                int x = getWidth() / 2;
-                g.drawLine(x, 0, x, getHeight());
+                int x = getWidth() / 2 ;
+                graphics.drawLine(x, 0, x, getHeight());
             } else {
                 int y = getHeight() / 2;
-                g.drawLine(0, y, getWidth(), y);
+                graphics.drawLine(0, y, getWidth(), y);
             }
         }
     }

@@ -192,7 +192,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
 
     private boolean canShowExecutionDetails() {
         return chatMessage.type() == ChatMessage.Type.User &&
-                getChatPane(this).canShowExecutionDetails();
+                getChatPane(this).canShowExecutionDetails(chatMessage);
     }
 
     private void showExecutionDetails() {

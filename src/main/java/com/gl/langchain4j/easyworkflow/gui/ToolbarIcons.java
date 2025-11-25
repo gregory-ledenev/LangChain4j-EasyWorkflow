@@ -2,8 +2,6 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 
-import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.loadIcon;
-
 public class ToolbarIcons {
     public static final String ICON_COPY = "copy";
     public static final String ICON_PASTE = "paste";
@@ -27,6 +25,7 @@ public class ToolbarIcons {
     public static final String ICON_TIMER = "timer";
     public static final String ICON_FILING_CABINET = "filling-cabinet";
     public static final String ICON_COMPOSE = "compose";
+    public static final String ICON_PLUS = "plus";
 
     public static void loadIcons()  {
         loadIcon(ICON_COPY, "icons/toolbar/copy");
@@ -51,6 +50,7 @@ public class ToolbarIcons {
         loadIcon(ICON_TIMER, "icons/toolbar/timer");
         loadIcon(ICON_FILING_CABINET, "icons/toolbar/filing-cabinet");
         loadIcon(ICON_COMPOSE, "icons/toolbar/compose");
+        loadIcon(ICON_PLUS, "icons/toolbar/plus");
     }
 
     public static void loadIcon(String iconKey, String fileName) {
