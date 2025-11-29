@@ -31,7 +31,6 @@ import dev.langchain4j.guardrail.*;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.service.output.ServiceOutputParser;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Manages the context for a workflow, including input and output guardrails, and the state of the workflow.
@@ -44,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * </ul>
  */
 public class WorkflowContext {
-    private static final Logger logger = LoggerFactory.getLogger(WorkflowContext.class);
+    private static final Logger logger = EasyWorkflow.getLogger(WorkflowContext.class);
     private final ServiceOutputParser serviceOutputParser = new ServiceOutputParser();
     private StateChangeHandler stateChangeHandler;
     private InputHandler inputHandler;

@@ -260,7 +260,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
             treeValues.addTreeSelectionListener(this);
             setValues(Map.of());
 
-            setPlaceHolderText("No execution results");
+            setPlaceHolderText("No execution results or details");
             setPlaceHolderIcon(new AutoIcon(ICON_INFO_PLAIN));
             setPlaceHolderVisible(true);
 

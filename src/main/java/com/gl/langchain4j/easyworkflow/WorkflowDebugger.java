@@ -39,7 +39,6 @@ import dev.langchain4j.guardrail.InputGuardrailRequest;
 import dev.langchain4j.guardrail.InputGuardrailResult;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -74,7 +73,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public static final String KEY_OUTPUT_NAME = "$outputName";
     public static final String KEY_TRACE_ENTRY = "$traceEntry";
     public static final String KEY_SESSION_UID = "sessionUID";
-    private static final Logger logger = LoggerFactory.getLogger(WorkflowDebugger.class);
+    private static final Logger logger = EasyWorkflow.getLogger(WorkflowDebugger.class);
     private final WorkflowContext workflowContext;
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());
     private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>());

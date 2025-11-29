@@ -28,8 +28,10 @@ import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.JTextComponent;
+import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.*;
+import java.util.List;
 import java.util.function.Consumer;
 
 @SuppressWarnings("ALL")
@@ -42,6 +44,7 @@ public class Actions {
         private final Consumer<ActionEvent> actionListener;
         private final Consumer<? extends BasicAction> actionUpdater;
 
+        public static final String MENU_BAR_ITEM_NAME= "menuBarItemName";
 
         /**
          * Constructs a new BasicAction.
@@ -70,7 +73,7 @@ public class Actions {
 
         private boolean isMenuBarSource(ActionEvent e) {
             if (e.getSource() instanceof JMenuItem menuItem) {
-                java.awt.Component parent = menuItem.getParent();
+                Component parent = menuItem.getParent();
                 while (parent != null) {
                     if (parent instanceof JMenuBar) return true;
                     if (parent instanceof JPopupMenu popupMenu)
@@ -347,7 +350,11 @@ public class Actions {
         }
 
         public ComponentAction(String name, AbstractButton component, Consumer<ActionEvent> actionListener) {
-            super(name, null, actionListener);
+            this(name, component, actionListener, null);
+        }
+
+        public ComponentAction(String name, AbstractButton component, Consumer<ActionEvent> actionListener, Consumer<? extends BasicAction> actionUpdater) {
+            super(name, null, actionListener, actionUpdater);
 
             Objects.requireNonNull(component);
             this.component = component;
@@ -355,7 +362,11 @@ public class Actions {
         }
 
         public ComponentAction(String name, JTextComponent component, Consumer<ActionEvent> actionListener) {
-            super(name, null, actionListener);
+            this(name, component, actionListener, null);
+        }
+
+        public ComponentAction(String name, JTextComponent component, Consumer<ActionEvent> actionListener, Consumer<? extends BasicAction> actionUpdater) {
+            super(name, null, actionListener, actionUpdater);
 
             Objects.requireNonNull(component);
             this.component = component;
@@ -363,7 +374,11 @@ public class Actions {
         }
 
         public ComponentAction(String name, JComboBox component, Consumer<ActionEvent> actionListener) {
-            super(name, null, actionListener);
+            this(name, component, actionListener, null);
+        }
+
+        public ComponentAction(String name, JComboBox component, Consumer<ActionEvent> actionListener, Consumer<? extends BasicAction> actionUpdater) {
+            super(name, null, actionListener, actionUpdater);
             this.component = component;
             if (component.isEditable() && component.getEditor().getEditorComponent() instanceof JTextComponent textComponent)
                 textComponent.getDocument().addDocumentListener(createDocumentListener(textComponent, actionListener));

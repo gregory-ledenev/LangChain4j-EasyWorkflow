@@ -28,13 +28,13 @@ import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
 import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
 import com.jthemedetecor.OsThemeDetector;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
@@ -71,18 +71,52 @@ import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
  */
 @SuppressWarnings("ALL")
 public class UISupport {
-
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
-    private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
+    private static final Logger logger = EasyWorkflow.getLogger(UISupport.class);
     private static final Map<String, ImageIcon> icons = new HashMap<>();
+    private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
     private static Boolean darkAppearance;
     private static Options options;
 
+    /**
+     * Loads an icon from the specified class's resources. This method loads two variants of the icon: a standard
+     * version and a high-resolution (@2x) version if available. The loaded icons are then stored internally, with a
+     * lighter version for light themes and an inverted version for dark themes.
+     *
+     * @param clazz    The class used to load the resource. This is typically the class where the icon is being used.
+     * @param iconKey  A unique string key to identify the icon. This key will be used later to retrieve the icon.
+     * @param fileName The base name of the icon file (e.g., "copy"). The method will look for "fileName.png" and
+     *                 "fileName@2x.png".
+     */
     public static void loadIcon(Class clazz, String iconKey, String fileName) {
+        loadIcon(clazz, iconKey, fileName, false);
+    }
+
+    /**
+     * Loads an icon from the specified class's resources. This method loads two variants of the icon: a standard
+     * version and a high-resolution (@2x) version if available. The loaded icons are then stored internally, with a
+     * optional lighter version for light themes and an inverted version for dark themes.
+     *
+     * @param clazz            The class used to load the resource. This is typically the class where the icon is being
+     *                         used.
+     * @param iconKey          A unique string key to identify the icon. This key will be used later to retrieve the
+     *                         icon.
+     * @param fileName         The base name of the icon file (e.g., "copy"). The method will look for "fileName.png"
+     *                         and "fileName@2x.png".
+     * @param preserveOriginal If true, the original icon will be stored without applying theme-based filters
+     *                         (lighter/inverted). This is useful for icons that should retain their exact colors
+     *                         regardless of the theme.
+     */
+    public static void loadIcon(Class clazz, String iconKey, String fileName, boolean preserveOriginal) {
         List<Image> images = loadImageVariants(clazz, fileName);
 
-        icons.put(getIconKey(iconKey, false), loadImageIcon(images, ImageFilter.Lighter));
-        icons.put(getIconKey(iconKey, true), loadImageIcon(images, ImageFilter.Inverted));
+        if (preserveOriginal) {
+            icons.put(getIconKey(iconKey, false),
+                    new ImageIcon(new BaseMultiResolutionImage(images.toArray(new Image[0]))));
+        } else {
+            icons.put(getIconKey(iconKey, false), loadImageIcon(images, ImageFilter.Lighter));
+            icons.put(getIconKey(iconKey, true), loadImageIcon(images, ImageFilter.Inverted));
+        }
     }
 
     /**
@@ -116,8 +150,18 @@ public class UISupport {
                                 e -> textComponent.cut(),
                                 a -> a.setEnabled(textComponent.isEditable() && textComponent.getSelectedText() != null)),
                         new BasicAction("Copy", new AutoIcon(ICON_COPY),
-                                e -> textComponent.copy(),
-                                a -> a.setEnabled(textComponent.getSelectedText() != null)),
+                                e -> {
+                                    int caretPosition = textComponent.getCaretPosition();
+                                    boolean noSelection = textComponent.getSelectedText() == null || textComponent.getSelectedText().isEmpty();
+                                    if (noSelection)
+                                        textComponent.selectAll();
+                                    textComponent.copy();
+                                    if (noSelection) {
+                                        textComponent.select(caretPosition, caretPosition);
+                                        textComponent.setCaretPosition(caretPosition);
+                                    }
+                                },
+                                a -> a.setEnabled(textComponent.getText() != null)),
                         new BasicAction("Paste", new AutoIcon(ICON_PASTE),
                                 e -> textComponent.paste(),
                                 a -> a.setEnabled(textComponent.isEditable())),
@@ -134,7 +178,7 @@ public class UISupport {
                                 e -> textComponent.selectAll(),
                                 a -> a.setEnabled(textComponent.isEditable() &&
                                         textComponent.getText() != null &&
-                                        ! textComponent.getText().isEmpty()))
+                                        !textComponent.getText().isEmpty()))
 
                 ),
                 additionalActions
@@ -144,50 +188,9 @@ public class UISupport {
     }
 
     /**
-     * An {@link UndoableEditListener} implementation that manages undo/redo operations for a {@link JTextComponent}.
-     */
-    public static class DefaultUndoableEditListener implements UndoableEditListener {
-        private final UndoManager undoManager = new UndoManager();
-        private boolean enabled = true;
-
-        @Override
-        public void undoableEditHappened(UndoableEditEvent e) {
-            if (isEnabled())
-                undoManager.addEdit(e.getEdit());
-        }
-
-        /**
-         * Returns the {@link UndoManager} associated with this listener.
-         *
-         * @return The {@link UndoManager} instance.
-         */
-        public UndoManager getUndoManager() {
-            return undoManager;
-        }
-
-        /**
-         * Checks if undo/redo functionality is currently enabled.
-         *
-         * @return {@code true} if enabled, {@code false} otherwise.
-         */
-        public boolean isEnabled() {
-            return enabled;
-        }
-
-        /**
-         * Sets whether undo/redo functionality should be enabled.
-         *
-         * @param aEnabled {@code true} to enable, {@code false} to disable.
-         */
-        public void setEnabled(boolean aEnabled) {
-            enabled = aEnabled;
-        }
-    }
-
-    /**
-     * Sets up undo/redo functionality for a given {@link JTextComponent}.
-     * This method adds an {@link UndoableEditListener} to the text component's document
-     * and binds undo/redo actions to standard keyboard shortcuts (Ctrl+Z/Cmd+Z and Ctrl+Shift+Z/Cmd+Shift+Z).
+     * Sets up undo/redo functionality for a given {@link JTextComponent}. This method adds an
+     * {@link UndoableEditListener} to the text component's document and binds undo/redo actions to standard keyboard
+     * shortcuts (Ctrl+Z/Cmd+Z and Ctrl+Shift+Z/Cmd+Shift+Z).
      *
      * @param textComponent The {@link JTextComponent} for which to set up undo/redo.
      * @return A {@link DefaultUndoableEditListener} instance managing the undo/redo operations.
@@ -213,9 +216,10 @@ public class UISupport {
     }
 
     /**
-     * Sets up a double-click action for a given {@link JComponent}.
-     * When the component is double-clicked with the left mouse button, the provided {@link Action} is performed.
-     * @param c The {@link JComponent} to which the double-click listener will be added.
+     * Sets up a double-click action for a given {@link JComponent}. When the component is double-clicked with the left
+     * mouse button, the provided {@link Action} is performed.
+     *
+     * @param c      The {@link JComponent} to which the double-click listener will be added.
      * @param action The {@link Action} to be performed on a double-click.
      */
     public static void bindDoubleClickAction(JComponent c, Action action) {
@@ -229,15 +233,11 @@ public class UISupport {
         });
     }
 
-    enum ImageFilter {
-        None, Lighter, Inverted
-    }
-
     private static ImageIcon loadImageIcon(List<Image> imageVariants, ImageFilter imageFilter) {
         List<Image> images = imageVariants;
         switch (imageFilter) {
             case Lighter -> images = imageVariants.stream()
-                    .map(image -> createFilteredImage(image, new GrayFilter(true, 50)))
+                    .map(image -> createFilteredImage(image, new GrayFilter(true, 45)))
                     .map(image -> new ImageIcon(image).getImage())
                     .toList();
             case Inverted -> images = imageVariants.stream()
@@ -269,12 +269,6 @@ public class UISupport {
         return Toolkit.getDefaultToolkit().createImage(prod);
     }
 
-    static class InvertFilter extends RGBImageFilter {
-        public int filterRGB(int x, int y, int rgb) {
-            return rgb ^ 0x00FFFFFF; // Preserve transparency
-        }
-    }
-
     /**
      * Creates an {@link Action} with a title, icon, and an action listener.
      *
@@ -284,7 +278,7 @@ public class UISupport {
      * @return A new {@link Action} instance.
      */
     public static BasicAction createAction(String title, Icon icon,
-                                                   Consumer<ActionEvent> actionListener) {
+                                           Consumer<ActionEvent> actionListener) {
         return new BasicAction(title, icon, actionListener);
     }
 
@@ -326,8 +320,6 @@ public class UISupport {
         }
     }
 
-    private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
-
     /**
      * Adds a {@link PropertyChangeListener} to the listener list. The listener is registered for all properties.
      *
@@ -359,7 +351,7 @@ public class UISupport {
         getOptions().setAppearance(appearance);
         applyAppearance();
         boolean dark = osThemeDetector.isDark();
-        firePropertyChange(Options.PROP_APPEARANCE_DARK, ! dark, dark);
+        firePropertyChange(Options.PROP_APPEARANCE_DARK, !dark, dark);
     }
 
     /**
@@ -617,10 +609,12 @@ public class UISupport {
             }
 
             @Override
-            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {}
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+            }
 
             @Override
-            public void popupMenuCanceled(PopupMenuEvent e) {}
+            public void popupMenuCanceled(PopupMenuEvent e) {
+            }
         });
         int i = 0;
         for (Action action : actionGroup.getActions()) {
@@ -630,10 +624,10 @@ public class UISupport {
             if (action instanceof ActionGroup subGroup) {
                 if (subGroup.isPopup()) {
                     JMenu subMenu = new JMenu(subGroup.getValue(Action.NAME).toString());
+                    popupMenu.add(subMenu);
                     subMenu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null); // Cast to Icon
                     setupSelectedIcon(subGroup, subMenu);
                     setupPopupMenu(subMenu.getPopupMenu(), subGroup, buttonGroupMap); // Pass buttonGroupMap for nested groups
-                    popupMenu.add(subMenu);
                 } else {
                     // If it's an ActionGroup but not a popup, treat its actions as direct menu items
                     for (Action subAction : subGroup.getActions()) {
@@ -652,6 +646,7 @@ public class UISupport {
     }
 
     private static void addMenuItem(JPopupMenu popupMenu, Action action, Map<String, ButtonGroup> buttonGroupMap) {
+        JMenuItem menuItem = null;
         if (action instanceof StateAction stateAction) {
             if (stateAction.getExclusiveGroup() != null) {
                 ButtonGroup buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
@@ -659,7 +654,8 @@ public class UISupport {
                 buttonGroup.add(rbMenuItem);
                 popupMenu.add(rbMenuItem);
             } else {
-                popupMenu.add(createMenuCheckBoxItem(stateAction));
+                menuItem = createMenuCheckBoxItem(stateAction);
+                popupMenu.add(menuItem);
             }
         } else if (action instanceof ActionGroup subGroup && !subGroup.isPopup()) {
             // This case handles non-popup ActionGroups that are not nested within another ActionGroup
@@ -669,7 +665,14 @@ public class UISupport {
             }
             popupMenu.addSeparator();
         } else {
-            popupMenu.add(createMenuItem(action));
+            menuItem = createMenuItem(action);
+            popupMenu.add(menuItem);
+        }
+
+        if (menuItem != null && belongsToMenuBar(popupMenu)) {
+            String name = (String) action.getValue(BasicAction.MENU_BAR_ITEM_NAME);
+            if (name != null && !name.isEmpty())
+                menuItem.setText(name);
         }
     }
 
@@ -690,9 +693,9 @@ public class UISupport {
 
             if (action instanceof ActionGroup subGroup) {
                 JMenu menu = new JMenu(subGroup.getValue(Action.NAME).toString());
+                menuBar.add(menu);
                 menu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null);
                 setupPopupMenu(menu.getPopupMenu(), subGroup, buttonGroupMap);
-                menuBar.add(menu);
             } else {
                 // Top-level actions in a menu bar are typically JMenus, not direct JMenuItems.
                 // If a direct action is encountered here, it's usually an error in the ActionGroup structure
@@ -700,11 +703,36 @@ public class UISupport {
                 // For now, we'll add it as a JMenu with a single item, or you might choose to log an error.
                 logger.warn("Direct action '{}' found at top level of JMenuBar setup. Consider wrapping it in an ActionGroup for a JMenu.", action.getValue(Action.NAME));
                 JMenu menu = new JMenu(action.getValue(Action.NAME).toString());
+                menuBar.add(menu);
                 menu.setIcon(action.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) action.getValue(Action.SMALL_ICON) : null);
                 addMenuItem(menu.getPopupMenu(), action, buttonGroupMap);
-                menuBar.add(menu);
             }
         }
+    }
+
+    private static boolean belongsToMenuBar(JPopupMenu popup) {
+        JMenu top = findTopMenu(popup);
+        return top != null && top.getParent() instanceof JMenuBar;
+    }
+
+    private static JMenu findTopMenu(JPopupMenu popup) {
+        if (popup == null)
+            return null;
+
+        Component c = popup.getInvoker();
+
+        while (c instanceof JMenuItem) {
+            JMenuItem item = (JMenuItem) c;
+            Container parent = item.getParent();
+
+            if (!(parent instanceof JPopupMenu))
+                return (item instanceof JMenu) ? (JMenu) item : null;
+
+            JPopupMenu parentPopup = (JPopupMenu) parent;
+            c = parentPopup.getInvoker();
+        }
+
+        return null;
     }
 
     /**
@@ -741,7 +769,7 @@ public class UISupport {
 
             // Add separator only if it's not the last item and the previous item was not a separator
             if (addSeparators && action instanceof ActionGroup && i < actionGroup.getActions().size() - 1 &&
-                    ! (toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
+                    !(toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
                 toolbar.addSeparator();
             }
         }
@@ -807,6 +835,87 @@ public class UISupport {
     }
 
     /**
+     * Binds an {@link Action} to a {@link KeyStroke} for a given {@link JComponent}. This method associates a keystroke
+     * with an action key in the component's input map, and then associates the action key with the actual
+     * {@link Action} in the component's action map.
+     *
+     * @param c         The {@link JComponent} to which the action will be bound.
+     * @param actionKey A unique string identifier for the action.
+     * @param keyStroke The {@link KeyStroke} that will trigger the action.
+     * @param action    The {@link Action} to be performed when the key stroke is pressed.
+     */
+    public static void bindAction(JComponent c, String actionKey, KeyStroke keyStroke, Action action) {
+        c.getInputMap().put(keyStroke, actionKey);
+        c.getActionMap().put(actionKey, action);
+    }
+
+    /**
+     * Scrolls a given rectangle within a component to be visible. If the component's parent is a {@link JViewport}, it
+     * attempts to align the rectangle vertically within the viewport based on the specified alignment.
+     *
+     * @param comp              The component containing the rectangle to be scrolled.
+     * @param rect              The rectangle to make visible.
+     * @param verticalAlignment The vertical alignment for the rectangle within the viewport (e.g.,
+     *                          {@link JComponent#TOP_ALIGNMENT}, {@link JComponent#BOTTOM_ALIGNMENT},
+     *                          {@link JComponent#CENTER_ALIGNMENT}).
+     */
+    public static void scrollRectToVisible(JComponent comp, Rectangle rect, float verticalAlignment) {
+        if (comp.getParent() instanceof JViewport viewport) {
+            Rectangle viewRect = viewport.getViewRect();
+
+            int viewHeight = viewRect.height;
+            int newY;
+
+            if (verticalAlignment == JComponent.TOP_ALIGNMENT) {
+                newY = rect.y;
+            } else if (verticalAlignment == JComponent.BOTTOM_ALIGNMENT) {
+                newY = rect.y + rect.height - viewHeight;
+            } else if (verticalAlignment == JComponent.CENTER_ALIGNMENT) {
+                newY = rect.y + rect.height / 2 - viewHeight / 2;
+            } else {
+                // Default to TOP if an unknown alignment is provided
+                newY = rect.y;
+            }
+
+            // Ensure newY is within the valid scroll range
+            // The maximum Y position is the component height minus the viewport height
+            // The minimum Y position is 0
+
+            newY = Math.max(0, Math.min(newY, comp.getHeight() - viewHeight));
+
+            Rectangle adjusted = new Rectangle(rect);
+            adjusted.y = newY;
+            adjusted.height = viewHeight;
+            comp.scrollRectToVisible(adjusted);
+        } else {
+            comp.scrollRectToVisible(rect);
+        }
+    }
+
+    /**
+     * Updates the content of a {@link JScrollPane} while attempting to preserve its vertical scroll position. This is
+     * useful when the content of the scroll pane changes, but the user's current scroll view should be maintained.
+     *
+     * @param scrollPane The {@link JScrollPane} whose content is being updated.
+     * @param action     A {@link Runnable} containing the code that updates the content of the scroll pane.
+     */
+    public static void updateAndPreserveScrollPosition(JScrollPane scrollPane, Runnable action) {
+        Objects.requireNonNull(scrollPane, "scrollPane cannot be null");
+        Objects.requireNonNull(action, "action cannot be null");
+
+        JScrollBar verticalScrollBar = scrollPane.getVerticalScrollBar();
+        double scrollPercentage = (double) verticalScrollBar.getValue() / (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount());
+
+        action.run();
+
+        SwingUtilities.invokeLater(() -> verticalScrollBar.setValue((int) (scrollPercentage * (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount()))));
+    }
+
+    enum ImageFilter {
+        None, Lighter, Inverted
+    }
+
+    /**
      * Enum representing the different appearance options for the application.
      */
     public enum Appearance {
@@ -831,6 +940,53 @@ public class UISupport {
          * "Visit Website" action is triggered from an "About" dialog or similar UI element.
          */
         void visitSite();
+    }
+
+    /**
+     * An {@link UndoableEditListener} implementation that manages undo/redo operations for a {@link JTextComponent}.
+     */
+    public static class DefaultUndoableEditListener implements UndoableEditListener {
+        private final UndoManager undoManager = new UndoManager();
+        private boolean enabled = true;
+
+        @Override
+        public void undoableEditHappened(UndoableEditEvent e) {
+            if (isEnabled())
+                undoManager.addEdit(e.getEdit());
+        }
+
+        /**
+         * Returns the {@link UndoManager} associated with this listener.
+         *
+         * @return The {@link UndoManager} instance.
+         */
+        public UndoManager getUndoManager() {
+            return undoManager;
+        }
+
+        /**
+         * Checks if undo/redo functionality is currently enabled.
+         *
+         * @return {@code true} if enabled, {@code false} otherwise.
+         */
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        /**
+         * Sets whether undo/redo functionality should be enabled.
+         *
+         * @param aEnabled {@code true} to enable, {@code false} to disable.
+         */
+        public void setEnabled(boolean aEnabled) {
+            enabled = aEnabled;
+        }
+    }
+
+    static class InvertFilter extends RGBImageFilter {
+        public int filterRGB(int x, int y, int rgb) {
+            return rgb ^ 0x00FFFFFF; // Preserve transparency
+        }
     }
 
     static class CustomScrollPane extends JScrollPane {
@@ -873,12 +1029,12 @@ public class UISupport {
     public static class AutoIcon extends ImageIcon {
         private final String key;
 
-        public String getKey() {
-            return key;
-        }
-
         public AutoIcon(String aKey) {
             key = aKey;
+        }
+
+        public String getKey() {
+            return key;
         }
 
         @Override
@@ -1040,6 +1196,7 @@ public class UISupport {
                 propetyChangeSupport.firePropertyChange(PROP_OPEN_FILE_AFTER_EXPORTING, !value, value);
             }
         }
+
         /**
          * Adds a {@link PropertyChangeListener} to the listener list. The listener is registered for all properties.
          *
@@ -1155,80 +1312,5 @@ public class UISupport {
             insets.bottom = this.insets.bottom;
             return insets;
         }
-    }
-
-    /**
-     * Binds an {@link Action} to a {@link KeyStroke} for a given {@link JComponent}.
-     * This method associates a keystroke with an action key in the component's input map,
-     * and then associates the action key with the actual {@link Action} in the component's action map.
-     * @param c The {@link JComponent} to which the action will be bound.
-     * @param actionKey A unique string identifier for the action.
-     * @param keyStroke The {@link KeyStroke} that will trigger the action.
-     * @param action The {@link Action} to be performed when the key stroke is pressed.
-     */
-    public static void bindAction(JComponent c, String actionKey, KeyStroke keyStroke, Action action) {
-        c.getInputMap().put(keyStroke, actionKey);
-        c.getActionMap().put(actionKey, action);
-    }
-
-    /**
-     * Scrolls a given rectangle within a component to be visible. If the component's parent is a {@link JViewport},
-     * it attempts to align the rectangle vertically within the viewport based on the specified alignment.
-     *
-     * @param comp              The component containing the rectangle to be scrolled.
-     * @param rect              The rectangle to make visible.
-     * @param verticalAlignment The vertical alignment for the rectangle within the viewport (e.g.,
-     *                          {@link JComponent#TOP_ALIGNMENT}, {@link JComponent#BOTTOM_ALIGNMENT},
-     *                          {@link JComponent#CENTER_ALIGNMENT}).
-     */
-    public static void scrollRectToVisible(JComponent comp, Rectangle rect, float verticalAlignment) {
-        if (comp.getParent() instanceof JViewport viewport) {
-            Rectangle viewRect = viewport.getViewRect();
-
-            int viewHeight = viewRect.height;
-            int newY;
-
-            if (verticalAlignment == JComponent.TOP_ALIGNMENT) {
-                newY = rect.y;
-            } else if (verticalAlignment == JComponent.BOTTOM_ALIGNMENT) {
-                newY = rect.y + rect.height - viewHeight;
-            } else if (verticalAlignment == JComponent.CENTER_ALIGNMENT) {
-                newY = rect.y + rect.height / 2 - viewHeight / 2;
-            } else {
-                // Default to TOP if an unknown alignment is provided
-                newY = rect.y;
-            }
-
-            // Ensure newY is within the valid scroll range
-            // The maximum Y position is the component height minus the viewport height
-            // The minimum Y position is 0
-
-            newY = Math.max(0, Math.min(newY, comp.getHeight() - viewHeight));
-
-            Rectangle adjusted = new Rectangle(rect);
-            adjusted.y = newY;
-            adjusted.height = viewHeight;
-            comp.scrollRectToVisible(adjusted);
-        } else {
-            comp.scrollRectToVisible(rect);
-        }
-    }
-
-    /**
-     * Updates the content of a {@link JScrollPane} while attempting to preserve its vertical scroll position.
-     * This is useful when the content of the scroll pane changes, but the user's current scroll view should be maintained.
-     * @param scrollPane The {@link JScrollPane} whose content is being updated.
-     * @param action A {@link Runnable} containing the code that updates the content of the scroll pane.
-     */
-    public static void updateAndPreserveScrollPosition(JScrollPane scrollPane, Runnable action) {
-        Objects.requireNonNull(scrollPane, "scrollPane cannot be null");
-        Objects.requireNonNull(action, "action cannot be null");
-
-        JScrollBar verticalScrollBar = scrollPane.getVerticalScrollBar();
-        double scrollPercentage = (double) verticalScrollBar.getValue() / (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount());
-
-        action.run();
-
-        SwingUtilities.invokeLater(() -> verticalScrollBar.setValue((int) (scrollPercentage * (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount()))));
     }
 }

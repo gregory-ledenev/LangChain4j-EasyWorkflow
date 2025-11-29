@@ -43,7 +43,9 @@ public class Application {
     private static Application sharedApplication;
 
     static {
+        Icons.loadIcons();
         System.setProperty("apple.awt.application.appearance", "system");
+        UIManager.put( "ScrollBar.width", 8);
 //        System.setProperty("apple.laf.useScreenMenuBar", "true");
     }
 
