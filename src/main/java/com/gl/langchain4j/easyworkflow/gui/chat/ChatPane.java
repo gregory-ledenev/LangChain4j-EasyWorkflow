@@ -29,13 +29,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
-import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
-import com.gl.langchain4j.easyworkflow.gui.platform.FormPanel;
-import com.gl.langchain4j.easyworkflow.gui.platform.HeaderPane;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.langchain4j.easyworkflow.gui.platform.*;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.Timer;
@@ -47,6 +44,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.geom.RoundRectangle2D;
 import java.beans.PropertyChangeEvent;
@@ -70,7 +68,7 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 public class ChatPane extends JPanel implements PropertyChangeListener {
 
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final Logger logger = LoggerFactory.getLogger(ChatPane.class);
+    private static final Logger logger = EasyWorkflow.getLogger(ChatPane.class);
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
     private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton(new AutoIcon(ICON_SEND));
@@ -331,6 +329,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         renderMarkdownAction = new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT), null,
                 e -> getOptions().setRenderMarkdown(!getOptions().isRenderMarkdown()),
                 a -> a.setSelected(getOptions().isRenderMarkdown()));
+        renderMarkdownAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, KeyEvent.SHIFT_DOWN_MASK | Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         clearAfterSendingAction = new StateAction("Clear Prompt After Sending", new AutoIcon(ICON_CHAT), null,
                 e -> getOptions().setClearAfterSending(!getOptions().isClearAfterSending()),
                 a -> a.setSelected(getOptions().isClearAfterSending()));
@@ -470,6 +469,9 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     private ChatMessage chatMessageForResponse(Object response) {
+        if (response instanceof Result<?> result)
+            response = result.content();
+
         if (response.getClass().isArray())
             response = Arrays.asList((Object[]) response);
 

@@ -1,11 +1,11 @@
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppDialog;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -25,7 +25,7 @@ import static java.text.DateFormat.SHORT;
  * Extends {@link AppDialog} to provide a standard application dialog framework.
  */
 public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHistoryItem>, ChatHistoryStorage.ChatHistoryItem> {
-    private static final Logger logger = LoggerFactory.getLogger(ChatHistoryDialog.class);
+    private static final Logger logger = EasyWorkflow.getLogger(ChatHistoryDialog.class);
     private static final String ACTION_COMMAND_DELETE = "delete";
     private final ChatHistoryStorage chatHistoryStorage;
 

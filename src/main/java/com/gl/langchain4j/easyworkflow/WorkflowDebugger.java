@@ -37,9 +37,9 @@ import dev.langchain4j.guardrail.GuardrailRequestParams;
 import dev.langchain4j.guardrail.InputGuardrail;
 import dev.langchain4j.guardrail.InputGuardrailRequest;
 import dev.langchain4j.guardrail.InputGuardrailResult;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
@@ -74,7 +74,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     public static final String KEY_OUTPUT_NAME = "$outputName";
     public static final String KEY_TRACE_ENTRY = "$traceEntry";
     public static final String KEY_SESSION_UID = "sessionUID";
-    private static final Logger logger = LoggerFactory.getLogger(WorkflowDebugger.class);
+    private static final Logger logger = EasyWorkflow.getLogger(WorkflowDebugger.class);
     private final WorkflowContext workflowContext;
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());
     private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>());
@@ -142,6 +142,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
         objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
+        objectMapper.addMixIn(Result.class, ResultMixIn.class);
         return objectMapper;
     }
 
@@ -977,6 +978,11 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             Throwable workflowFailure,
             List<AgentInvocationTraceEntry> agentInvocationTraceEntries,
             Map<String, Object> agenticScope) {
+    }
+
+    public abstract static class ResultMixIn {
+        @JsonProperty("content")
+        abstract int content();
     }
 
     public abstract static class UserMessageMixIn {

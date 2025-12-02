@@ -7,8 +7,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.loadIcon;
-
 @SuppressWarnings("ALL")
 public class Icons {
     private static final Map<String, ImageIcon> icons = new HashMap<>();
@@ -24,6 +22,7 @@ public class Icons {
     public static final String ICON_STOP = "stop";
     public static final String ICON_SPACER = "spacer";
     public static final String ICON_SEND = "send";
+
 
     public static void loadIcons() {
         loadIcon(ICON_EXPERT, "icons/expert");

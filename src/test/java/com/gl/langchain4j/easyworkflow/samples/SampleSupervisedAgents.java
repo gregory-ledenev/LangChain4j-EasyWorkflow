@@ -33,6 +33,7 @@ import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.agent.AgentBuilder;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
@@ -79,6 +80,7 @@ public class SampleSupervisedAgents {
                 .agent(ExchangeAgent.class) // ExchangeTool provided via @AgentBuilderConfigurator annotation
                 .agent(humanInTheLoop)
                 .end()
+                .agent(new SampleSupervisedAgents.SupervisorAgentResultConverter())
                 .build();
 
         System.out.println(workflowBuilder.generateAISummary());
@@ -89,7 +91,7 @@ public class SampleSupervisedAgents {
             ex.printStackTrace();
         }
 
-        System.out.println(supervisorAgent.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
+        System.out.println(supervisorAgent.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one").content());
         System.out.println(bankTool.getBalance("Mario"));
         System.out.println(bankTool.getBalance("Georgios"));
         System.out.println(workflowDebugger.toString(true));
@@ -139,9 +141,17 @@ public class SampleSupervisedAgents {
     }
 
     @SuppressWarnings("unused")
+    public static class SupervisorAgentResultConverter {
+        @Agent(outputKey = "response")
+        public Result<String> convert(@V("response") String request) {
+            return Result.<String>builder().content(request).build();
+        }
+    }
+
+    @SuppressWarnings("unused")
     public interface SupervisorAgent {
         @Agent(outputKey = "response", description = "Perform a transaction described in a request")
-        String makeTransaction(@V("request") String request);
+        Result<String> makeTransaction(@V("request") String request);
     }
 
     @SuppressWarnings("unused")

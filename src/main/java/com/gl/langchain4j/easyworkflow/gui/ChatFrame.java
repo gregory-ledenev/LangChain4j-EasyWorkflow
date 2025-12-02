@@ -37,13 +37,13 @@ import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
 import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.File;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -61,6 +61,7 @@ import static com.gl.langchain4j.easyworkflow.gui.Icons.LOGO_ICON;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane.PROP_SELECTED_VARIABLE;
 import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
+import static com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
 /**
@@ -77,7 +78,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     public static final String PROP_USER_MESSAGES_FILE = "user-messages-file";
     public static final String PROP_CHAT_FILE = "chat-file";
 
-    private static final Logger logger = LoggerFactory.getLogger(ChatFrame.class);
+    private static final Logger logger = EasyWorkflow.getLogger(ChatFrame.class);
     private final ChatPane pnlChat = new ChatPane();
     private final List<Playground.PlaygroundChatModel> chatModels;
     private JScrollPane pnlWorkflowSummary;
@@ -348,12 +349,24 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private void setupMenuBarOptionsActionGroup() {
         String exclusiveGroup = "appearance";
 
+        ActionGroup modelsActionGroup = null;
+        if (chatModels != null && ! chatModels.isEmpty()) {
+            String models = "models";
+            modelsActionGroup = new ActionGroup("Models", new AutoIcon(ICON_SPACER), true);
+            for (Playground.PlaygroundChatModel chatModel : chatModels) {
+                modelsActionGroup.addAction(new StateAction(chatModel.name(), null, models,
+                        e -> setChatModel(chatModel.chatModel()),
+                        a -> a.setSelected(workflowDebugger.getAgentWorkflowBuilder().getChatModel().equals(chatModel.chatModel()))));
+            }
+        }
+
         menuBarOptionsActionGroup = new ActionGroup("Options", null, true,
                 new ActionGroup(
                         pnlChat.getRenderMarkdownAction(),
                         pnlChat.getClearAfterSendingAction()
                 ),
                 new ActionGroup(),
+                modelsActionGroup,
                 new ActionGroup("Appearance", new AutoIcon(ICON_SPACER), true,
                         new StateAction("Light", null, exclusiveGroup,
                                 e -> applyAppearance(Appearance.Light),
@@ -410,10 +423,15 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         deleteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0));
 
         menuBarEditActionGroup = new ActionGroup("Edit", null, true,
-                cutAction,
-                copyAction,
-                pasteAction,
-                deleteAction
+                new ActionGroup(
+                        cutAction,
+                        copyAction,
+                        pasteAction,
+                        deleteAction
+                ),
+                new ActionGroup(
+                        editUserMessageAction
+                )
         );
     }
 
@@ -522,7 +540,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private void shareUserMessages() {
         String userMessagesAsJson = userMessagesStorage.asJson();
         if (userMessagesAsJson != null)
-            shareContent(userMessagesAsJson,
+            shareContent("User Messages", userMessagesAsJson,
                     PROP_USER_MESSAGES_FILE,
                     "user-messages.json");
         else
@@ -534,7 +552,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             return;
 
         try {
-            shareContent(ChatPane.OBJECT_MAPPER.
+            shareContent("Chat", ChatPane.OBJECT_MAPPER.
                             enable(SerializationFeature.INDENT_OUTPUT).
                             writeValueAsString(pnlChat.getChatMessages()),
                     PROP_CHAT_FILE,
@@ -545,7 +563,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void shareSummary() {
-        shareContent(pnlWorkflowSummaryView.getText(),
+        shareContent("Summary", pnlWorkflowSummaryView.getText(),
                 PROP_SUMMARY_FILE,
                 "workflow-summary.html");
     }
@@ -557,13 +575,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         agentInvocationTraceEntryArchive.agentInvocationTraceEntries(),
                         agentInvocationTraceEntryArchive.workflowResult(),
                         agentInvocationTraceEntryArchive.workflowFailure());
-        shareContent(content,
+        shareContent("Execution", content,
                 PROP_EXECUTION_FILE,
                 "workflow-execution.txt");
     }
 
     private void shareStructure() {
-        shareContent(workflowDebugger.getAgentWorkflowBuilder().toJson(),
+        shareContent("Structure", workflowDebugger.getAgentWorkflowBuilder().toJson(),
                 PROP_STRUCTURE_FILE,
                 "workflow-structure.json");
     }
@@ -576,12 +594,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         agentInvocationTraceEntryArchive.agentInvocationTraceEntries(),
                         agentInvocationTraceEntryArchive.workflowResult(),
                         agentInvocationTraceEntryArchive.workflowFailure());
-        shareContent(content,
+        shareContent("Flow Chart", content,
                 PROP_FLOW_CHART_FILE,
                 "workflow.html");
     }
 
-    private void shareContent(String content, String fileNameProperty, String defaultFileName) {
+    private void shareContent(String contentType, String content, String fileNameProperty, String defaultFileName) {
         FileChooserUtils fileChooserUtils = getFileChooserUtils();
 
         String fileStr = getPreferences().get(fileNameProperty, defaultFileName);
@@ -591,12 +609,34 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 getPreferences().put(fileNameProperty, file.getAbsolutePath());
                 Files.write(Paths.get(file.getAbsolutePath()), content.getBytes());
 
-                if (getOptions().isOpenFileAfterSharing() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN))
-                    Desktop.getDesktop().open(file);
+                if (getOptions().isOpenFileAfterSharing() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                    openFile(file);
+                } else {
+                    NotificationCenter.getInstance().postNotification(new Notification(
+                            NotificationType.SUCCESS,
+                            "Sharing Finished",
+                            "%s saved to %s".formatted(contentType, file.getPath()),
+                            e -> openFile(file)));
+                }
             } catch (Exception ex) {
-                logger.error("Failed to share flow chart", ex);
+                logger.error("Failed to share", ex);
             }
         }
+    }
+
+    private static void openFile(File file) {
+        CompletableFuture.supplyAsync(() -> {
+                    try {
+                        Desktop.getDesktop().open(file);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                    return null;
+                }
+        ).exceptionally(ex -> {
+            logger.error("Failed to open file", ex);
+            return null;
+        });
     }
 
     private void setupActions() {
@@ -625,6 +665,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         editUserMessageAction = new BasicAction("Edit User Message...", new AutoIcon(ICON_COMPOSE),
                 e -> editUserMessage(),
                 a -> a.setEnabled(canEditUserMessage()));
+        editUserMessageAction.putValue(BasicAction.MENU_BAR_ITEM_NAME, "User Message...");
         editUserMessageAction.setShortDescription("Edit user message");
         UISupport.bindAction(pnlWorkflowInspectorStructure.getListView(),
                 "editUserMessage",
@@ -656,12 +697,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                     workflowDebugger.getAgentWorkflowBuilder().getAgentClass(), workflowDebugger
             );
             workflowExpertAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_E,
-                    KeyEvent.SHIFT_DOWN_MASK | menuShortcutKeyMask));
+                    menuShortcutKeyMask));
         }
 
         chatHistoryAction = new BasicAction("Open Chat...", new AutoIcon(ICON_TIMER),
                 e -> showChats((JComponent) e.getSource()),
-                a -> a.setEnabled(chatHistoryStorage.getChatHistoryItemsSize() > 0));
+                a -> a.setEnabled(canShowChats()));
         chatHistoryAction.setShortDescription("Chat history");
         chatHistoryAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_O, menuShortcutKeyMask));
 
@@ -670,6 +711,10 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 a -> a.setEnabled(! getChatMessages().isEmpty() && ! getChatPane().isWaitingForResponse()));
         newChatAction.setShortDescription("New chat");
         newChatAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_N, menuShortcutKeyMask));
+    }
+
+    private boolean canShowChats() {
+        return ! getChatPane().isWaitingForResponse() && chatHistoryStorage.getChatHistoryItemsSize() > 0;
     }
 
     @Override
@@ -796,27 +841,35 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 }
             };
             modelsCombobox.setToolTipText("");
-            ChatModel chatModel = workflowDebugger.getAgentWorkflowBuilder().getChatModel();
-            for (Playground.PlaygroundChatModel playgroundChatModel : chatModels) {
-                if (playgroundChatModel.chatModel().equals(chatModel)) {
-                    modelsCombobox.setSelectedItem(playgroundChatModel);
-                    break;
-                }
-            }
-
             modelsCombobox.setFocusable(false);
             Dimension preferredSize = modelsCombobox.getPreferredSize();
             preferredSize.width = 150;
             modelsCombobox.setPreferredSize(preferredSize);
             modelsCombobox.setMaximumSize(preferredSize);
-            chatModelsAction = new ComponentAction("Model: ", modelsCombobox, e ->
-                    setChatModel(((Playground.PlaygroundChatModel) modelsCombobox.getSelectedItem()).chatModel()));
+            chatModelsAction = new ComponentAction("Model: ", modelsCombobox,
+                    e -> setChatModel(((Playground.PlaygroundChatModel) modelsCombobox.getSelectedItem()).chatModel()),
+                    a -> {
+                        boolean enabled = !getChatPane().isWaitingForResponse();
+                        modelsCombobox.setEnabled(enabled);
+                        if (enabled) {
+                            ChatModel chatModel = workflowDebugger.getAgentWorkflowBuilder().getChatModel();
+                            for (Playground.PlaygroundChatModel playgroundChatModel : chatModels) {
+                                if (playgroundChatModel.chatModel().equals(chatModel)) {
+                                    modelsCombobox.setSelectedItem(playgroundChatModel);
+                                    break;
+                                }
+                            }
+                        }
+            });
+            chatModelsAction.putValue(Action.MNEMONIC_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_M, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         }
     }
 
     private void setChatModel(ChatModel chatModel) {
-        workflowDebugger.getAgentWorkflowBuilder().chatModel(chatModel);
-        agent = workflowDebugger.getAgentWorkflowBuilder().build();
+        if (workflowDebugger.getAgentWorkflowBuilder().getChatModel() != chatModel) {
+            workflowDebugger.getAgentWorkflowBuilder().chatModel(chatModel);
+            agent = workflowDebugger.getAgentWorkflowBuilder().build();
+        }
     }
 
     private void setupToolbar(JToolBar toolbar) {

@@ -1,10 +1,10 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -19,7 +19,7 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.USER_HOME_FOLDER;
  * {@link ChatHistoryItem} objects in a JSON file within the user's home directory.
  */
 public class ChatHistoryStorage {
-    private static final Logger logger = LoggerFactory.getLogger(ChatHistoryStorage.class);
+    private static final Logger logger = EasyWorkflow.getLogger(ChatHistoryStorage.class);
     private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
     private final Class<?> agentClass;
     protected List<ChatHistoryItem> chatHistoryItems = Collections.synchronizedList(new ArrayList<>());

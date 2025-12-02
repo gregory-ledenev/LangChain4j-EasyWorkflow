@@ -27,10 +27,10 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.Application;
+import com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.data.message.UserMessage;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import java.awt.*;
@@ -48,7 +48,7 @@ import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
  * A GUI-based playground for interacting with an agent.
  */
 public class GUIPlayground extends Playground.BasicPlayground {
-    private static final Logger logger = LoggerFactory.getLogger(GUIPlayground.class);
+    private static final Logger logger = EasyWorkflow.getLogger(GUIPlayground.class);
     private ChatFrame chatFrame;
     private ChatDialog chatDialog;
     private String humanRequest;
@@ -156,11 +156,38 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 getChatModels());
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
+                EasyWorkflow.setLoggerAspect(createLoggerAspect());
                 Application.getSharedApplication().launch(chatFrame);
                 ChatPane chatPane = chatFrame.getChatPane();
                 chatPane.setUserMessage(userMessage);
             }
         });
+    }
+
+    /**
+     * Creates and returns a {@link EasyWorkflow.LoggerAspect} that intercepts log messages.
+     * Specifically, it captures error messages and displays them as notifications.
+     *
+     * @return A new {@link EasyWorkflow.LoggerAspect} instance.
+     */
+    public static EasyWorkflow.LoggerAspect createLoggerAspect() {
+        return (logger, method, args) -> {
+            if (method.getName().equals("error")) {
+                String text = args[0] != null ? args[0].toString() : "";
+
+                if (args.length > 1 && args[1] instanceof Throwable ex) {
+                    java.io.StringWriter sw = new java.io.StringWriter();
+                    java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+                    ex.printStackTrace(pw);
+                    text += "\n" + sw;
+                }
+
+                String finalText = text;
+                SwingUtilities.invokeLater(() -> NotificationCenter.getInstance().postNotification(
+                        new NotificationCenter.Notification(NotificationCenter.NotificationType.ERROR, "Error", finalText, null)));
+            }
+            return method.invoke(logger, args);
+        };
     }
 
     @SuppressWarnings("unchecked")

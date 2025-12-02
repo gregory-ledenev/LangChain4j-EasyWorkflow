@@ -51,6 +51,7 @@ public class SampleSupervisedAgentsPlayground {
                 .agent(SampleSupervisedAgents.ExchangeAgent.class) // ExchangeTool provided via @AgentBuilderConfigurator annotation
                 .agent(humanInTheLoop)
                 .end()
+                .agent(new SampleSupervisedAgents.SupervisorAgentResultConverter())
                 .build();
 
         try {

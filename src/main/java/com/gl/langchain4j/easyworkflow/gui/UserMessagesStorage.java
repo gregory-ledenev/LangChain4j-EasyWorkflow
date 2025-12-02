@@ -28,9 +28,9 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -48,7 +48,7 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.USER_HOME_FOLDER;
  * This class provides a persistent storage for user-defined user messages
  */
 public class UserMessagesStorage {
-    private static final Logger logger = LoggerFactory.getLogger(UserMessagesStorage.class);
+    private static final Logger logger = EasyWorkflow.getLogger(UserMessagesStorage.class);
     private final WorkflowDebugger workflowDebugger;
     private final Function<String, String> originalUserMessageProvider;
 

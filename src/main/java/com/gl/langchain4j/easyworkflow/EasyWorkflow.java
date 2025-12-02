@@ -108,7 +108,8 @@ public class EasyWorkflow {
      * explicitly closed.
      */
     private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
-    private static final Logger logger = LoggerFactory.getLogger(EasyWorkflow.class);
+    private static final Logger logger = getLogger(EasyWorkflow.class);
+    private static LoggerAspect loggerAspect = null;
 
     private EasyWorkflow() {
     }
@@ -368,6 +369,49 @@ public class EasyWorkflow {
     }
 
     /**
+     * Retrieves the currently set {@link LoggerAspect}.
+     *
+     * @return The {@link LoggerAspect} instance, or {@code null} if none is set.
+     */
+    public static LoggerAspect getLoggerAspect() {
+        return loggerAspect;
+    }
+
+    /**
+     * Sets the {@link LoggerAspect} to be used for intercepting logger calls.
+     *
+     * @param loggerAspect The {@link LoggerAspect} instance to set.
+     */
+    public static void setLoggerAspect(LoggerAspect loggerAspect) {
+        EasyWorkflow.loggerAspect = loggerAspect;
+    }
+
+    /**
+     * Retrieves a proxied {@link Logger} instance for the given class. If a {@link LoggerAspect} is set, it will
+     * intercept calls to the logger methods.
+     *
+     * @param clazz The class for which to get the logger.
+     * @return A proxied {@link Logger} instance.
+     */
+    public static Logger getLogger(Class<?> clazz) {
+        Logger originalLogger = LoggerFactory.getLogger(clazz);
+        return (Logger) Proxy.newProxyInstance(
+                Logger.class.getClassLoader(),
+                new Class<?>[]{Logger.class},
+                new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        LoggerAspect aspect = getLoggerAspect();
+                        return aspect != null ?
+                                aspect.invoke(originalLogger, method, args) :
+                                method.invoke(originalLogger, args);
+                    }
+                }
+        );
+
+    }
+
+    /**
      * Represents an expression within the workflow, which can create an agent.
      */
     public interface Expression {
@@ -378,6 +422,22 @@ public class EasyWorkflow {
         Map<String, Object> toJson();
 
         String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, List<String> completedNodes, Set<String> failedNodes, Set<String> runningNodes);
+    }
+
+    /**
+     * An interface for defining an aspect that can intercept logger calls.
+     */
+    public static interface LoggerAspect {
+        /**
+         * Intercepts a logger method invocation.
+         *
+         * @param logger The original {@link Logger} instance.
+         * @param method The method being invoked on the logger.
+         * @param args   The arguments passed to the logger method.
+         * @return The result of the invocation.
+         * @throws Throwable If an error occurs during invocation.
+         */
+        Object invoke(Logger logger, Method method, Object[] args) throws Throwable;
     }
 
     /**

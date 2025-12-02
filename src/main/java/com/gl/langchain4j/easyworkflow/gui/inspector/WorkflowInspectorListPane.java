@@ -32,8 +32,8 @@ import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.service.Result;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
 import javax.swing.border.Border;
@@ -491,7 +491,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
     }
 
-    private static final Logger logger = LoggerFactory.getLogger(WorkflowInspectorListPane.class);
+    private static final Logger logger = EasyWorkflow.getLogger(WorkflowInspectorListPane.class);
 
     private Object convertValue(Object value) {
         if (value == null)
