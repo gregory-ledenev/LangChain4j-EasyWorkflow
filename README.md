@@ -5,6 +5,7 @@ EasyWorkflow for LangChain4j provides a fluent DSL for building complex agentic 
 On top of clean workflow design, EasyWorkflow gives you other powerful tools:
 
 * Workflow Debugger – Step inside your workflows with full visibility into context and agent execution results. Set breakpoints on key events, like agent input or output, to watch your workflow come alive in real time.
+* Playground — Interactively experiment with workflows through a familiar chat-style interface. Use Playground to fine tune workflows, inspect their structure, execution results, and summary.
 * Visual Flow Diagrams – Instantly generate flowcharts for your workflows, making it easy to debug, inspect invocation results and progress, document, and illustrate agent logic at a glance.
 
 With EasyWorkflow, you can define workflows that include sequences of agents, conditional branches, parallel execution, agent groups, and loops, combining flexibility with elegance.
@@ -32,6 +33,7 @@ System.out.println(novel);
 
 *   **Fluent API:** A simple and intuitive DSL-style API for defining complex agentic workflows.
 *   **Workflow Debugger:** Debug agentic workflows and examine the results of their execution.
+*   **Playground:** Interactively experiment with workflows through a familiar chat-style interface.
 *   **Sequential Execution:** Define a sequence of agents that will be executed one after another.
 *   **Conditional Execution:** Execute agents based on a condition.
 *   **Parallel Execution:** Execute agents in parallel and compose their outputs.
@@ -48,7 +50,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -57,7 +59,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.2</version>
+    <version>1.0.3</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```

@@ -849,11 +849,15 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             chatModelsAction = new ComponentAction("Model: ", modelsCombobox,
                     e -> setChatModel(((Playground.PlaygroundChatModel) modelsCombobox.getSelectedItem()).chatModel()),
                     a -> {
-                        ChatModel chatModel = workflowDebugger.getAgentWorkflowBuilder().getChatModel();
-                        for (Playground.PlaygroundChatModel playgroundChatModel : chatModels) {
-                            if (playgroundChatModel.chatModel().equals(chatModel)) {
-                                modelsCombobox.setSelectedItem(playgroundChatModel);
-                                break;
+                        boolean enabled = !getChatPane().isWaitingForResponse();
+                        modelsCombobox.setEnabled(enabled);
+                        if (enabled) {
+                            ChatModel chatModel = workflowDebugger.getAgentWorkflowBuilder().getChatModel();
+                            for (Playground.PlaygroundChatModel playgroundChatModel : chatModels) {
+                                if (playgroundChatModel.chatModel().equals(chatModel)) {
+                                    modelsCombobox.setSelectedItem(playgroundChatModel);
+                                    break;
+                                }
                             }
                         }
             });
@@ -862,8 +866,10 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void setChatModel(ChatModel chatModel) {
-        workflowDebugger.getAgentWorkflowBuilder().chatModel(chatModel);
-        agent = workflowDebugger.getAgentWorkflowBuilder().build();
+        if (workflowDebugger.getAgentWorkflowBuilder().getChatModel() != chatModel) {
+            workflowDebugger.getAgentWorkflowBuilder().chatModel(chatModel);
+            agent = workflowDebugger.getAgentWorkflowBuilder().build();
+        }
     }
 
     private void setupToolbar(JToolBar toolbar) {

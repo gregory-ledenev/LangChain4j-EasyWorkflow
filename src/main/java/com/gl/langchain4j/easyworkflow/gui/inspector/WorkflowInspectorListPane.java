@@ -32,6 +32,7 @@ import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.service.Result;
 import org.slf4j.Logger;
 
 import javax.swing.*;

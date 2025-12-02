@@ -73,7 +73,7 @@ public class NotificationPanel extends JPanel {
         textArea.setFont(UIManager.getFont("Label.font"));
         textArea.setText("1\n2\n3");
         Dimension textSize = textArea.getPreferredSize();
-        textArea.setText(notification.getText());
+        textArea.setText(compactText(notification.getText()));
         textArea.setCaretPosition(0);
         UISupport.setupPopupMenu(textArea);
 
@@ -124,6 +124,16 @@ public class NotificationPanel extends JPanel {
         setSize(new Dimension(Math.min(NOTIFICATION_WIDTH + 20, size.width), size.height));
     }
 
+    private String compactText(String text) {
+        if (text == null || text.isEmpty())
+            return "";
+
+        StringBuilder sb = new StringBuilder();
+        text.lines().forEach(line -> sb.append(line.trim()).append("\n"));
+        // Remove the last newline character if present
+        return sb.toString().stripTrailing();
+    }
+
     private static String composeTitle(NotificationCenter.Notification notification) {
         String result = notification.getTitle() != null && !notification.getTitle().isEmpty() ? notification.getTitle() : null;
         if (result == null) {
@@ -135,7 +145,7 @@ public class NotificationPanel extends JPanel {
             };
         }
         if (notification.getCounter() > 1)
-            result += " (" + notification.getCounter() + ")";
+            result = "<html>%s <span style= \"color: gray;\">(%s)</span></html>".formatted(result, notification.getCounter());
 
         return result;
     }

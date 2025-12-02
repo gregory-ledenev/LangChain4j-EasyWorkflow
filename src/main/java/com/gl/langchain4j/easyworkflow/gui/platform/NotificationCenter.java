@@ -77,36 +77,21 @@ public class NotificationCenter {
         private final NotificationType type;
         private final String title;
         private final String text;
-        private final int delay;
         private final ActionListener clickAction;
         private int counter = 1;
         private final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(this);
 
         /**
          * Constructs a new Notification.
-         *
-         * @param type        The type of the notification (INFORMATION, WARNING, ERROR).
-         * @param title       The title of the notification.
-         * @param text        The main text content of the notification.
+         * @param type The type of the notification (SUCCESS, INFORMATION, WARNING, ERROR).
+         * @param title The title of the notification.
+         * @param text The main text content of the notification.
          * @param clickAction An {@link ActionListener} to be executed when the notification is clicked. Can be null.
          */
         public Notification(NotificationType type, String title, String text, ActionListener clickAction) {
-            this(type, title, text, 10000, clickAction);
-        }
-
-        /**
-         * Constructs a new Notification.
-         * @param type The type of the notification (INFORMATION, WARNING, ERROR).
-         * @param title The title of the notification.
-         * @param text The main text content of the notification.
-         * @param delay The duration in milliseconds after which the notification will automatically close. A value of 0 or less means it won't auto-close.
-         * @param clickAction An {@link ActionListener} to be executed when the notification is clicked. Can be null.
-         */
-        public Notification(NotificationType type, String title, String text, int delay, ActionListener clickAction) {
             this.type = type;
             this.title = title;
             this.text = text;
-            this.delay = delay;
             this.clickAction = clickAction;
         }
 
@@ -132,14 +117,6 @@ public class NotificationCenter {
          */
         public String getText() {
             return text;
-        }
-
-        /**
-         * Returns the auto-close delay of the notification in milliseconds.
-         * @return The delay in milliseconds.
-         */
-        public int getDelay() {
-            return delay;
         }
 
         /**
@@ -225,6 +202,8 @@ public class NotificationCenter {
         KeyboardFocusManager.getCurrentKeyboardFocusManager().addPropertyChangeListener("activeWindow", evt -> {
             Window oldActiveWindow = (Window) evt.getOldValue();
             Window newActiveWindow = (Window) evt.getNewValue();
+            if (! (newActiveWindow instanceof JFrame))
+                newActiveWindow = null;
 
             if (oldActiveWindow != null) {
                 oldActiveWindow.removeComponentListener(componentListener);
@@ -264,19 +243,25 @@ public class NotificationCenter {
     }
 
     /**
-     * Posts a new notification to be displayed.
-     * If an identical notification (same type, title, and text) is already active, it will not be shown again.
+     * Posts a new notification to be displayed with 10-second autohide delay. If an identical notification (same type,
+     * title, and text) is already active, it will not be shown again.
+     *
      * @param notification The {@link Notification} to be displayed.
      */
     public void postNotification(Notification notification) {
-        // Check if an identical notification is already active
-        for (Map.Entry<JWindow, Notification> entry : activeNotifications.entrySet()) {
-            if (entry.getValue().equals(notification)) {
-                entry.getValue().incCounter();
-                notificationTimers.get(entry.getKey()).restart();
-                return;
-            }
-        }
+        postNotification(notification, 10000);
+    }
+
+    /**
+     * Posts a new notification to be displayed. If an identical notification (same type, title, and text) is already
+     * active, it will not be shown again.
+     *
+     * @param notification The {@link Notification} to be displayed.
+     * @param delay        auto close delay in milliseconds
+     */
+    public void postNotification(Notification notification, int delay) {
+        if (checkAlreadyShown(notification))
+            return;
 
         JWindow notificationWindow = new JWindow(getActiveWindow());
         notificationWindow.setAlwaysOnTop(true);
@@ -299,8 +284,8 @@ public class NotificationCenter {
         activeNotifications.put(notificationWindow, notification);
         repositionNotifications();
 
-        if (notification.getDelay() > 0) {
-            Timer timer = new Timer(notification.getDelay(), e -> closeNotification.run());
+        if (delay > 0) {
+            Timer timer = new Timer(delay, e -> closeNotification.run());
             timer.setRepeats(false);
             notificationTimers.put(notificationWindow, timer);
 
@@ -338,6 +323,17 @@ public class NotificationCenter {
             });
             fadeInTimer.start();
         }
+    }
+
+    private boolean checkAlreadyShown(Notification notification) {
+        for (Map.Entry<JWindow, Notification> entry : activeNotifications.entrySet()) {
+            if (entry.getValue().equals(notification)) {
+                entry.getValue().incCounter();
+                notificationTimers.get(entry.getKey()).restart();
+                return true;
+            }
+        }
+        return false;
     }
 
     private void pauseAllTimers() {

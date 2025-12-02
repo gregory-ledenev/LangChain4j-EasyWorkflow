@@ -780,9 +780,11 @@ public class UISupport {
     private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
         if (action instanceof ComponentAction componentAction) {
             if (componentAction.getValue(Action.NAME) != null) {
-                JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
+                final JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
                 label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
                 toolbar.add(label);
+                componentAction.getComponent().addPropertyChangeListener("enabled",
+                        evt -> label.setEnabled(componentAction.getComponent().isEnabled()));
             }
             toolbar.add(componentAction.getComponent());
         } else if (action instanceof StateAction) {

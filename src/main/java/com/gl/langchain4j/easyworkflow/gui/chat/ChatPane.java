@@ -30,6 +30,7 @@ import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 
@@ -468,6 +469,9 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     private ChatMessage chatMessageForResponse(Object response) {
+        if (response instanceof Result<?> result)
+            response = result.content();
+
         if (response.getClass().isArray())
             response = Arrays.asList((Object[]) response);
 

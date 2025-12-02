@@ -37,6 +37,7 @@ import dev.langchain4j.guardrail.GuardrailRequestParams;
 import dev.langchain4j.guardrail.InputGuardrail;
 import dev.langchain4j.guardrail.InputGuardrailRequest;
 import dev.langchain4j.guardrail.InputGuardrailResult;
+import dev.langchain4j.service.Result;
 import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 
@@ -141,6 +142,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
         objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
+        objectMapper.addMixIn(Result.class, ResultMixIn.class);
         return objectMapper;
     }
 
@@ -976,6 +978,11 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             Throwable workflowFailure,
             List<AgentInvocationTraceEntry> agentInvocationTraceEntries,
             Map<String, Object> agenticScope) {
+    }
+
+    public abstract static class ResultMixIn {
+        @JsonProperty("content")
+        abstract int content();
     }
 
     public abstract static class UserMessageMixIn {
