@@ -25,8 +25,11 @@
 package com.gl.langchain4j.easyworkflow;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.HtmlConfiguration;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.agent.AgentInvocationException;
 import dev.langchain4j.agentic.agent.MissingArgumentException;
@@ -64,7 +67,9 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.expandTemplate;
  * state.
  */
 @SuppressWarnings("ALL")
-public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, WorkflowContext.InputHandler {
+public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
+        WorkflowContext.InputHandler,
+        EasyWorkflow.ToolExecutionListener {
 
     public static final String KEY_INPUT = "$input";
     public static final String KEY_OUTPUT = "$output";
@@ -81,6 +86,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     private final List<AgentInvocationTraceEntryArchive> agentInvocationTraceEntryArchives = Collections.synchronizedList(new ArrayList<>());
     private final Map<String, Object> workflowInput = new HashMap<>();
     private final ConcurrentHashMap<Object, EasyWorkflow.Expression> agentMetadata = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Object> agentById = new ConcurrentHashMap<>();
     private boolean breakpointsEnabled = true;
     private AgenticScope agenticScope;
     private Object workflowResult;
@@ -143,6 +149,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         objectMapper.addMixIn(UserMessage.class, UserMessageMixIn.class);
         objectMapper.addMixIn(TextContent.class, TextContentMixIn.class);
         objectMapper.addMixIn(Result.class, ResultMixIn.class);
+        objectMapper.addMixIn(ToolExecutionRequest.class, ToolExecutionRequestMixIn.class);
         return objectMapper;
     }
 
@@ -470,10 +477,36 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
 
     void registerAgentMetadata(Object agent, EasyWorkflow.Expression metadata) {
         agentMetadata.put(agent, metadata);
+        agentById.put(metadata.getId(), agent);
     }
 
+    /**
+     * Returns the metadata associated with a given agent object.
+     *
+     * @param agent The agent object.
+     * @return The {@link EasyWorkflow.Expression} metadata for the agent, or {@code null} if not found.
+     */
     public EasyWorkflow.Expression getAgentMetadata(Object agent) {
         return agentMetadata.get(agent);
+    }
+
+    /**
+     * Returns the metadata associated with a given agent ID.
+     *
+     * @param agentId The unique identifier of the agent.
+     * @return The {@link EasyWorkflow.Expression} metadata for the agent, or {@code null} if not found.
+     */
+    public EasyWorkflow.Expression getAgentMetadata(String agentId) {
+        return getAgentMetadata(getAgent(agentId));
+    }
+
+    /**
+     * Returns the agent object associated with a given agent ID.
+     * @param agentId The unique identifier of the agent.
+     * @return The agent object, or {@code null} if not found.
+     +     */
+    public Object getAgent(String agentId) {
+        return agentById.get(agentId);
     }
 
     /**
@@ -594,10 +627,20 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         }
     }
 
+    /**
+     * Returns the {@link EasyWorkflow.AgentWorkflowBuilder} instance associated with this debugger.
+     *
+     * @return The {@link EasyWorkflow.AgentWorkflowBuilder}.
+     */
     public EasyWorkflow.AgentWorkflowBuilder<?> getAgentWorkflowBuilder() {
         return agentWorkflowBuilder;
     }
 
+    /**
+     * Sets the {@link EasyWorkflow.AgentWorkflowBuilder} instance for this debugger.
+     *
+     * @param agentWorkflowBuilder The {@link EasyWorkflow.AgentWorkflowBuilder} to set.
+     */
     public void setAgentWorkflowBuilder(EasyWorkflow.AgentWorkflowBuilder<?> agentWorkflowBuilder) {
         this.agentWorkflowBuilder = agentWorkflowBuilder;
     }
@@ -727,7 +770,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
                          Throwable workflowFailure) {
         Map<String, Object> results = new HashMap<>();
 
-        ObjectMapper objectMapper = createObjectMapper();
+        ObjectMapper objectMapper = OBJECT_MAPPER;
 
         Set<String> runningAgents = new HashSet<>();
         List<String> completedAgents = new ArrayList<>();
@@ -924,6 +967,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             userMessageTemplates.remove(agentClassName);
     }
 
+    /**
+     * Creates an {@link InputGuardrail} instance for altering input messages for a specific agent class.
+     */
     protected InputGuardrail createAlterInputGuardrail(Class<?> agentClass) {
         return new AlterInputGuardrail(agentClass);
     }
@@ -935,6 +981,26 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         workflowFailure = null;
         agentInvocationTraceEntries.clear();
         agentInvocationTraceEntryArchives.clear();
+    }
+
+    @Override
+    public void beforeExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest) {
+    }
+
+    @Override
+    public void afterExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest, String result, Throwable exception) {
+        ArrayList<AgentInvocationTraceEntry> entries;
+        synchronized (agentInvocationTraceEntries) {
+            entries = new ArrayList<>(agentInvocationTraceEntries);
+        }
+        Object agent = getAgent(agentId);
+        AgentInvocationTraceEntry traceEntry = null;
+        for (AgentInvocationTraceEntry entry : entries) {
+            if (entry.getAgent() == agent) {
+                entry.addToolInvocationTraceEntry(new ToolInvocationTraceEntry(toolExecutionRequest, result, exception));
+                break;
+            }
+        }
     }
 
     class AlterInputGuardrail implements InputGuardrail, LeadingGuardrail {
@@ -978,6 +1044,14 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             Throwable workflowFailure,
             List<AgentInvocationTraceEntry> agentInvocationTraceEntries,
             Map<String, Object> agenticScope) {
+    }
+
+    public abstract static class ToolExecutionRequestMixIn {
+        @JsonProperty("name")
+        abstract String name();
+
+        @JsonProperty("arguments")
+        abstract String arguments();
     }
 
     public abstract static class ResultMixIn {
@@ -1484,6 +1558,35 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
     }
 
     /**
+     * Represents a trace entry for a tool invocation within an agent's execution.
+     *
+     * @param toolExecutionRequest The request made to execute the tool.
+     * @param result               The result returned by the tool execution, if successful.
+     * @param exception            The exception thrown during tool execution, if it failed.
+     */
+    public static record ToolInvocationTraceEntry(Map<String, Object> toolExecutionRequest, String result,
+                                                  Throwable exception) {
+        public ToolInvocationTraceEntry(ToolExecutionRequest toolExecutionRequest, String result, Throwable exception) {
+            this(convertToolExecutionRequest(toolExecutionRequest), result, exception);
+        }
+
+        private static Map<String, Object> convertToolExecutionRequest(ToolExecutionRequest toolExecutionRequest) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("name", toolExecutionRequest.name());
+            try {
+                result.put("arguments", OBJECT_MAPPER.readValue(
+                        toolExecutionRequest.arguments(),
+                        new TypeReference<Map<String, String>>() {}));
+            } catch (JsonProcessingException ex) {
+                logger.error("Unable to parse tool execution request arguments: " + toolExecutionRequest.arguments(), ex);
+            }
+            return result;
+        }
+    }
+
+    private static final ObjectMapper OBJECT_MAPPER = createObjectMapper();
+
+    /**
      * Represents a single entry in the agent invocation trace, capturing details about an agent's input and output.
      */
     public static class AgentInvocationTraceEntry {
@@ -1495,6 +1598,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
         private Object output;
         private Throwable failure;
         private long lastAccessTime;
+        private List<ToolInvocationTraceEntry> toolInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>());
 
         /**
          * Constructs a new {@code AgentInvocationTraceEntry}.
@@ -1512,6 +1616,24 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler, Wor
             this.input = input;
 
             updateLastAccessTime();
+        }
+
+        /**
+         * Adds a {@link ToolInvocationTraceEntry} to the list of tool invocations for this agent.
+         *
+         * @param toolInvocationTraceEntry The tool invocation trace entry to add.
+         */
+        public void addToolInvocationTraceEntry(ToolInvocationTraceEntry toolInvocationTraceEntry) {
+            toolInvocationTraceEntries.add(toolInvocationTraceEntry);
+        }
+
+        /**
+         * Returns an unmodifiable list of {@link ToolInvocationTraceEntry} objects, representing the sequence of tool
+         * invocations within this agent invocation.
+         * @return An unmodifiable list of {@link ToolInvocationTraceEntry} objects.
+         */
+        public List<ToolInvocationTraceEntry> getToolInvocationTraceEntries() {
+            return Collections.unmodifiableList(toolInvocationTraceEntries);
         }
 
         /**

@@ -27,6 +27,9 @@ package com.gl.langchain4j.easyworkflow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import dev.langchain4j.agent.tool.Tool;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecifications;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.UntypedAgent;
@@ -47,6 +50,7 @@ import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
+import dev.langchain4j.service.tool.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,8 +112,8 @@ public class EasyWorkflow {
      * explicitly closed.
      */
     private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
-    private static final Logger logger = getLogger(EasyWorkflow.class);
     private static LoggerAspect loggerAspect = null;
+    private static final Logger logger = getLogger(EasyWorkflow.class);
 
     private EasyWorkflow() {
     }
@@ -1879,7 +1883,7 @@ public class EasyWorkflow {
 
             if (result == null) {
                 String outName = getOutputName();
-                AgentBuilder<?> agentBuilder = createAgentBuilder()
+                AgentBuilder<?> agentBuilder = createAgentBuilder(id, workflowDebugger)
                         .chatModel(agentWorkflowBuilder.getChatModel());
                 if (outName != null && !outName.isEmpty())
                     agentBuilder.outputKey(outName);
@@ -2050,12 +2054,37 @@ public class EasyWorkflow {
         }
 
         @SuppressWarnings({"rawtypes", "unchecked"})
-        protected AgentBuilder<?> createAgentBuilder() {
+        protected AgentBuilder<?> createAgentBuilder(String agentId, WorkflowDebugger aWorkflowDebugger) {
             return new AgentBuilder(agentClass, validateAgentClass(agentClass)) {
                 private InputGuardrail[] inputGuardrailsLocal;
                 private OutputGuardrail[] outputGuardrailsLocal;
                 private Class[] inputGuardrailClassesLocal;
                 private Class[] outputGuardrailClassesLocal;
+                private final String id = agentId;
+                private final WorkflowDebugger workflowDebugger = aWorkflowDebugger;
+
+                @Override
+                public AgentBuilder tools(Object... objectsWithTools) {
+                    return super.toolProvider(getToolProvider(objectsWithTools));
+                }
+
+                private ToolProvider getToolProvider(Object[] tools) {
+                    return new ToolProvider() {
+                        @Override
+                        public ToolProviderResult provideTools(ToolProviderRequest request) {
+                            ToolProviderResult.Builder builder = ToolProviderResult.builder();
+                            for (Object tool : tools) {
+                                Arrays.stream(tool.getClass().getDeclaredMethods())
+                                        .filter(method -> method.isAnnotationPresent(Tool.class))
+                                        .forEach(method -> {
+                                            BoundToolExecutor executor = new BoundToolExecutor(id, tool, method, workflowDebugger);
+                                            builder.add(ToolSpecifications.toolSpecificationFrom(method), executor);
+                                        });
+                            }
+                            return builder.build();
+                        }
+                    };
+                }
 
                 private InputGuardrail[] mergeInputGuardrails(InputGuardrail[] existing, InputGuardrail[] newGuardrails) {
                     return mergeGuardrails(existing, newGuardrails, InputGuardrail.class);
@@ -2318,5 +2347,48 @@ public class EasyWorkflow {
             mermaid.append(edge);
             return nodeId;
         }
+    }
+
+    private static class BoundToolExecutor implements ToolExecutor {
+        private final Method toolMethod;
+        private final ToolExecutor defaultToolExecutor;
+        private final String agentId;
+
+        private final ToolExecutionListener toolExecutionListener;
+
+        public BoundToolExecutor(String agentId, Object tool, Method toolMethod,
+                                 ToolExecutionListener toolExecutionListener) {
+            this.agentId = agentId;
+            this.toolMethod = toolMethod;
+            defaultToolExecutor = new DefaultToolExecutor(tool, toolMethod);
+            this.toolExecutionListener = toolExecutionListener;
+        }
+
+        @Override
+        public String execute(ToolExecutionRequest request, Object memoryId) {
+            if (toolExecutionListener != null)
+                toolExecutionListener.beforeExecuteTool(agentId, request);
+
+            RuntimeException exception = null;
+            String result = null;
+            try {
+                result = defaultToolExecutor.execute(request, memoryId);
+            } catch (RuntimeException ex) {
+                exception = ex;
+            }
+
+            if (toolExecutionListener != null)
+                toolExecutionListener.afterExecuteTool(agentId, request, result, exception);
+
+            if (exception != null)
+                throw exception;
+
+            return result;
+        }
+    }
+
+    public static interface ToolExecutionListener {
+        void beforeExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest);
+        void afterExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest, String result, Throwable exception);
     }
 }
