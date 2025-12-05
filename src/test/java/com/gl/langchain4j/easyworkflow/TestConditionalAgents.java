@@ -1,6 +1,8 @@
 package com.gl.langchain4j.easyworkflow;
 
 import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.agentic.AgenticServices;
+import dev.langchain4j.agentic.UntypedAgent;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.V;
@@ -34,6 +36,7 @@ public class TestConditionalAgents {
         ExpertRouterAgent expertRouterAgent = builder
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(debugger)
+                .outputName("finalResponse")
                 .setState("response", "")
                 .agent(new CategoryRouter())
                 .doWhen("category", RequestCategory.UNKNOWN)
@@ -66,6 +69,41 @@ public class TestConditionalAgents {
     }
 
     @Test
+    void testSwitchNoDSL() {
+        OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
+                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
+                .build();
+
+        UntypedAgent expertsAgent = AgenticServices.conditionalBuilder()
+                .subAgents( agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL,
+                        new MedicalExpert())
+                .subAgents( agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL,
+                        new LegalExpert())
+                .subAgents( agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.TECHNICAL,
+                        new TechnicalExpert())
+                .build();
+
+        ExpertRouterAgent expertRouterAgent = AgenticServices
+                .sequenceBuilder(ExpertRouterAgent.class)
+                .subAgents(
+                        SetStateAgents.agentOf("response", ""),
+                        new CategoryRouter(),
+                        expertsAgent,
+                        new SummaryAgent())
+                .subAgents(new CategoryRouter(), expertsAgent, new SummaryAgent())
+                .outputKey("finalResponse")
+                .output(OutputComposers.asMap("response", "summary"))
+                .build();
+
+        System.out.println(expertRouterAgent.ask("I broke my leg what should I do"));
+        System.out.println(expertRouterAgent.ask("Can I sue my neighbor?"));
+        System.out.println(expertRouterAgent.ask("How to configure a VPN on Windows?"));
+        System.out.println(expertRouterAgent.ask("What's the meaning of life?"));
+    }
+
+    @Test
     public void testIf() {
 
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
@@ -82,6 +120,7 @@ public class TestConditionalAgents {
         ExpertRouterAgent expertRouterAgent = builder
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(debugger)
+                .outputName("finalResponse")
                 .setState("response", "")
                 .agent(new CategoryRouter())
                     .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.MEDICAL, "category == MEDICAL"))

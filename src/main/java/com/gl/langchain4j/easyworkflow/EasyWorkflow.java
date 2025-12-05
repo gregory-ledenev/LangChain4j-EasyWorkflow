@@ -38,6 +38,7 @@ import dev.langchain4j.agentic.internal.A2AClientBuilder;
 import dev.langchain4j.agentic.internal.AgentSpecification;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
 import dev.langchain4j.agentic.scope.AgenticScope;
+import dev.langchain4j.agentic.supervisor.SupervisorAgent;
 import dev.langchain4j.agentic.supervisor.SupervisorResponseStrategy;
 import dev.langchain4j.agentic.workflow.ConditionalAgentService;
 import dev.langchain4j.agentic.workflow.ParallelAgentService;
@@ -499,7 +500,7 @@ public class EasyWorkflow {
         }
 
         private static String getOutputName(Class<?> agentClass) {
-            String result = "response";
+            String result = null;
 
             if (agentClass != null) {
                 Method[] declaredMethods = agentClass.getDeclaredMethods();
@@ -1710,7 +1711,7 @@ public class EasyWorkflow {
 
         @Override
         public Object createAgent() {
-            return AgenticServices.supervisorBuilder()
+            return AgenticServices.supervisorBuilder(SupervisorAgent.class)
                     .outputKey(agentWorkflowBuilder.outputName)
                     .chatModel(agentWorkflowBuilder.getChatModel())
                     .subAgents(getBlocks().get(0).createAgents().toArray())

@@ -97,12 +97,12 @@ public class TestSequentialAndRepeatableAgents {
         List<String> breakpointOutput = new ArrayList<>();
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
-        workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
+        workflowDebugger.addBreakpoint(new Breakpoint(Breakpoint.Type.SESSION_STARTED, (aBreakpoint, ctx) ->
                 breakpointOutput.add(expandTemplate("Args: {{topic}}, {{audience}}, {{style}}", workflowDebugger.getWorkflowInput())),
-                Breakpoint.Type.SESSION_STARTED, null, true));
-        workflowDebugger.addBreakpoint(new Breakpoint((aBreakpoint, ctx) ->
+                null, true));
+        workflowDebugger.addBreakpoint(new Breakpoint(Breakpoint.Type.SESSION_STOPPED, (aBreakpoint, ctx) ->
                 breakpointOutput.add(expandTemplate("Result: {{story}}", ctx)),
-                Breakpoint.Type.SESSION_STOPPED, null, true));
+                null, true));
         workflowDebugger.addBreakpoint(new AgentBreakpoint((aBreakpoint, ctx) ->
                 breakpointOutput.add("Score: " + ctx.getOrDefault("score", 0.0)),
                 Breakpoint.Type.AGENT_OUTPUT, null, new String[]{"score"}, null, true));

@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
 
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.*;
+
 public class SampleSupervisedAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
 
@@ -40,18 +42,32 @@ public class SampleSupervisedAgentsPlayground {
                 YES - to confirm; any other value - to decline""");
 
         WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+        workflowDebugger.addBreakpoint(Breakpoint.builder(Breakpoint.Type.TOOL_INPUT,
+                (b, states) -> {
+                    String result = "TOOL_INPUT: %s, %s".formatted(states.get(KEY_TOOL), states.get(KEY_TOOL_REQUEST));
+                    System.out.println(result);
+                    return result;
+                }).build());
+        workflowDebugger.addBreakpoint(Breakpoint.builder(Breakpoint.Type.TOOL_OUTPUT,
+                (b, states) -> {
+                    String result = "TOOL_OUTPUT: %s, %s -> %s".formatted(states.get(KEY_TOOL),
+                            states.get(KEY_TOOL_REQUEST),
+                            states.get(KEY_TOOL_RESPONSE));
+                    System.out.println(result);
+                    return result;
+                }).build());
 
         EasyWorkflow.AgentWorkflowBuilder<SampleSupervisedAgents.SupervisorAgent> workflowBuilder = EasyWorkflow.builder(SampleSupervisedAgents.SupervisorAgent.class);
         SampleSupervisedAgents.SupervisorAgent supervisorAgent = workflowBuilder
                 .chatModel(metaLlamaModel)
                 .workflowDebugger(workflowDebugger)
                 .doAsGroup()
-                .agent(SampleSupervisedAgents.WithdrawAgent.class, builder -> builder.tools(bankTool))
-                .agent(SampleSupervisedAgents.CreditAgent.class, builder -> builder.tools(bankTool))
-                .agent(SampleSupervisedAgents.ExchangeAgent.class) // ExchangeTool provided via @AgentBuilderConfigurator annotation
-                .agent(humanInTheLoop)
+                    .agent(SampleSupervisedAgents.WithdrawAgent.class, builder -> builder.tools(bankTool))
+                    .agent(SampleSupervisedAgents.CreditAgent.class, builder -> builder.tools(bankTool))
+                    .agent(SampleSupervisedAgents.ExchangeAgent.class)
+                    // ExchangeTool provided via @AgentBuilderConfigurator annotation
+                    .agent(humanInTheLoop)
                 .end()
-                .agent(new SampleSupervisedAgents.SupervisorAgentResultConverter())
                 .build();
 
         try {

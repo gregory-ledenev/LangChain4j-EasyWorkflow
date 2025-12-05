@@ -31,6 +31,7 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
         EasyWorkflow.AgentWorkflowBuilder<SampleSequentialAndRepeatableAgents.NovelCreator> builder = EasyWorkflow.builder(SampleSequentialAndRepeatableAgents.NovelCreator.class)
                 .chatModel(metaLlamaModel)
                 .workflowDebugger(workflowDebugger)
+                .outputName("finalStory")
                 .agent(SampleSequentialAndRepeatableAgents.CreativeWriter.class)
                 .agent(SampleSequentialAndRepeatableAgents.AudienceEditor.class)
                 .repeat( condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))

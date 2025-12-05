@@ -93,6 +93,7 @@ public class SampleSequentialAndRepeatableAgents {
         NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(workflowDebugger)
+                .outputName("finalStory")
                 .agent(CreativeWriter.class)
                 .agent(AudienceEditor.class)
                 .repeat(agenticScope -> agenticScope.readState("score", 0.0) < 0.8)

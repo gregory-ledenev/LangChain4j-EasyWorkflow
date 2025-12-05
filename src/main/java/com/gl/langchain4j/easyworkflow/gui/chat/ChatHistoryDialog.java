@@ -220,10 +220,13 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
          */
         @Override
         public Component getListCellRendererComponent(JList<? extends ChatHistoryStorage.ChatHistoryItem> list, ChatHistoryStorage.ChatHistoryItem value, int index, boolean isSelected, boolean cellHasFocus) {
+            String requestSign = "→ ";
+            String responseSign = "← ";
+
             lblDate.setText(isToday(value.date()) ? timeFormat.format(value.date()) : dateFormat.format(value.date()));
             lblCounter.setText(String.valueOf(value.chatMessages().size()));
-            lblRequest.setText(getRequestText(value));
-            lblResponse.setText(getResponseText(value));
+            lblRequest.setText(requestSign + getRequestText(value));
+            lblResponse.setText(responseSign + getResponseText(value));
 
             if (isSelected) {
                 setBackground(list.getSelectionBackground());

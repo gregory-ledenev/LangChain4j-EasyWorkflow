@@ -30,15 +30,14 @@ import com.gl.langchain4j.easyworkflow.*;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agentic.Agent;
+import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.agent.AgentBuilder;
-import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 import dev.langchain4j.service.Result;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.prefs.Preferences;
@@ -51,51 +50,51 @@ import java.util.prefs.Preferences;
 public class SampleSupervisedAgents {
     static final String GROQ_API_KEY = "groqApiKey";
 
-    public static void main(String[] args) {
-        OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
-                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
-                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
-                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
-                .build();
-
-        BankTool bankTool = new BankTool();
-        bankTool.createAccount("Mario", 1000.0);
-        bankTool.createAccount("Georgios", 1000.0);
-
-        HumanInTheLoop humanInTheLoop = HumanInTheLoopAgents.consoleAgent(
-                "confirmation",
-                """
-                An agent that asks the user to confirm transactions.
-                YES - to confirm; any other value - to decline""");
-
-        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
-
-        EasyWorkflow.AgentWorkflowBuilder<SupervisorAgent> workflowBuilder = EasyWorkflow.builder(SupervisorAgent.class);
-        SupervisorAgent supervisorAgent = workflowBuilder
-                .chatModel(BASE_MODEL)
-                .workflowDebugger(workflowDebugger)
-                .doAsGroup()
-                .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
-                .agent(CreditAgent.class, builder -> builder.tools(bankTool))
-                .agent(ExchangeAgent.class) // ExchangeTool provided via @AgentBuilderConfigurator annotation
-                .agent(humanInTheLoop)
-                .end()
-                .agent(new SampleSupervisedAgents.SupervisorAgentResultConverter())
-                .build();
-
-        System.out.println(workflowBuilder.generateAISummary());
-
-        try {
-            workflowBuilder.toHtmlFile("workflow.html");
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-
-        System.out.println(supervisorAgent.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one").content());
-        System.out.println(bankTool.getBalance("Mario"));
-        System.out.println(bankTool.getBalance("Georgios"));
-        System.out.println(workflowDebugger.toString(true));
-    }
+//    public static void main(String[] args) {
+//        OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
+//                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+//                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+//                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
+//                .build();
+//
+//        BankTool bankTool = new BankTool();
+//        bankTool.createAccount("Mario", 1000.0);
+//        bankTool.createAccount("Georgios", 1000.0);
+//
+//        HumanInTheLoop humanInTheLoop = HumanInTheLoopAgents.consoleAgent(
+//                "confirmation",
+//                """
+//                An agent that asks the user to confirm transactions.
+//                YES - to confirm; any other value - to decline""");
+//
+//        WorkflowDebugger workflowDebugger = new WorkflowDebugger();
+//
+//        EasyWorkflow.AgentWorkflowBuilder<SupervisorAgent> workflowBuilder = EasyWorkflow.builder(SupervisorAgent.class);
+//        SupervisorAgent supervisorAgent = workflowBuilder
+//                .chatModel(BASE_MODEL)
+//                .workflowDebugger(workflowDebugger)
+//                .doAsGroup()
+//                .agent(WithdrawAgent.class, builder -> builder.tools(bankTool))
+//                .agent(CreditAgent.class, builder -> builder.tools(bankTool))
+//                .agent(ExchangeAgent.class) // ExchangeTool provided via @AgentBuilderConfigurator annotation
+//                .agent(humanInTheLoop)
+//                .end()
+//                .agent(new SampleSupervisedAgents.SupervisorAgentResultConverter())
+//                .build();
+//
+//        System.out.println(workflowBuilder.generateAISummary());
+//
+//        try {
+//            workflowBuilder.toHtmlFile("workflow.html");
+//        } catch (IOException ex) {
+//            ex.printStackTrace();
+//        }
+//
+//        System.out.println(supervisorAgent.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one").content());
+//        System.out.println(bankTool.getBalance("Mario"));
+//        System.out.println(bankTool.getBalance("Georgios"));
+//        System.out.println(workflowDebugger.toString(true));
+//    }
 
     @SuppressWarnings("unused")
     public interface WithdrawAgent {
@@ -151,7 +150,7 @@ public class SampleSupervisedAgents {
     @SuppressWarnings("unused")
     public interface SupervisorAgent {
         @Agent(outputKey = "response", description = "Perform a transaction described in a request")
-        Result<String> makeTransaction(@V("request") String request);
+        String makeTransaction(@V("request") String request);
     }
 
     @SuppressWarnings("unused")
@@ -211,5 +210,45 @@ public class SampleSupervisedAgents {
         Double exchange(@P("originalCurrency") String originalCurrency, @P("amount") Double amount, @P("targetCurrency") String targetCurrency) {
             return amount * 1.15;
         }
+    }
+
+    public static void main(String[] args) {
+        OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
+                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("meta-llama/llama-4-scout-17b-16e-instruct") // or another model
+                .build();
+
+        BankTool bankTool = new BankTool();
+        bankTool.createAccount("Mario", 1000.0);
+        bankTool.createAccount("Georgios", 1000.0);
+
+        WithdrawAgent withdrawAgent = AgenticServices
+                .agentBuilder(WithdrawAgent.class)
+                .chatModel(BASE_MODEL)
+                .tools(bankTool)
+                .build();
+        CreditAgent creditAgent = AgenticServices
+                .agentBuilder(CreditAgent.class)
+                .chatModel(BASE_MODEL)
+                .tools(bankTool)
+                .build();
+
+        ExchangeAgent exchangeAgent = AgenticServices
+                .agentBuilder(ExchangeAgent.class)
+                .chatModel(BASE_MODEL)
+                .tools(new ExchangeTool())
+                .build();
+
+        SupervisorAgent s = AgenticServices
+                .supervisorBuilder(SupervisorAgent.class)
+                .chatModel(BASE_MODEL)
+                .subAgents(withdrawAgent, creditAgent, exchangeAgent)
+                .build();
+
+        SupervisorAgent bankSupervisor = AgenticServices.sequenceBuilder(SupervisorAgent.class)
+                .subAgents(s)
+                .build();
+        System.out.println(bankSupervisor.makeTransaction("Transfer 100 EUR from Mario's account to Georgios' one"));
     }
 }
