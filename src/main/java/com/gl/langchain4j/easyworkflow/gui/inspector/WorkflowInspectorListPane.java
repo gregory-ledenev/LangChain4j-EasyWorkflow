@@ -63,7 +63,7 @@ import static javax.swing.BoxLayout.Y_AXIS;
 public abstract class WorkflowInspectorListPane extends AppPane {
     public static final String NODE_AGENTIC_SCOPE = "| Agentic Scope |";
     public static final String NODE_PROGRESSION = "| Progression |";
-    public static final String NODE_USER_MESSAGE = "| User Message |";
+    public static final String NODE_USER_MESSAGE = "User Message";
     public static final String NODE_RESULT = "result";
     public static final String NODE_FAILURE = "failure";
 
@@ -258,23 +258,27 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                         node.getOrDefault(JSON_KEY_CONDITION, "..."));
                 iconKey = ICON_REFRESH;
                 break;
-            case "doWhen":
+            case JSON_TYPE_DO_WHEN:
                 title = "when (%s)".formatted(node.getOrDefault(JSON_KEY_EXPRESSION, "..."));
                 iconKey = ICON_SIGNPOST;
                 break;
-            case "match":
+            case JSON_TYPE_MATCH:
                 title = "match (%s)".formatted(node.getOrDefault(JSON_KEY_VALUE, "..."));
                 iconKey = ICON_TARGET;
                 break;
-            case "doParallel":
+            case JSON_TYPE_DO_PARALLEL:
                 title = "Do Parallel";
                 iconKey = ICON_STACK;
                 break;
-            case "group":
-                title = "Group";
+            case JSON_TYPE_GROUP:
+                title = "<html>Group <span style=\"color:%s\">(Supervised)</span></html>";
                 iconKey = ICON_BOX;
                 break;
-            case "breakpoint":
+            case JSON_TYPE_PLANNER_GROUP:
+                title = "<html>Group <span style=\"color:%s\">(Planner: %s)</span></html>".formatted("%s", node.getOrDefault(JSON_KEY_PLANNER, "N/A"));
+                iconKey = ICON_BOX;
+                break;
+            case JSON_TYPE_BREAKPOINT:
                 title = "Breakpoint";
                 iconKey = ICON_BREAKPOINT;
                 break;
@@ -342,22 +346,22 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                         for (WorkflowDebugger.AgentInvocationTraceEntry entry : entries) {
                             if (entries.size() > 1)
                                 result.put("pass [%s]".formatted(entries.indexOf(entry)), passResult = new HashMap<>());
-                            passResult.put("input", convertValue(entry.getInput()));
+                            passResult.put("Input", convertValue(entry.getInput()));
 
                             if (selectedValue.getOutputName() != null)
-                                passResult.put("output (%s)".formatted(selectedValue.getOutputName()), convertValue(entry.getOutput()));
+                                passResult.put("Output (%s)".formatted(selectedValue.getOutputName()), convertValue(entry.getOutput()));
                             else
-                                passResult.put("output", convertValue(entry.getOutput()));
+                                passResult.put("Output", convertValue(entry.getOutput()));
 
                             if (entry.getFailure() != null) {
-                                passResult.put("failure", convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
+                                passResult.put("Failure", convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
                             }
 
                             if (! entry.getToolInvocationTraceEntries().isEmpty()) {
                                 if (entry.getToolInvocationTraceEntries().size() == 1)
-                                    passResult.put("toolCall", convertValue(entry.getToolInvocationTraceEntries().get(0)));
+                                    passResult.put("Tool Call", convertValue(entry.getToolInvocationTraceEntries().get(0)));
                                 else
-                                    passResult.put("toolCalls", convertValue(entry.getToolInvocationTraceEntries()));
+                                    passResult.put("Tool Calls", convertValue(entry.getToolInvocationTraceEntries()));
                             }
                         }
                     }
@@ -970,6 +974,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                      JSON_TYPE_DO_WHEN,
                      JSON_TYPE_MATCH,
                      JSON_TYPE_GROUP,
+                     JSON_TYPE_PLANNER_GROUP,
                      JSON_TYPE_DO_PARALLEL ->
                         UISupport.isDarkAppearance() ? BACKGROUND_DARK_STATEMENT : BACKGROUND_STATEMENT;
                 default -> null;
@@ -1096,7 +1101,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             graphics.setColor(getBackground());
             switch (type) {
                 case TYPE_START, TYPE_END -> paintStartEndShape(graphics, rect, isHighlighted);
-                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, "doParallel", "group" ->
+                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_PARALLEL, JSON_TYPE_GROUP, JSON_TYPE_PLANNER_GROUP ->
                         paintControlFlowShape(rect, graphics, isHighlighted);
                 case JSON_TYPE_MATCH -> paintMatchShape(rect, graphics, isHighlighted);
                 default -> paintAgentShape(graphics, rect, isHighlighted);
@@ -1267,6 +1272,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                         title,
                         isSelected && cellHasFocus ? "white" : "gray",
                         "✽");
+            else
+                title = title.formatted(isSelected && cellHasFocus ? "white" : "gray");
             lblTitle.setText(title);
 
             lblSubTitle.setVisible(false);

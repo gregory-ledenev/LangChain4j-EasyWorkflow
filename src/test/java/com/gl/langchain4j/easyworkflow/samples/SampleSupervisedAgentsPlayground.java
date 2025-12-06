@@ -5,6 +5,7 @@ import com.gl.langchain4j.easyworkflow.HumanInTheLoopAgents;
 import com.gl.langchain4j.easyworkflow.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
+import dev.langchain4j.agentic.workflow.impl.SequentialPlanner;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.io.IOException;
@@ -61,6 +62,10 @@ public class SampleSupervisedAgentsPlayground {
         SampleSupervisedAgents.SupervisorAgent supervisorAgent = workflowBuilder
                 .chatModel(metaLlamaModel)
                 .workflowDebugger(workflowDebugger)
+                .doAsPlannerGroup(EasyWorkflow.lambdaWithDescription(SequentialPlanner::new, "Sequential"))
+                    .setState("a", "1")
+                    .setState("b", "2")
+                .end()
                 .doAsGroup()
                     .agent(SampleSupervisedAgents.WithdrawAgent.class, builder -> builder.tools(bankTool))
                     .agent(SampleSupervisedAgents.CreditAgent.class, builder -> builder.tools(bankTool))

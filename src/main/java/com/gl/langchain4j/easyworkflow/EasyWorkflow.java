@@ -37,6 +37,7 @@ import dev.langchain4j.agentic.agent.AgentBuilder;
 import dev.langchain4j.agentic.internal.A2AClientBuilder;
 import dev.langchain4j.agentic.internal.AgentSpecification;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
+import dev.langchain4j.agentic.planner.Planner;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.agentic.supervisor.SupervisorAgent;
 import dev.langchain4j.agentic.supervisor.SupervisorResponseStrategy;
@@ -89,6 +90,7 @@ public class EasyWorkflow {
     public static final String JSON_TYPE_DO_WHEN = "doWhen";
     public static final String JSON_TYPE_MATCH = "match";
     public static final String JSON_TYPE_GROUP = "group";
+    public static final String JSON_TYPE_PLANNER_GROUP = "plannerGroup";
     public static final String JSON_TYPE_DO_PARALLEL = "doParallel";
     public static final String JSON_TYPE_BREAKPOINT = "breakpoint";
     public static final String JSON_KEY_UID = "uid";
@@ -108,6 +110,7 @@ public class EasyWorkflow {
     public static final String JSON_KEY_EXPRESSION = "expression";
     public static final String JSON_KEY_MAX_ITERATIONS = "maxIterations";
     public static final String JSON_KEY_VALUE = "value";
+    public static final String JSON_KEY_PLANNER = "planner";
     /**
      * A shared {@link ExecutorService} used for parallel agent execution. It is initialized on first use and can be
      * explicitly closed.
@@ -150,19 +153,33 @@ public class EasyWorkflow {
      * @return A {@link Function} with an overridden {@code toString()} method.
      */
     public static Function<AgenticScope, Object> expression(Function<AgenticScope, Object> expression, String expressionString) {
-        return new Function<>() {
-            @Override
-            public String toString() {
-                return expressionString;
-            }
-
-            @Override
-            public Object apply(AgenticScope agenticScope) {
-                return expression.apply(agenticScope);
-            }
-        };
+        return lambdaWithDescription(expression, expressionString);
     }
 
+    /**
+     * Wraps a lambda expression with a proxy that overrides its {@code toString()} method to return a custom description.
+     * This is useful for providing meaningful names to lambdas used in workflow definitions, which can then be
+     * displayed in diagrams or logs.
+     * @param lamnda The lambda expression to wrap.
+     * @param description The description to associate with the lambda.
+     * @param <T> The type of the lambda expression.
+     * @return A proxied lambda expression with the custom description.
+     */
+    public static <T> T lambdaWithDescription(T lamnda, String description) {
+        return (T) Proxy.newProxyInstance(
+                lamnda.getClass().getClassLoader(),
+                lamnda.getClass().getInterfaces(),
+                new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        if (method.getName().equals("toString")) {
+                            return description;
+                        }
+                        return method.invoke(lamnda, args);
+                    }
+                }
+        );
+    }
     /**
      * Retrieves the textual representation of a lambda, if available.
      *
@@ -1005,17 +1022,61 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "group" block. Agents within this group will represent pure agentic AI; they will be supervised, and
-         * their responses summarized. The default output name for the group's response is "response".
+         * Starts a supervised "group" block. Agents within this group will represent pure agentic AI; they will be
+         * supervised, and their responses summarized. The default output name for the group's response is "response".
          *
          * @return A new builder instance representing the group block. Call {@code end()} to return to the parent
          * builder.
          */
         public AgentWorkflowBuilder<T> doAsGroup() {
+            return doAsGroup(null);
+        }
+
+        /**
+         * Starts a supervised "group" block. Agents within this group will represent pure agentic AI; they will be
+         * supervised, and their responses summarized. The default output name for the group's response is "response".
+         *
+         * @param outputName The output name for the group's response.
+         * @return A new builder instance representing the group block. Call {@code end()} to return to the parent
+         * builder.
+         */
+        public AgentWorkflowBuilder<T> doAsGroup(String outputName) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
             GroupStatement groupStatement = new GroupStatement(result);
             this.addExpression(groupStatement);
-            result.outputName = "response";
+            result.outputName = outputName != null ? outputName : "response";
+            result.setBlock(groupStatement.getBlocks().get(0));
+            return result;
+        }
+
+
+        /**
+         * Starts a "group" with a specific planner. Agents within this group will ne called according to a strategy
+         * defined by the planner. The default output name for the group's response is "response".
+         *
+         * @param plannerSupplier A supplier for the {@link Planner} instance to be used by the group.
+         * @return A new builder instance representing the group. Call {@code end()} to return to the parent builder.
+         */
+        public AgentWorkflowBuilder<T> doAsPlannerGroup(Supplier<Planner> plannerSupplier) {
+            return doAsPlannerGroup(plannerSupplier, null);
+        }
+
+        /**
+         * Starts a "group" with a specific planner. Agents within this group will ne called according to a strategy
+         * defined by the planner. The default output name for the group's response is "response".
+         *
+         * @param plannerSupplier A supplier for the {@link Planner} instance to be used by the group.
+         * @param outputName      The output name for the group's response.
+         * @return A new builder instance representing the group. Call {@code end()} to return to the parent
+         * builder.
+         */
+        public AgentWorkflowBuilder<T> doAsPlannerGroup(Supplier<Planner> plannerSupplier, String outputName) {
+            Objects.requireNonNull(plannerSupplier, "Planner supplier can't be null");
+
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            PlannerGroupStatement groupStatement = new PlannerGroupStatement(result, plannerSupplier);
+            this.addExpression(groupStatement);
+            result.outputName = outputName != null ? outputName : "response";
             result.setBlock(groupStatement.getBlocks().get(0));
             return result;
         }
@@ -1722,8 +1783,8 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put("type", JSON_TYPE_GROUP);
-            json.put("description", "A supervised group provided with a set of subagents that can autonomously generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
+            json.put(JSON_KEY_TYPE, JSON_TYPE_GROUP);
+            json.put(JSON_KEY_DESCRIPTION, "A supervised group provided with a set of subagents that can autonomously generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
             return json;
         }
 
@@ -1768,6 +1829,36 @@ public class EasyWorkflow {
             mermaid.append(edge);
 
             return groupExitId;
+        }
+    }
+
+    static class PlannerGroupStatement extends GroupStatement {
+        private final Supplier<Planner> plannerSupplier;
+
+        public PlannerGroupStatement(AgentWorkflowBuilder<?> builder, Supplier<Planner> plannerSupplier) {
+            super(builder);
+            this.plannerSupplier = plannerSupplier;
+        }
+
+        @Override
+        public Object createAgent() {
+            return AgenticServices.plannerBuilder()
+                    .outputKey(agentWorkflowBuilder.outputName)
+                    .subAgents(getBlocks().get(0).createAgents().toArray())
+                    .planner(plannerSupplier)
+                    .build();
+        }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put(JSON_KEY_TYPE, JSON_TYPE_PLANNER_GROUP);
+            String s = plannerSupplier.toString();
+            if (s.contains("$Lambda"))
+                s = "Unnamed";
+            json.put(JSON_KEY_PLANNER, s);
+            json.put(JSON_KEY_DESCRIPTION, "A group provided with a planner and a set of subagents that can generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
+            return json;
         }
     }
 
