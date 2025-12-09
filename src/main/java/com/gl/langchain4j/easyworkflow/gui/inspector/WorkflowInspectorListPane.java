@@ -27,6 +27,7 @@ package com.gl.langchain4j.easyworkflow.gui.inspector;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.SetStateAgents;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
@@ -61,11 +62,11 @@ import static javax.swing.BoxLayout.Y_AXIS;
  */
 @SuppressWarnings("ALL")
 public abstract class WorkflowInspectorListPane extends AppPane {
-    public static final String NODE_AGENTIC_SCOPE = "| Agentic Scope |";
-    public static final String NODE_PROGRESSION = "| Progression |";
+    public static final String NODE_AGENTIC_SCOPE = "‣ Agentic Scope";
+    public static final String NODE_PROGRESSION = "‣ Progression";
     public static final String NODE_USER_MESSAGE = "User Message";
-    public static final String NODE_RESULT = "result";
-    public static final String NODE_FAILURE = "failure";
+    public static final String NODE_RESULT = "Result";
+    public static final String NODE_FAILURE = "Failure";
 
     static final Color BACKGROUND_AGENT = new Color(255, 255, 153);
     static final Color BACKGROUND_AGENT_NONAI = new Color(245, 245, 245);
@@ -359,9 +360,9 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
                             if (! entry.getToolInvocationTraceEntries().isEmpty()) {
                                 if (entry.getToolInvocationTraceEntries().size() == 1)
-                                    passResult.put("Tool Call", convertValue(entry.getToolInvocationTraceEntries().get(0)));
+                                    passResult.put("‣ Tool Call", convertValue(entry.getToolInvocationTraceEntries().get(0)));
                                 else
-                                    passResult.put("Tool Calls", convertValue(entry.getToolInvocationTraceEntries()));
+                                    passResult.put("‣ Tool Calls", convertValue(entry.getToolInvocationTraceEntries()));
                             }
                         }
                     }
@@ -1453,7 +1454,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
             List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = workflowItem.getTraceEntries(index);
             if (workflowItem.getType().equals(TYPE_START)) {
-                return new String[] {"→ " + mapToSubTitle(getWorkflowInput())};
+                return new String[] {"→ " + mapToSubTitle(workflowBuilder.getAgentClass(), getWorkflowInput(), true)};
             } else if (workflowItem.getType().equals(TYPE_END)) {
                 String result;
                 if (getWorkflowFailure() != null)
@@ -1473,8 +1474,10 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     inputStr += traceEntry.getInput().toString();
                 }
 
+                Class<?> agentClass = ((AgentExpression) workflowDebugger.getAgentMetadata(traceEntry.getAgent())).getAgentClass();
+                boolean simplify = ! (traceEntry.getAgent() instanceof SetStateAgents.SetStatesAgent);
                 String outputStr1 = traceEntry.getOutput() instanceof Map<?, ?> outputMap ?
-                        mapToSubTitle(outputMap) :
+                        mapToSubTitle(simplify ? null : agentClass, outputMap, simplify) :
                         traceEntry.getOutput() != null ? traceEntry.getOutput().toString() : "";
 
                 outputStr += outputStr1;
@@ -1483,13 +1486,13 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             return new String[0];
         }
 
-        private String mapToSubTitle(Map<?, ?> map) {
+        private String mapToSubTitle(Class<?> agentClass, Map<?, ?> map, boolean simplify) {
             if (map.isEmpty())
                 return "";
-            if (map.size() == 1)
+            if (simplify && map.size() == 1)
                 return map.entrySet().iterator().next().getValue().toString();
 
-            return getAgentMethodParameterNames(getAgentMethod(workflowBuilder.getAgentClass())).stream()
+            return (agentClass != null ? getAgentMethodParameterNames(getAgentMethod(agentClass)) : map.keySet()).stream()
                     .map(name -> "%s=%s".formatted(name, map.get(name)))
                     .collect(Collectors.joining(", "));
         }

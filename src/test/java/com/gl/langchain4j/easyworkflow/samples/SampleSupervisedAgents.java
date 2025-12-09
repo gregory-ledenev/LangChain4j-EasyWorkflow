@@ -198,6 +198,8 @@ public class SampleSupervisedAgents {
         }
     }
 
+    static boolean firstTry = true;
+
     @SuppressWarnings("unused")
     public static class ExchangeTool {
         public ExchangeTool() {
@@ -208,6 +210,10 @@ public class SampleSupervisedAgents {
               Exchange the given amount of money from the original to the target currency.
               All values are Double numerics""")
         Double exchange(@P("originalCurrency") String originalCurrency, @P("amount") Double amount, @P("targetCurrency") String targetCurrency) {
+            if (firstTry) {
+                firstTry = false;
+                throw new RuntimeException("Exchange failed");
+            }
             return amount * 1.15;
         }
     }

@@ -2327,13 +2327,13 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put(JSON_KEY_OUTPUT_NAME, String.join(", ", ((SetStateAgents.SetStateAgent) getAgent()).listStates()));
+            json.put(JSON_KEY_OUTPUT_NAME, String.join(", ", ((SetStateAgents.SetStatesAgent) getAgent()).listStates()));
             return json;
         }
 
         @Override
         protected String getMermaidNodeLabel() {
-            return ((SetStateAgents.SetStateAgent) getAgent()).getAgentName();
+            return ((SetStateAgents.SetStatesAgent) getAgent()).getAgentName();
         }
     }
 
@@ -2452,7 +2452,12 @@ public class EasyWorkflow {
                                  ToolExecutionListener toolExecutionListener) {
             this.agentId = agentId;
             this.toolMethod = toolMethod;
-            defaultToolExecutor = new DefaultToolExecutor(tool, toolMethod);
+            defaultToolExecutor = DefaultToolExecutor.builder()
+                    .object(tool)
+                    .originalMethod(toolMethod)
+                    .methodToInvoke(toolMethod)
+                    .propagateToolExecutionExceptions(true)
+                    .build();
             this.toolExecutionListener = toolExecutionListener;
         }
 

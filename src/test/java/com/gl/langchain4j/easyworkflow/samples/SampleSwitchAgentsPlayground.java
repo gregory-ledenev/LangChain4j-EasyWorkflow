@@ -66,6 +66,7 @@ public class SampleSwitchAgentsPlayground {
         SampleSwitchAgents.ExpertRouterAgent expertRouterAgent = builder
                 .chatModel(BASE_MODEL)
                 .chatMemory(chatMemory)
+                .outputName("responseFinal")
                 .workflowDebugger(workflowDebugger)
                 .setState("response", "")
                 .agent(SampleSwitchAgents.CategoryRouter.class)

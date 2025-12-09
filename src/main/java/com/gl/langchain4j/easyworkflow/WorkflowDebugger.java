@@ -1055,10 +1055,11 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         try {
             agenticScope.writeStates(Map.of(
                     KEY_TOOL, toolExecutionRequest.name(),
-                    KEY_TOOL_REQUEST, OBJECT_MAPPER.readValue(toolExecutionRequest.arguments(), new TypeReference<Map<String, String>>() {}),
-                    KEY_TOOL_RESPONSE, result));
+                    KEY_TOOL_REQUEST, OBJECT_MAPPER.readValue(toolExecutionRequest.arguments(), new TypeReference<Map<String, String>>() {})));
+            if (result != null)
+                agenticScope.writeState(KEY_TOOL_RESPONSE, result);
             findAndExecuteBreakpoints(Breakpoint.Type.TOOL_OUTPUT, agent,
-                    ((EasyWorkflow.AgentExpression)getAgentMetadata(agentId)).getAgentClass(),
+                    ((EasyWorkflow.AgentExpression) getAgentMetadata(agentId)).getAgentClass(),
                     null, null, traceEntry);
             agenticScope.writeState(KEY_TOOL, null);
             agenticScope.writeState(KEY_TOOL_REQUEST, null);
