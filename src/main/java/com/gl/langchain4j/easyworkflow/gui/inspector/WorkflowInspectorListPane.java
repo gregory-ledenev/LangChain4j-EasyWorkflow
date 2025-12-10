@@ -250,21 +250,28 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 subtitle = (String) node.get("details");
                 break;
             case JSON_TYPE_IF_THEN:
-                title = "if (%s)".formatted(node.getOrDefault(JSON_KEY_CONDITION, "..."));
+                title = "<html>if <span style=\"color:%s\">(%s)</span></html>".formatted(
+                        "%s",
+                        node.getOrDefault(JSON_KEY_CONDITION, "..."));
                 iconKey = ICON_SIGNPOST;
                 break;
             case JSON_TYPE_REPEAT:
-                title = "repeat (max: %s, until: %s)".formatted(
+                title = "<html>repeat <span style=\"color:%s\">(max: %s, until: %s</span></html>)".formatted(
+                        "%s",
                         node.get(JSON_KEY_MAX_ITERATIONS),
                         node.getOrDefault(JSON_KEY_CONDITION, "..."));
                 iconKey = ICON_REFRESH;
                 break;
             case JSON_TYPE_DO_WHEN:
-                title = "when (%s)".formatted(node.getOrDefault(JSON_KEY_EXPRESSION, "..."));
+                title = "<html>when <span style=\"color:%s\">(%s)</span></html>".formatted(
+                        "%s",
+                        node.getOrDefault(JSON_KEY_EXPRESSION, "..."));
                 iconKey = ICON_SIGNPOST;
                 break;
             case JSON_TYPE_MATCH:
-                title = "match (%s)".formatted(node.getOrDefault(JSON_KEY_VALUE, "..."));
+                title = "<html>match <span style=\"color:%s\">(%s)</span></html>".formatted(
+                        "%s",
+                        node.getOrDefault(JSON_KEY_VALUE, "..."));
                 iconKey = ICON_TARGET;
                 break;
             case JSON_TYPE_DO_PARALLEL:
@@ -861,7 +868,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
          * @return The {@link WorkflowDebugger.AgentInvocationTraceEntry} for the given index, or null if not found.
          */
         public List<WorkflowDebugger.AgentInvocationTraceEntry> getTraceEntries(int index) {
-            return traceEntriesByIndex.get(index);
+            List<WorkflowDebugger.AgentInvocationTraceEntry> result = traceEntriesByIndex.get(index);
+            return result != null ? result : Collections.emptyList();
         }
 
         /**
@@ -1268,11 +1276,21 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
             lblIcon.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
             String title = value.getTitle();
-            if (value != null && listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null)
-                title = "<html>%s<span style=\"color: %s;\"> %s</span></html>".formatted(
+            boolean userMessagePresent = listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null;
+            boolean errorsPresent = false;
+            if (value != null)
+                for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : value.getTraceEntries(index)) {
+                    if (!traceEntry.getFailedToolInvocationTraceEntries().isEmpty()) {
+                        errorsPresent = true;
+                        break;
+                    }
+                }
+
+            if (value != null && (userMessagePresent || errorsPresent))
+                title = "<html>%s%s%s</html>".formatted(
                         title,
-                        isSelected && cellHasFocus ? "white" : "gray",
-                        "✽");
+                        userMessagePresent ? "<span style=\"color: %s;\"> ✽</span>".formatted(isSelected && cellHasFocus ? "white" : "gray") : "",
+                        errorsPresent ? "<span style=\"color: %s;\"> ✘</span>".formatted(isSelected && cellHasFocus ? "white" : "red") : "");
             else
                 title = title.formatted(isSelected && cellHasFocus ? "white" : "gray");
             lblTitle.setText(title);
@@ -1475,13 +1493,14 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 }
 
                 Class<?> agentClass = ((AgentExpression) workflowDebugger.getAgentMetadata(traceEntry.getAgent())).getAgentClass();
-                boolean simplify = ! (traceEntry.getAgent() instanceof SetStateAgents.SetStatesAgent);
+                boolean isStateAgent = traceEntry.getAgent() instanceof SetStateAgents.SetStatesAgent;
+                boolean simplify = !isStateAgent;
                 String outputStr1 = traceEntry.getOutput() instanceof Map<?, ?> outputMap ?
                         mapToSubTitle(simplify ? null : agentClass, outputMap, simplify) :
                         traceEntry.getOutput() != null ? traceEntry.getOutput().toString() : "";
 
                 outputStr += outputStr1;
-                return new String[]{inputStr, outputStr};
+                return new String[]{isStateAgent ? null : inputStr, outputStr};
             }
             return new String[0];
         }

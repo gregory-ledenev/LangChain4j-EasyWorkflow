@@ -1853,6 +1853,21 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
                         replaceNewLineCharacters(getFailureCauseException(failure).toString()));
             return result;
         }
+
+        /**
+         * Returns a list of {@link ToolInvocationTraceEntry} objects that represent tool invocations that failed
+         * (i.e., had an exception).
+         *
+         * @return A list of failed {@link ToolInvocationTraceEntry} objects.
+         */
+        public List<ToolInvocationTraceEntry> getFailedToolInvocationTraceEntries() {
+            List<ToolInvocationTraceEntry> result = new ArrayList<>();
+            for (ToolInvocationTraceEntry toolInvocationTraceEntry : toolInvocationTraceEntries) {
+                if (toolInvocationTraceEntry.exception() != null)
+                    result.add(toolInvocationTraceEntry);
+            }
+            return result;
+        }
     }
 
     /**
