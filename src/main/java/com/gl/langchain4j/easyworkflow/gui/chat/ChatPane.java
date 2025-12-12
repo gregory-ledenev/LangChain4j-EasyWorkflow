@@ -491,15 +491,15 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                     logger.warn("Failed to convert element to map: " + element, ex);
                 }
             }
-            return new ChatMessage(uid, response, result.toString(), convertMarkdownToHtml(result.toString()), ChatMessage.Type.Agent);
+            return new ChatMessage(new Date(), chatEngine.getChatModel(), uid, response, result.toString(), convertMarkdownToHtml(result.toString()), ChatMessage.Type.Agent, false);
         } else if (response instanceof Map<?, ?> responseMap) {
             return chatMessageForMap(uid, responseMap, false);
         } else if (response instanceof String) {
             String responseString = response.toString();
             String responseAsHtml = convertMarkdownToHtml(responseString);
-            return new ChatMessage(uid, response, responseString, responseAsHtml, ChatMessage.Type.Agent);
+            return new ChatMessage(new Date(), chatEngine.getChatModel(), uid, response, responseString, responseAsHtml, ChatMessage.Type.Agent, false);
         } else {
-            ChatMessage chatMessage = new ChatMessage(uid, response, response.toString(), null, ChatMessage.Type.Agent);
+            ChatMessage chatMessage = new ChatMessage(new Date(), chatEngine.getChatModel(), uid, response, response.toString(), null, ChatMessage.Type.Agent, false);
             if (response instanceof Number || response instanceof Boolean || response.getClass().isEnum()) {
                 return chatMessage;
             } else {
@@ -549,7 +549,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             html = convertMarkdownToHtml(text);
         }
 
-        return new ChatMessage(uid, message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent);
+        return new ChatMessage(new Date(), ! isFromUser ? chatEngine.getChatModel() : null, uid, message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent, false);
     }
 
     private void processChatEngineResponse(ChatMessage result, Throwable ex) {
@@ -780,6 +780,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
      */
     public interface ChatEngine {
         Object send(Map<String, Object> message);
+
+        String getChatModel();
 
         Parameter[] getMessageParameters();
 

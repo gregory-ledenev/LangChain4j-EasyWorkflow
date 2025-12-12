@@ -30,6 +30,7 @@ import com.gl.langchain4j.easyworkflow.gui.platform.Application;
 import com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -137,6 +138,11 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     }
 
                     @Override
+                    public String getChatModel() {
+                        return chatFrame.getChatModel().defaultRequestParameters().modelName();
+                    }
+
+                    @Override
                     public Parameter[] getMessageParameters() {
                         return agentMethod.getParameters();
                     }
@@ -192,8 +198,17 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     @SuppressWarnings("unchecked")
     private List<PlaygroundChatModel> getChatModels() {
-        return (arguments != null && arguments.get(ARG_CHAT_MODELS) instanceof List<?> chatModels) ?
-                (List<PlaygroundChatModel>) chatModels : null;
+        if (!(arguments != null && arguments.get(ARG_CHAT_MODELS) instanceof List<?> chatModels))
+            return null;
+
+        return chatModels.stream().map(o -> {
+            if (o instanceof PlaygroundChatModel playgroundChatModel)
+                return playgroundChatModel;
+            else if (o instanceof ChatModel chatModel)
+                return new PlaygroundChatModel(chatModel.defaultRequestParameters().modelName(), chatModel);
+            else
+                throw new IllegalArgumentException("Object is not a chat model: " + o);
+        }).toList();
     }
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {
@@ -210,6 +225,11 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     @Override
                     public Object send(Map<String, Object> message) {
                         return apply(agent, message);
+                    }
+
+                    @Override
+                    public String getChatModel() {
+                        return null;
                     }
 
                     @Override

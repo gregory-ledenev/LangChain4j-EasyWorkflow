@@ -872,6 +872,10 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
     }
 
+    public ChatModel getChatModel() {
+        return workflowDebugger.getAgentWorkflowBuilder().getChatModel();
+    }
+
     private void setupToolbar(JToolBar toolbar) {
         inspectorToolbarActionGroup = new ActionGroup(
                 new ActionGroup(

@@ -15,6 +15,7 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.isToday;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_CHAT;
 import static java.text.DateFormat.SHORT;
@@ -44,17 +45,6 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
         super(owner, "Chat History");
         this.chatHistoryStorage = chatHistoryStorage;
         init();
-    }
-
-    private static boolean isToday(Date date) {
-        Calendar currentCalendar = Calendar.getInstance();
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(date);
-
-        return currentCalendar.get(Calendar.DAY_OF_MONTH) == calendar.get(Calendar.DAY_OF_MONTH) &&
-                currentCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH) &&
-                currentCalendar.get(Calendar.YEAR) == calendar.get(Calendar.YEAR);
     }
 
     private static String getRequestText(ChatHistoryStorage.ChatHistoryItem item, int maxLength) {

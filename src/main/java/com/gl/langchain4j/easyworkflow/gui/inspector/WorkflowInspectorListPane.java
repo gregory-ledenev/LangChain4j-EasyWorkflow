@@ -252,20 +252,20 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             case JSON_TYPE_IF_THEN:
                 title = "<html>if <span style=\"color:%s\">(%s)</span></html>".formatted(
                         "%s",
-                        node.getOrDefault(JSON_KEY_CONDITION, "..."));
+                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
                 iconKey = ICON_SIGNPOST;
                 break;
             case JSON_TYPE_REPEAT:
-                title = "<html>repeat <span style=\"color:%s\">(max: %s, until: %s</span></html>)".formatted(
+                title = "<html>repeat <span style=\"color:%s\">(max: %s, until: %s)</span></html>)".formatted(
                         "%s",
                         node.get(JSON_KEY_MAX_ITERATIONS),
-                        node.getOrDefault(JSON_KEY_CONDITION, "..."));
+                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
                 iconKey = ICON_REFRESH;
                 break;
             case JSON_TYPE_DO_WHEN:
                 title = "<html>when <span style=\"color:%s\">(%s)</span></html>".formatted(
                         "%s",
-                        node.getOrDefault(JSON_KEY_EXPRESSION, "..."));
+                        getHtmlSafeString(node.getOrDefault(JSON_KEY_EXPRESSION, "...")));
                 iconKey = ICON_SIGNPOST;
                 break;
             case JSON_TYPE_MATCH:
@@ -293,6 +293,10 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         return new WorkflowItem(node, outputName, iconKey, title, subtitle, indentation);
+    }
+
+    private static Object getHtmlSafeString(Object string) {
+        return string != null ? string.toString().replace("<", "&lt;").replace(">", "&gt;") : "";
     }
 
     protected String[] getSubTitles(WorkflowItem workflowItem, int index) {

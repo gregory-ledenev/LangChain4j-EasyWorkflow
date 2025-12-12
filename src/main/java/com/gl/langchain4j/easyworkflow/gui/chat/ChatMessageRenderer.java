@@ -73,10 +73,22 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         setOpaque(false);
         setBorder(new EmptyBorder(10, 10, 5, 8));
 
+        JLabel senderLabel = new JLabel(chatMessage.title());
+        senderLabel.setFont(senderLabel.getFont().deriveFont(Font.BOLD, 10f));
+        senderLabel.setForeground(isDarkAppearance() ? Color.LIGHT_GRAY : Color.GRAY);
+
+        GridBagConstraints gbcLabel = new GridBagConstraints();
+        gbcLabel.weightx = 1.0;
+        gbcLabel.anchor = chatMessage.outgoing() ? GridBagConstraints.LINE_END : GridBagConstraints.LINE_START;
+        gbcLabel.insets = new Insets(0, chatMessage.outgoing() ? 0 : 15, 2, chatMessage.outgoing() ? 15 : 0);
+        gbcLabel.gridy = 0;
+        add(senderLabel, gbcLabel);
+
         bubbleBackground = new ChatMessageRendererBubble(this.chatMessage, 15);
         bubbleBackground.add(textPane, BorderLayout.CENTER);
 
         GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridy = 1;
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.NONE;
         gbc.anchor = chatMessage.outgoing() ? GridBagConstraints.LINE_END : GridBagConstraints.LINE_START;
@@ -100,19 +112,23 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
         if (!showExecutionResults)
             return;
 
+        paintExecutionSign(g);
+    }
+
+    private void paintExecutionSign(Graphics g) {
         Graphics2D g2d = (Graphics2D) g.create();
         try {
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2d.setColor(BADGE_FILL_COLOR);
             int size = 20;
-            Rectangle r = new Rectangle(getWidth() - size - 2, 3, size, size);
+            Rectangle r = new Rectangle(getWidth() - size - 2, 20, size, size);
 
             g2d.fillOval(r.x, r.y, r.width, r.height);
 
             // Draw a triangle play symbol in the center of the oval
             g2d.setColor(BADGE_SYMBOL_COLOR);
             int ovalCenterX = r.x + r.width / 2 + 1;
-            int ovalCenterY = size / 2 + 3;
+            int ovalCenterY = r.y + size / 2;
             int triangleSize = 6;
 
             int[] xPoints = {ovalCenterX - triangleSize / 2, ovalCenterX - triangleSize / 2, ovalCenterX + triangleSize / 2};
@@ -123,8 +139,6 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
             g2d.setColor(BADGE_STROKE_COLOR);
             g2d.setStroke(new BasicStroke(1));
             g2d.drawOval(r.x, r.y, r.width, r.height);
-
-
         } finally {
             g2d.dispose();
         }

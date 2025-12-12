@@ -160,26 +160,27 @@ public class EasyWorkflow {
      * Wraps a lambda expression with a proxy that overrides its {@code toString()} method to return a custom description.
      * This is useful for providing meaningful names to lambdas used in workflow definitions, which can then be
      * displayed in diagrams or logs.
-     * @param lamnda The lambda expression to wrap.
+     * @param lambda The lambda expression to wrap.
      * @param description The description to associate with the lambda.
      * @param <T> The type of the lambda expression.
      * @return A proxied lambda expression with the custom description.
      */
-    public static <T> T lambdaWithDescription(T lamnda, String description) {
+    public static <T> T lambdaWithDescription(T lambda, String description) {
         return (T) Proxy.newProxyInstance(
-                lamnda.getClass().getClassLoader(),
-                lamnda.getClass().getInterfaces(),
+                lambda.getClass().getClassLoader(),
+                lambda.getClass().getInterfaces(),
                 new InvocationHandler() {
                     @Override
                     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
                         if (method.getName().equals("toString")) {
                             return description;
                         }
-                        return method.invoke(lamnda, args);
+                        return method.invoke(lambda, args);
                     }
                 }
         );
     }
+
     /**
      * Retrieves the textual representation of a lambda, if available.
      *
@@ -1203,7 +1204,7 @@ public class EasyWorkflow {
                             workflowDebugger.sessionStarted(agentClass, method, args);
 
                         try {
-                            Object invocationResult = isAgentMethod ? method.invoke(agent, args) : null;
+                            Object invocationResult = method.invoke(agent, args);
 
                             if (isAgentMethod && workflowDebugger != null)
                                 workflowDebugger.sessionStopped(invocationResult);
@@ -2487,5 +2488,22 @@ public class EasyWorkflow {
     public static interface ToolExecutionListener {
         void beforeExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest);
         void afterExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest, String result, Throwable exception);
+    }
+
+    /**
+     * Checks if the given date is today's date.
+     *
+     * @param date The date to check.
+     * @return {@code true} if the date is today, {@code false} otherwise.
+     */
+    public static boolean isToday(Date date) {
+        Calendar currentCalendar = Calendar.getInstance();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+
+        return currentCalendar.get(Calendar.DAY_OF_MONTH) == calendar.get(Calendar.DAY_OF_MONTH) &&
+                currentCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH) &&
+                currentCalendar.get(Calendar.YEAR) == calendar.get(Calendar.YEAR);
     }
 }
