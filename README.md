@@ -50,7 +50,7 @@ To add EasyWorkflow to your build system, you can use the following Maven depend
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
 </dependency>
 ```
 to get JavaDoc for it:
@@ -59,7 +59,7 @@ to get JavaDoc for it:
 <dependency>
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
     <classifier>javadoc</classifier>
 </dependency>
 ```
@@ -246,6 +246,8 @@ The available breakpoint types are defined in `Breakpoint.Type`:
 * **SESSION_STOPPED**: Triggers when a workflow session stops.
 * **SESSION_FAILED**: Triggers when a workflow session fails.
 * **LINE**: A procedural breakpoint that triggers when reached in the workflow definition.
+* **TOOL_INPUT**: Triggers when a tool is about to be called.
+* **TOOL_OUTPUT**: Triggers after a tool was called.
 
 For most breakpoint types, you can define them using `Breakpoint.builder()` and add them with
 `WorkflowDebugger.addBreakpoint()`.

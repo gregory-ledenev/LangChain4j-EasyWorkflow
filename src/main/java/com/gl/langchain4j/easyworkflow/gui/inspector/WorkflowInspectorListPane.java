@@ -27,12 +27,12 @@ package com.gl.langchain4j.easyworkflow.gui.inspector;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.SetStateAgents;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.service.Result;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -62,11 +62,11 @@ import static javax.swing.BoxLayout.Y_AXIS;
  */
 @SuppressWarnings("ALL")
 public abstract class WorkflowInspectorListPane extends AppPane {
-    public static final String NODE_AGENTIC_SCOPE = "| Agentic Scope |";
-    public static final String NODE_PROGRESSION = "| Progression |";
-    public static final String NODE_USER_MESSAGE = "| User Message |";
-    public static final String NODE_RESULT = "result";
-    public static final String NODE_FAILURE = "failure";
+    public static final String NODE_AGENTIC_SCOPE = "‣ Agentic Scope";
+    public static final String NODE_PROGRESSION = "‣ Progression";
+    public static final String NODE_USER_MESSAGE = "User Message";
+    public static final String NODE_RESULT = "Result";
+    public static final String NODE_FAILURE = "Failure";
 
     static final Color BACKGROUND_AGENT = new Color(255, 255, 153);
     static final Color BACKGROUND_AGENT_NONAI = new Color(245, 245, 245);
@@ -250,38 +250,53 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 subtitle = (String) node.get("details");
                 break;
             case JSON_TYPE_IF_THEN:
-                title = "if (%s)".formatted(node.getOrDefault(JSON_KEY_CONDITION, "..."));
+                title = "<html>if <span style=\"color:%s\">(%s)</span></html>".formatted(
+                        "%s",
+                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
                 iconKey = ICON_SIGNPOST;
                 break;
             case JSON_TYPE_REPEAT:
-                title = "repeat (max: %s, until: %s)".formatted(
+                title = "<html>repeat <span style=\"color:%s\">(max: %s, until: %s)</span></html>)".formatted(
+                        "%s",
                         node.get(JSON_KEY_MAX_ITERATIONS),
-                        node.getOrDefault(JSON_KEY_CONDITION, "..."));
+                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
                 iconKey = ICON_REFRESH;
                 break;
-            case "doWhen":
-                title = "when (%s)".formatted(node.getOrDefault(JSON_KEY_EXPRESSION, "..."));
+            case JSON_TYPE_DO_WHEN:
+                title = "<html>when <span style=\"color:%s\">(%s)</span></html>".formatted(
+                        "%s",
+                        getHtmlSafeString(node.getOrDefault(JSON_KEY_EXPRESSION, "...")));
                 iconKey = ICON_SIGNPOST;
                 break;
-            case "match":
-                title = "match (%s)".formatted(node.getOrDefault(JSON_KEY_VALUE, "..."));
+            case JSON_TYPE_MATCH:
+                title = "<html>match <span style=\"color:%s\">(%s)</span></html>".formatted(
+                        "%s",
+                        node.getOrDefault(JSON_KEY_VALUE, "..."));
                 iconKey = ICON_TARGET;
                 break;
-            case "doParallel":
+            case JSON_TYPE_DO_PARALLEL:
                 title = "Do Parallel";
                 iconKey = ICON_STACK;
                 break;
-            case "group":
-                title = "Group";
+            case JSON_TYPE_GROUP:
+                title = "<html>Group <span style=\"color:%s\">(Supervised)</span></html>";
                 iconKey = ICON_BOX;
                 break;
-            case "breakpoint":
+            case JSON_TYPE_PLANNER_GROUP:
+                title = "<html>Group <span style=\"color:%s\">(Planner: %s)</span></html>".formatted("%s", node.getOrDefault(JSON_KEY_PLANNER, "N/A"));
+                iconKey = ICON_BOX;
+                break;
+            case JSON_TYPE_BREAKPOINT:
                 title = "Breakpoint";
                 iconKey = ICON_BREAKPOINT;
                 break;
         }
 
         return new WorkflowItem(node, outputName, iconKey, title, subtitle, indentation);
+    }
+
+    private static Object getHtmlSafeString(Object string) {
+        return string != null ? string.toString().replace("<", "&lt;").replace(">", "&gt;") : "";
     }
 
     protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
@@ -343,15 +358,22 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                         for (WorkflowDebugger.AgentInvocationTraceEntry entry : entries) {
                             if (entries.size() > 1)
                                 result.put("pass [%s]".formatted(entries.indexOf(entry)), passResult = new HashMap<>());
-                            passResult.put("input", convertValue(entry.getInput()));
+                            passResult.put("Input", convertValue(entry.getInput()));
 
                             if (selectedValue.getOutputName() != null)
-                                passResult.put("output (%s)".formatted(selectedValue.getOutputName()), convertValue(entry.getOutput()));
+                                passResult.put("Output (%s)".formatted(selectedValue.getOutputName()), convertValue(entry.getOutput()));
                             else
-                                passResult.put("output", convertValue(entry.getOutput()));
+                                passResult.put("Output", convertValue(entry.getOutput()));
 
                             if (entry.getFailure() != null) {
-                                passResult.put("failure", convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
+                                passResult.put("Failure", convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
+                            }
+
+                            if (! entry.getToolInvocationTraceEntries().isEmpty()) {
+                                if (entry.getToolInvocationTraceEntries().size() == 1)
+                                    passResult.put("‣ Tool Call", convertValue(entry.getToolInvocationTraceEntries().get(0)));
+                                else
+                                    passResult.put("‣ Tool Calls", convertValue(entry.getToolInvocationTraceEntries()));
                             }
                         }
                     }
@@ -850,7 +872,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
          * @return The {@link WorkflowDebugger.AgentInvocationTraceEntry} for the given index, or null if not found.
          */
         public List<WorkflowDebugger.AgentInvocationTraceEntry> getTraceEntries(int index) {
-            return traceEntriesByIndex.get(index);
+            List<WorkflowDebugger.AgentInvocationTraceEntry> result = traceEntriesByIndex.get(index);
+            return result != null ? result : Collections.emptyList();
         }
 
         /**
@@ -964,6 +987,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                      JSON_TYPE_DO_WHEN,
                      JSON_TYPE_MATCH,
                      JSON_TYPE_GROUP,
+                     JSON_TYPE_PLANNER_GROUP,
                      JSON_TYPE_DO_PARALLEL ->
                         UISupport.isDarkAppearance() ? BACKGROUND_DARK_STATEMENT : BACKGROUND_STATEMENT;
                 default -> null;
@@ -1090,7 +1114,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             graphics.setColor(getBackground());
             switch (type) {
                 case TYPE_START, TYPE_END -> paintStartEndShape(graphics, rect, isHighlighted);
-                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, "doParallel", "group" ->
+                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_PARALLEL, JSON_TYPE_GROUP, JSON_TYPE_PLANNER_GROUP ->
                         paintControlFlowShape(rect, graphics, isHighlighted);
                 case JSON_TYPE_MATCH -> paintMatchShape(rect, graphics, isHighlighted);
                 default -> paintAgentShape(graphics, rect, isHighlighted);
@@ -1256,11 +1280,23 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
             lblIcon.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
             String title = value.getTitle();
-            if (value != null && listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null)
-                title = "<html>%s<span style=\"color: %s;\"> %s</span></html>".formatted(
+            boolean userMessagePresent = listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null;
+            boolean errorsPresent = false;
+            if (value != null)
+                for (WorkflowDebugger.AgentInvocationTraceEntry traceEntry : value.getTraceEntries(index)) {
+                    if (!traceEntry.getFailedToolInvocationTraceEntries().isEmpty()) {
+                        errorsPresent = true;
+                        break;
+                    }
+                }
+
+            if (value != null && (userMessagePresent || errorsPresent))
+                title = "<html>%s%s%s</html>".formatted(
                         title,
-                        isSelected && cellHasFocus ? "white" : "gray",
-                        "✽");
+                        userMessagePresent ? "<span style=\"color: %s;\"> ✽</span>".formatted(isSelected && cellHasFocus ? "white" : "gray") : "",
+                        errorsPresent ? "<span style=\"color: %s;\"> ✘</span>".formatted(isSelected && cellHasFocus ? "white" : "red") : "");
+            else
+                title = title.formatted(isSelected && cellHasFocus ? "white" : "gray");
             lblTitle.setText(title);
 
             lblSubTitle.setVisible(false);
@@ -1440,7 +1476,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
             List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = workflowItem.getTraceEntries(index);
             if (workflowItem.getType().equals(TYPE_START)) {
-                return new String[] {"→ " + mapToSubTitle(getWorkflowInput())};
+                return new String[] {"→ " + mapToSubTitle(workflowBuilder.getAgentClass(), getWorkflowInput(), true)};
             } else if (workflowItem.getType().equals(TYPE_END)) {
                 String result;
                 if (getWorkflowFailure() != null)
@@ -1460,23 +1496,26 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     inputStr += traceEntry.getInput().toString();
                 }
 
+                Class<?> agentClass = ((AgentExpression) workflowDebugger.getAgentMetadata(traceEntry.getAgent())).getAgentClass();
+                boolean isStateAgent = traceEntry.getAgent() instanceof SetStateAgents.SetStatesAgent;
+                boolean simplify = !isStateAgent;
                 String outputStr1 = traceEntry.getOutput() instanceof Map<?, ?> outputMap ?
-                        mapToSubTitle(outputMap) :
+                        mapToSubTitle(simplify ? null : agentClass, outputMap, simplify) :
                         traceEntry.getOutput() != null ? traceEntry.getOutput().toString() : "";
 
                 outputStr += outputStr1;
-                return new String[]{inputStr, outputStr};
+                return new String[]{isStateAgent ? null : inputStr, outputStr};
             }
             return new String[0];
         }
 
-        private String mapToSubTitle(Map<?, ?> map) {
+        private String mapToSubTitle(Class<?> agentClass, Map<?, ?> map, boolean simplify) {
             if (map.isEmpty())
                 return "";
-            if (map.size() == 1)
+            if (simplify && map.size() == 1)
                 return map.entrySet().iterator().next().getValue().toString();
 
-            return getAgentMethodParameterNames(getAgentMethod(workflowBuilder.getAgentClass())).stream()
+            return (agentClass != null ? getAgentMethodParameterNames(getAgentMethod(agentClass)) : map.keySet()).stream()
                     .map(name -> "%s=%s".formatted(name, map.get(name)))
                     .collect(Collectors.joining(", "));
         }

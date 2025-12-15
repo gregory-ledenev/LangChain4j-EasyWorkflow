@@ -106,7 +106,8 @@ public class WorkflowContext {
         OutputGuardrailResult result;
         result = outputGuardrail.success();
 
-        if (outputGuardrail.getOutputName() != null && result.isSuccess()) {
+        String outputName = outputGuardrail.getOutputName() != null ? outputGuardrail.getOutputName() : "response";
+        if (result.isSuccess()) {
             Class<?> agentClass = outputGuardrail.getAgentClass();
 
             if (agentClass != null) {
@@ -118,7 +119,7 @@ public class WorkflowContext {
                                     method.getGenericReturnType());
 
                             if (stateChangeHandler != null)
-                                stateChangeHandler.stateChanged(outputGuardrail.getAgent(), agentClass, outputGuardrail.getOutputName(), parsedOutput);
+                                stateChangeHandler.stateChanged(outputGuardrail.getAgent(), agentClass, outputName, parsedOutput);
                         } catch (Exception e) {
                             logger.error("Failed to parse output for agent " + agentClass.getSimpleName(), e);
                         }

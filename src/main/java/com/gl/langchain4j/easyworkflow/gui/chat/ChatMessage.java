@@ -24,29 +24,41 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import static com.gl.langchain4j.easyworkflow.EasyWorkflow.isToday;
+
 /**
  * Represents a chat message, which can be either from the user or the system. It can contain both plain text and HTML
  * formatted content.
  *
+ * @param date        The date and time when the message was sent.
+ * @param chatModel   The name of the chat model used for the message.
  * @param uid         Unique identifier for the message.
  * @param rawMessage  The message in original format
  * @param message     The plain text content of the message.
  * @param htmlMessage The HTML formatted content of the message. Can be null if only plain text is available.
  * @param type        The type of the message.
  */
-public record ChatMessage(String uid, Object rawMessage, String message, String htmlMessage, Type type, boolean history) {
+public record ChatMessage(Date date, String chatModel, String uid, Object rawMessage, String message, String htmlMessage, Type type, boolean history) {
     public enum Type {
         User,
         Agent,
         System
     }
 
+    public ChatMessage(String uid, Object rawMessage, String message, String htmlMessage, Type type, boolean history) {
+        this(null, null, uid, rawMessage, message, htmlMessage, type, history);
+    }
+
     public ChatMessage(String aUid, Object aRawMessage, String aMessage, String aHtmlMessage, Type aType) {
         this(aUid, aRawMessage, aMessage, aHtmlMessage, aType, false);
     }
 
-    public ChatMessage(ChatMessage aChatMessage, boolean history) {
-        this(aChatMessage.uid(), aChatMessage.rawMessage(), aChatMessage.message(), aChatMessage.htmlMessage(), aChatMessage.type(), history);
+    public ChatMessage(ChatMessage chatMessage, boolean history) {
+        this(chatMessage.date(), chatMessage.chatModel(), chatMessage.uid(), chatMessage.rawMessage(), chatMessage.message(), chatMessage.htmlMessage(), chatMessage.type(), history);
     }
 
     /**
@@ -57,12 +69,26 @@ public record ChatMessage(String uid, Object rawMessage, String message, String 
         return htmlMessage() != null && ! htmlMessage().isEmpty() ? htmlMessage() : message();
     }
 
-
     /**
      * Checks if the message is outgoing (i.e., from the User or System).
      * @return {@code true} if the message type is not {@code Agent}, {@code false} otherwise.
      */
     public boolean outgoing(){
         return type() != ChatMessage.Type.Agent;
+    }
+
+    public String title() {
+        List<String> parts = new ArrayList<>();
+
+        if (date() != null)
+            parts.add(String.format(isToday(date()) ? "Today %1$tT" : "%1$tD %1$tT", date()));
+
+        if (chatModel() != null)
+            parts.add(chatModel());
+
+        if (parts.isEmpty())
+            parts.add(type().toString());
+
+        return String.join(", ", parts);
     }
 }

@@ -27,6 +27,9 @@ package com.gl.langchain4j.easyworkflow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import dev.langchain4j.agent.tool.Tool;
+import dev.langchain4j.agent.tool.ToolExecutionRequest;
+import dev.langchain4j.agent.tool.ToolSpecifications;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.UntypedAgent;
@@ -34,7 +37,9 @@ import dev.langchain4j.agentic.agent.AgentBuilder;
 import dev.langchain4j.agentic.internal.A2AClientBuilder;
 import dev.langchain4j.agentic.internal.AgentSpecification;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
+import dev.langchain4j.agentic.planner.Planner;
 import dev.langchain4j.agentic.scope.AgenticScope;
+import dev.langchain4j.agentic.supervisor.SupervisorAgent;
 import dev.langchain4j.agentic.supervisor.SupervisorResponseStrategy;
 import dev.langchain4j.agentic.workflow.ConditionalAgentService;
 import dev.langchain4j.agentic.workflow.ParallelAgentService;
@@ -47,6 +52,7 @@ import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
+import dev.langchain4j.service.tool.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,6 +90,7 @@ public class EasyWorkflow {
     public static final String JSON_TYPE_DO_WHEN = "doWhen";
     public static final String JSON_TYPE_MATCH = "match";
     public static final String JSON_TYPE_GROUP = "group";
+    public static final String JSON_TYPE_PLANNER_GROUP = "plannerGroup";
     public static final String JSON_TYPE_DO_PARALLEL = "doParallel";
     public static final String JSON_TYPE_BREAKPOINT = "breakpoint";
     public static final String JSON_KEY_UID = "uid";
@@ -103,13 +110,14 @@ public class EasyWorkflow {
     public static final String JSON_KEY_EXPRESSION = "expression";
     public static final String JSON_KEY_MAX_ITERATIONS = "maxIterations";
     public static final String JSON_KEY_VALUE = "value";
+    public static final String JSON_KEY_PLANNER = "planner";
     /**
      * A shared {@link ExecutorService} used for parallel agent execution. It is initialized on first use and can be
      * explicitly closed.
      */
     private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
-    private static final Logger logger = getLogger(EasyWorkflow.class);
     private static LoggerAspect loggerAspect = null;
+    private static final Logger logger = getLogger(EasyWorkflow.class);
 
     private EasyWorkflow() {
     }
@@ -145,17 +153,32 @@ public class EasyWorkflow {
      * @return A {@link Function} with an overridden {@code toString()} method.
      */
     public static Function<AgenticScope, Object> expression(Function<AgenticScope, Object> expression, String expressionString) {
-        return new Function<>() {
-            @Override
-            public String toString() {
-                return expressionString;
-            }
+        return lambdaWithDescription(expression, expressionString);
+    }
 
-            @Override
-            public Object apply(AgenticScope agenticScope) {
-                return expression.apply(agenticScope);
-            }
-        };
+    /**
+     * Wraps a lambda expression with a proxy that overrides its {@code toString()} method to return a custom description.
+     * This is useful for providing meaningful names to lambdas used in workflow definitions, which can then be
+     * displayed in diagrams or logs.
+     * @param lambda The lambda expression to wrap.
+     * @param description The description to associate with the lambda.
+     * @param <T> The type of the lambda expression.
+     * @return A proxied lambda expression with the custom description.
+     */
+    public static <T> T lambdaWithDescription(T lambda, String description) {
+        return (T) Proxy.newProxyInstance(
+                lambda.getClass().getClassLoader(),
+                lambda.getClass().getInterfaces(),
+                new InvocationHandler() {
+                    @Override
+                    public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+                        if (method.getName().equals("toString")) {
+                            return description;
+                        }
+                        return method.invoke(lambda, args);
+                    }
+                }
+        );
     }
 
     /**
@@ -495,7 +518,7 @@ public class EasyWorkflow {
         }
 
         private static String getOutputName(Class<?> agentClass) {
-            String result = "response";
+            String result = null;
 
             if (agentClass != null) {
                 Method[] declaredMethods = agentClass.getDeclaredMethods();
@@ -1000,17 +1023,61 @@ public class EasyWorkflow {
         }
 
         /**
-         * Starts a "group" block. Agents within this group will represent pure agentic AI; they will be supervised, and
-         * their responses summarized. The default output name for the group's response is "response".
+         * Starts a supervised "group" block. Agents within this group will represent pure agentic AI; they will be
+         * supervised, and their responses summarized. The default output name for the group's response is "response".
          *
          * @return A new builder instance representing the group block. Call {@code end()} to return to the parent
          * builder.
          */
         public AgentWorkflowBuilder<T> doAsGroup() {
+            return doAsGroup(null);
+        }
+
+        /**
+         * Starts a supervised "group" block. Agents within this group will represent pure agentic AI; they will be
+         * supervised, and their responses summarized. The default output name for the group's response is "response".
+         *
+         * @param outputName The output name for the group's response.
+         * @return A new builder instance representing the group block. Call {@code end()} to return to the parent
+         * builder.
+         */
+        public AgentWorkflowBuilder<T> doAsGroup(String outputName) {
             AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
             GroupStatement groupStatement = new GroupStatement(result);
             this.addExpression(groupStatement);
-            result.outputName = "response";
+            result.outputName = outputName != null ? outputName : "response";
+            result.setBlock(groupStatement.getBlocks().get(0));
+            return result;
+        }
+
+
+        /**
+         * Starts a "group" with a specific planner. Agents within this group will ne called according to a strategy
+         * defined by the planner. The default output name for the group's response is "response".
+         *
+         * @param plannerSupplier A supplier for the {@link Planner} instance to be used by the group.
+         * @return A new builder instance representing the group. Call {@code end()} to return to the parent builder.
+         */
+        public AgentWorkflowBuilder<T> doAsPlannerGroup(Supplier<Planner> plannerSupplier) {
+            return doAsPlannerGroup(plannerSupplier, null);
+        }
+
+        /**
+         * Starts a "group" with a specific planner. Agents within this group will ne called according to a strategy
+         * defined by the planner. The default output name for the group's response is "response".
+         *
+         * @param plannerSupplier A supplier for the {@link Planner} instance to be used by the group.
+         * @param outputName      The output name for the group's response.
+         * @return A new builder instance representing the group. Call {@code end()} to return to the parent
+         * builder.
+         */
+        public AgentWorkflowBuilder<T> doAsPlannerGroup(Supplier<Planner> plannerSupplier, String outputName) {
+            Objects.requireNonNull(plannerSupplier, "Planner supplier can't be null");
+
+            AgentWorkflowBuilder<T> result = new AgentWorkflowBuilder<>(this);
+            PlannerGroupStatement groupStatement = new PlannerGroupStatement(result, plannerSupplier);
+            this.addExpression(groupStatement);
+            result.outputName = outputName != null ? outputName : "response";
             result.setBlock(groupStatement.getBlocks().get(0));
             return result;
         }
@@ -1137,7 +1204,7 @@ public class EasyWorkflow {
                             workflowDebugger.sessionStarted(agentClass, method, args);
 
                         try {
-                            Object invocationResult = isAgentMethod ? method.invoke(agent, args) : null;
+                            Object invocationResult = method.invoke(agent, args);
 
                             if (isAgentMethod && workflowDebugger != null)
                                 workflowDebugger.sessionStopped(invocationResult);
@@ -1706,7 +1773,7 @@ public class EasyWorkflow {
 
         @Override
         public Object createAgent() {
-            return AgenticServices.supervisorBuilder()
+            return AgenticServices.supervisorBuilder(SupervisorAgent.class)
                     .outputKey(agentWorkflowBuilder.outputName)
                     .chatModel(agentWorkflowBuilder.getChatModel())
                     .subAgents(getBlocks().get(0).createAgents().toArray())
@@ -1717,8 +1784,8 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put("type", JSON_TYPE_GROUP);
-            json.put("description", "A supervised group provided with a set of subagents that can autonomously generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
+            json.put(JSON_KEY_TYPE, JSON_TYPE_GROUP);
+            json.put(JSON_KEY_DESCRIPTION, "A supervised group provided with a set of subagents that can autonomously generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
             return json;
         }
 
@@ -1763,6 +1830,36 @@ public class EasyWorkflow {
             mermaid.append(edge);
 
             return groupExitId;
+        }
+    }
+
+    static class PlannerGroupStatement extends GroupStatement {
+        private final Supplier<Planner> plannerSupplier;
+
+        public PlannerGroupStatement(AgentWorkflowBuilder<?> builder, Supplier<Planner> plannerSupplier) {
+            super(builder);
+            this.plannerSupplier = plannerSupplier;
+        }
+
+        @Override
+        public Object createAgent() {
+            return AgenticServices.plannerBuilder()
+                    .outputKey(agentWorkflowBuilder.outputName)
+                    .subAgents(getBlocks().get(0).createAgents().toArray())
+                    .planner(plannerSupplier)
+                    .build();
+        }
+
+        @Override
+        public Map<String, Object> toJson() {
+            Map<String, Object> json = super.toJson();
+            json.put(JSON_KEY_TYPE, JSON_TYPE_PLANNER_GROUP);
+            String s = plannerSupplier.toString();
+            if (s.contains("$Lambda"))
+                s = "Unnamed";
+            json.put(JSON_KEY_PLANNER, s);
+            json.put(JSON_KEY_DESCRIPTION, "A group provided with a planner and a set of subagents that can generate a plan, deciding which agent to invoke next or if the assigned task has been completed.");
+            return json;
         }
     }
 
@@ -1879,7 +1976,7 @@ public class EasyWorkflow {
 
             if (result == null) {
                 String outName = getOutputName();
-                AgentBuilder<?> agentBuilder = createAgentBuilder()
+                AgentBuilder<?> agentBuilder = createAgentBuilder(id, workflowDebugger)
                         .chatModel(agentWorkflowBuilder.getChatModel());
                 if (outName != null && !outName.isEmpty())
                     agentBuilder.outputKey(outName);
@@ -2050,12 +2147,37 @@ public class EasyWorkflow {
         }
 
         @SuppressWarnings({"rawtypes", "unchecked"})
-        protected AgentBuilder<?> createAgentBuilder() {
+        protected AgentBuilder<?> createAgentBuilder(String agentId, WorkflowDebugger aWorkflowDebugger) {
             return new AgentBuilder(agentClass, validateAgentClass(agentClass)) {
                 private InputGuardrail[] inputGuardrailsLocal;
                 private OutputGuardrail[] outputGuardrailsLocal;
                 private Class[] inputGuardrailClassesLocal;
                 private Class[] outputGuardrailClassesLocal;
+                private final String id = agentId;
+                private final WorkflowDebugger workflowDebugger = aWorkflowDebugger;
+
+                @Override
+                public AgentBuilder tools(Object... objectsWithTools) {
+                    return super.toolProvider(getToolProvider(objectsWithTools));
+                }
+
+                private ToolProvider getToolProvider(Object[] tools) {
+                    return new ToolProvider() {
+                        @Override
+                        public ToolProviderResult provideTools(ToolProviderRequest request) {
+                            ToolProviderResult.Builder builder = ToolProviderResult.builder();
+                            for (Object tool : tools) {
+                                Arrays.stream(tool.getClass().getDeclaredMethods())
+                                        .filter(method -> method.isAnnotationPresent(Tool.class))
+                                        .forEach(method -> {
+                                            BoundToolExecutor executor = new BoundToolExecutor(id, tool, method, workflowDebugger);
+                                            builder.add(ToolSpecifications.toolSpecificationFrom(method), executor);
+                                        });
+                            }
+                            return builder.build();
+                        }
+                    };
+                }
 
                 private InputGuardrail[] mergeInputGuardrails(InputGuardrail[] existing, InputGuardrail[] newGuardrails) {
                     return mergeGuardrails(existing, newGuardrails, InputGuardrail.class);
@@ -2206,13 +2328,13 @@ public class EasyWorkflow {
         @Override
         public Map<String, Object> toJson() {
             Map<String, Object> json = super.toJson();
-            json.put(JSON_KEY_OUTPUT_NAME, String.join(", ", ((SetStateAgents.SetStateAgent) getAgent()).listStates()));
+            json.put(JSON_KEY_OUTPUT_NAME, String.join(", ", ((SetStateAgents.SetStatesAgent) getAgent()).listStates()));
             return json;
         }
 
         @Override
         protected String getMermaidNodeLabel() {
-            return ((SetStateAgents.SetStateAgent) getAgent()).getAgentName();
+            return ((SetStateAgents.SetStatesAgent) getAgent()).getAgentName();
         }
     }
 
@@ -2318,5 +2440,70 @@ public class EasyWorkflow {
             mermaid.append(edge);
             return nodeId;
         }
+    }
+
+    private static class BoundToolExecutor implements ToolExecutor {
+        private final Method toolMethod;
+        private final ToolExecutor defaultToolExecutor;
+        private final String agentId;
+
+        private final ToolExecutionListener toolExecutionListener;
+
+        public BoundToolExecutor(String agentId, Object tool, Method toolMethod,
+                                 ToolExecutionListener toolExecutionListener) {
+            this.agentId = agentId;
+            this.toolMethod = toolMethod;
+            defaultToolExecutor = DefaultToolExecutor.builder()
+                    .object(tool)
+                    .originalMethod(toolMethod)
+                    .methodToInvoke(toolMethod)
+                    .propagateToolExecutionExceptions(true)
+                    .build();
+            this.toolExecutionListener = toolExecutionListener;
+        }
+
+        @Override
+        public String execute(ToolExecutionRequest request, Object memoryId) {
+            if (toolExecutionListener != null)
+                toolExecutionListener.beforeExecuteTool(agentId, request);
+
+            RuntimeException exception = null;
+            String result = null;
+            try {
+                result = defaultToolExecutor.execute(request, memoryId);
+            } catch (RuntimeException ex) {
+                exception = ex;
+            }
+
+            if (toolExecutionListener != null)
+                toolExecutionListener.afterExecuteTool(agentId, request, result, exception);
+
+            if (exception != null)
+                throw exception;
+
+            return result;
+        }
+    }
+
+    public static interface ToolExecutionListener {
+        void beforeExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest);
+        void afterExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest, String result, Throwable exception);
+    }
+
+    /**
+     * Checks if the given date is today's date.
+     *
+     * @param date The date to check.
+     * @return {@code true} if the date is today, {@code false} otherwise.
+     */
+    public static boolean isToday(Date date) {
+        Calendar currentCalendar = Calendar.getInstance();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+
+        return currentCalendar.get(Calendar.DAY_OF_MONTH) == calendar.get(Calendar.DAY_OF_MONTH) &&
+                currentCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH) &&
+                currentCalendar.get(Calendar.YEAR) == calendar.get(Calendar.YEAR);
     }
 }

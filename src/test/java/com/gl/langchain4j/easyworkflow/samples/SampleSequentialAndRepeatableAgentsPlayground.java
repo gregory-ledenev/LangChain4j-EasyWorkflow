@@ -4,6 +4,7 @@ import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import dev.langchain4j.agentic.internal.AgentSpecification;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.util.List;
@@ -31,6 +32,7 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
         EasyWorkflow.AgentWorkflowBuilder<SampleSequentialAndRepeatableAgents.NovelCreator> builder = EasyWorkflow.builder(SampleSequentialAndRepeatableAgents.NovelCreator.class)
                 .chatModel(metaLlamaModel)
                 .workflowDebugger(workflowDebugger)
+                .outputName("finalStory")
                 .agent(SampleSequentialAndRepeatableAgents.CreativeWriter.class)
                 .agent(SampleSequentialAndRepeatableAgents.AudienceEditor.class)
                 .repeat( condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))
@@ -43,13 +45,15 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
         SampleSequentialAndRepeatableAgents.NovelCreator novelCreator = builder
                 .build();
 
+        System.out.println(((AgentSpecification)novelCreator).subagents());
+
         Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class,
                 Playground.Type.GUI,
                 workflowDebugger);
         playground.setup(Map.of(
                 Playground.ARG_CHAT_MODELS, List.of(
-                        new Playground.PlaygroundChatModel("meta-llama/llama-4-scout-17b-16e-instruct", metaLlamaModel),
-                        new Playground.PlaygroundChatModel("openai/gpt-oss-120b", openAIModel)))
+                        metaLlamaModel,
+                        openAIModel))
         );
         playground.play(novelCreator, Map.of(
                 "topic", "dragons and wizards",

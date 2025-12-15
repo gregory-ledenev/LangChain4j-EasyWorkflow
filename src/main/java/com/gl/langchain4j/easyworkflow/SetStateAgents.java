@@ -44,7 +44,7 @@ public class SetStateAgents {
      * @return An agent object that can be used to set states.
      */
     public static Object agentOf(Map<String, Object> states) {
-        return new MapAgent(states);
+        return new MapSetStatesAgent(states);
     }
 
     /**
@@ -55,7 +55,7 @@ public class SetStateAgents {
      * @return An agent object that can be used to set a single state.
      */
     public static Object agentOf(String stateKey, Object stateValue) {
-        return new MapAgent(stateKey, stateValue);
+        return new MapSetStatesAgent(stateKey, stateValue);
     }
 
     /**
@@ -66,11 +66,12 @@ public class SetStateAgents {
      * @return An agent object that can be used to set states.
      */
     public static Object agentOf(Supplier<Map<String, Object>> aStateSupplier) {
-        return new SupplierAgent(aStateSupplier);
+        return new SupplierSetStatesAgent(aStateSupplier);
     }
 
-    public interface SetStateAgent extends AgentNameProvider {
+    public interface SetStatesAgent extends AgentNameProvider {
         List<String> listStates();
+        Object invoke(AgenticScope agenticScope);
 
         default String getAgentName() {
             return String.format("%s (%s)", getDefaultAgentName(), String.join(", ", listStates()));
@@ -80,7 +81,7 @@ public class SetStateAgents {
     /**
      * An agent that takes a map and uses it sets states within an {@link AgenticScope}.
      */
-    public static class MapAgent extends WorkflowDebuggerSupport.Impl implements SetStateAgent {
+    public static class MapSetStatesAgent extends WorkflowDebuggerSupport.Impl implements SetStatesAgent {
         private final Map<String, Object> states;
 
         /**
@@ -88,11 +89,11 @@ public class SetStateAgents {
          *
          * @param aState The map of states to be set.
          */
-        public MapAgent(Map<String, Object> aState) {
+        public MapSetStatesAgent(Map<String, Object> aState) {
             states = aState;
         }
 
-        public MapAgent(String stateKey, Object stateValue) {
+        public MapSetStatesAgent(String stateKey, Object stateValue) {
             this(Map.of(stateKey, stateValue));
         }
 
@@ -103,7 +104,8 @@ public class SetStateAgents {
          * @return Always returns null.
          */
         @SuppressWarnings("unused")
-        @Agent(name = "Set State", description = "Sets the given states in agentic scope")
+        @Agent(name = "Set States", description = "Sets the given states in agentic scope")
+        @Override
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
             inputReceived("-");
             agenticScope.writeStates(states);
@@ -120,10 +122,10 @@ public class SetStateAgents {
     /**
      * An agent that takes a {@link Supplier} of a map and uses it to set states within an {@link AgenticScope}.
      */
-    public static class SupplierAgent extends WorkflowDebuggerSupport.Impl implements SetStateAgent {
+    public static class SupplierSetStatesAgent extends WorkflowDebuggerSupport.Impl implements SetStatesAgent {
         private final Supplier<Map<String, Object>> stateSupplier;
 
-        public SupplierAgent(Supplier<Map<String, Object>> aStateSupplier) {
+        public SupplierSetStatesAgent(Supplier<Map<String, Object>> aStateSupplier) {
             stateSupplier = aStateSupplier;
         }
 
@@ -134,7 +136,8 @@ public class SetStateAgents {
          * @return Always returns null.
          */
         @SuppressWarnings("unused")
-        @Agent(name = "Set State", description = "Sets the given states in agentic scope")
+        @Agent(name = "Set States", description = "Sets the given states in agentic scope")
+        @Override
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
             inputReceived("-");
             Map<String, Object> states = stateSupplier.get();

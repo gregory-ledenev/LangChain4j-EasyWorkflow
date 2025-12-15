@@ -6,7 +6,7 @@
 
     <groupId>io.github.gregory-ledenev</groupId>
     <artifactId>langchain4j-easyworkflow</artifactId>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
 
     <name>EasyWorkflow for LangChain4j</name>
     <description>
@@ -97,50 +97,50 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-embeddings-all-minilm-l6-v2</artifactId>
-            <version>1.6.0-beta12</version>
+            <version>1.9.1-beta17</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>1.8.0</version>
+            <version>1.9.1</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.8.0</version>
+            <version>1.9.1</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.8.0</version>
+            <version>1.9.1</version>
             <classifier>sources</classifier>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
-            <version>1.8.0</version>
+            <version>1.9.1</version>
             <classifier>javadoc</classifier>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-agentic</artifactId>
-            <version>1.8.0-beta15</version>
+            <version>1.9.1-beta17</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-agentic-a2a</artifactId>
-            <version>1.8.0-beta15</version>
+            <version>1.9.1-beta17</version>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-agentic</artifactId>
-            <version>1.8.0-beta15</version>
+            <version>1.9.1-beta17</version>
             <classifier>javadoc</classifier>
         </dependency>
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-agentic</artifactId>
-            <version>1.8.0-beta15</version>
+            <version>1.9.1-beta17</version>
             <classifier>sources</classifier>
         </dependency>
 
