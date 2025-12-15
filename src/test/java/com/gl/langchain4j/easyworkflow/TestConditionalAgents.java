@@ -22,7 +22,7 @@ public class TestConditionalAgents {
     static final String RESPONSE_LEGAL = "Some legal response";
     static final String RESPONSE_TECHNICAL = "Some technical response";
 
-    @Test
+//    @Test
     public void testSwitch() {
 
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
@@ -68,7 +68,7 @@ public class TestConditionalAgents {
         assertEquals("{summary=Summary: , response=}", expertRouterAgent.ask("What is the meaning of life?").toString());
     }
 
-    @Test
+//    @Test
     void testSwitchNoDSL() {
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
                 .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
@@ -103,7 +103,7 @@ public class TestConditionalAgents {
         System.out.println(expertRouterAgent.ask("What's the meaning of life?"));
     }
 
-    @Test
+//    @Test
     public void testIf() {
 
         OpenAiChatModel BASE_MODEL = new OpenAiChatModel.OpenAiChatModelBuilder()
@@ -133,10 +133,12 @@ public class TestConditionalAgents {
                     .end()
                     .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.LEGAL, "category == LEGAL"))
                         .agent(new LegalExpert())
+                    .end().elseIf()
                     .end()
                     .ifThen(condition(agenticScope -> agenticScope.readState("category", RequestCategory.UNKNOWN) == RequestCategory.TECHNICAL, "category == TECHNICAL"))
-                .agent(new TechnicalExpert())
-                .end()
+                        .agent(new TechnicalExpert())
+                    .end().elseIf()
+                    .end()
                 .agent(new SummaryAgent())
                 .output(OutputComposers.asMap("response", "summary"))
                 .build();

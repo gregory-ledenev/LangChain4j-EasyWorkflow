@@ -57,14 +57,13 @@ public class TestParallelAgents {
                     .chatModel(BASE_MODEL)
                     .workflowDebugger(workflowDebugger)
                     .doParallel(resultFunction)
-                    .outputName("plan")
-                    .agent(new FoodExpert())
-                    .agent(new MovieExpert())
+                        .agent(new FoodExpert())
+                        .agent(new MovieExpert())
                     .end()
-                    .outputName("plan")
                     .build();
 
-            assertEquals("[EveningPlan[meal=Chicken Fajitas, movie=The Princess Briden], EveningPlan[meal=Grilled Cheeseburgers, movie=Elf], EveningPlan[meal=Seafood Paella, movie=Amélie]]", eveningPlannerAgent.plan("happy").toString());
+            List<EveningPlan> plan = eveningPlannerAgent.plan("happy");
+            assertEquals("[EveningPlan[meal=Chicken Fajitas, movie=The Princess Briden], EveningPlan[meal=Grilled Cheeseburgers, movie=Elf], EveningPlan[meal=Seafood Paella, movie=Amélie]]", plan.toString());
 
             System.out.println(builder.toJson());
 
@@ -83,7 +82,8 @@ public class TestParallelAgents {
                     .end()
                     .build();
 
-            assertEquals("{movies=[The Princess Briden, Elf, Amélie], meals=[Chicken Fajitas, Grilled Cheeseburgers, Seafood Paella]}", genericEveningPlannerAgent.plan("happy").toString());
+            Map<String, List<String>> planMap = genericEveningPlannerAgent.plan("happy");
+            assertEquals("{movies=[The Princess Briden, Elf, Amélie], meals=[Chicken Fajitas, Grilled Cheeseburgers, Seafood Paella]}", planMap.toString());
 
             // getting results in parallel and using a bean list function to combine them
             BeanListEveningPlannerAgent beanListEveningPlannerAgent = EasyWorkflow.builder(BeanListEveningPlannerAgent.class)
@@ -91,13 +91,12 @@ public class TestParallelAgents {
                     .doParallel(asBeanList(EveningPlan.class,
                             mappingOf("movies", "movie"),
                             mappingOf("meals", "meal")))
-                    .outputName("result")
-                    .agent(new FoodExpert())
-                    .agent(new MovieExpert())
+                        .agent(new FoodExpert())
+                        .agent(new MovieExpert())
                     .end()
-                    .outputName("result")
                     .build();
-            assertEquals("[EveningPlan[meal=Chicken Fajitas, movie=The Princess Briden], EveningPlan[meal=Grilled Cheeseburgers, movie=Elf], EveningPlan[meal=Seafood Paella, movie=Amélie]]", beanListEveningPlannerAgent.plan("happy").toString());
+            List<EveningPlan> planBeanList = beanListEveningPlannerAgent.plan("happy");
+            assertEquals("[EveningPlan[meal=Chicken Fajitas, movie=The Princess Briden], EveningPlan[meal=Grilled Cheeseburgers, movie=Elf], EveningPlan[meal=Seafood Paella, movie=Amélie]]", planBeanList.toString());
         } finally {
             executor.shutdownNow();
             EasyWorkflow.closeSharedExecutorService();
@@ -106,19 +105,19 @@ public class TestParallelAgents {
 
     @SuppressWarnings("unused")
     public interface EveningPlannerAgent {
-        @Agent
+        @Agent(outputKey = "response")
         List<EveningPlan> plan(@P("mood") String mood);
     }
 
     @SuppressWarnings("unused")
     public interface GenericEveningPlannerAgent {
-        @Agent
+        @Agent(outputKey = "response")
         Map<String, List<String>> plan(@P("mood") String mood);
     }
 
     @SuppressWarnings("unused")
     public interface BeanListEveningPlannerAgent {
-        @Agent
+        @Agent(outputKey = "response")
         List<EveningPlan> plan(@P("mood") String mood);
     }
 

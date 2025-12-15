@@ -79,6 +79,7 @@ public class SampleSwitchAgentsPlayground {
                     .end()
                     .match(SampleSwitchAgents.RequestCategory.TECHNICAL)
                         .agent(SampleSwitchAgents.TechnicalExpert.class)
+                        .setState("response", "")
                     .end()
                 .end()
                 .agent(SampleSwitchAgents.SummaryAgent.class)

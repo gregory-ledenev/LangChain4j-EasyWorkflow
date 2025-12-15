@@ -71,11 +71,12 @@ public class TestSequentialAndRepeatableAgents {
         EasyWorkflow.AgentWorkflowBuilder<NovelCreator> builder = EasyWorkflow.builder(NovelCreator.class)
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(workflowDebugger)
+                .outputName("finalStory")
                 .agent(new CreativeWriter())
                 .agent(new AudienceEditor())
                 .repeat(condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))
-                .agent(new StyleScorer())
-                .agent(new StyleEditor())
+                    .agent(new StyleScorer())
+                    .agent(new StyleEditor())
                 .end()
                 .output(OutputComposers.asBean(Novel.class))
                 .agent(new QualityScorer());
@@ -140,12 +141,13 @@ public class TestSequentialAndRepeatableAgents {
         EasyWorkflow.AgentWorkflowBuilder<NovelCreator> builder = EasyWorkflow.builder(NovelCreator.class)
                 .chatModel(BASE_MODEL)
                 .workflowDebugger(workflowDebugger)
+                .outputName("finalStory")
                 .agent(new CreativeWriter())
                 .agent(new AudienceEditor())
                 .repeat(condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))
-                .agent(new StyleScorer())
-                .breakpoint("SCORE (INLINE): {{score}}", ctx -> (double) ctx.getOrDefault("score", 0.0) >= 0.0)
-                .agent(new StyleEditor())
+                    .agent(new StyleScorer())
+                    .breakpoint("SCORE (INLINE): {{score}}", ctx -> (double) ctx.getOrDefault("score", 0.0) >= 0.0)
+                    .agent(new StyleEditor())
                 .end()
                 .output(OutputComposers.asBean(Novel.class))
                 .agent(new QualityScorer());
@@ -165,7 +167,7 @@ public class TestSequentialAndRepeatableAgents {
         System.out.println(novel);
         System.out.println(breakpointOutput);
         System.out.println(workflowDebugger.toString(true));
-        assertEquals("[Args: dragons and wizards, infants, fantasy, Score: 0.6000000000000001, Score: 0.8, Result: Novel[story=0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!, score=0.8]]", breakpointOutput.toString());
+        assertEquals("[Args: dragons and wizards, infants, fantasy, Score: 0.6000000000000001, Score: 0.8, Result: 0In a magical land, friendly dragons played with happy wizards. The dragons had shiny scales and could blow bubbles. The wizards had special sticks that made fun sparks. They all worked together to make the world a happy place. They chased the grumpy clouds away, and everyone was happy and played together!]", breakpointOutput.toString());
         assertEquals("""
                      ↓ IN > "audience": infants
                      ↓ IN > "topic": dragons and wizards
