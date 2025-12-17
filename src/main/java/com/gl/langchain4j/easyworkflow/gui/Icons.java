@@ -22,6 +22,7 @@ public class Icons {
     public static final String ICON_STOP = "stop";
     public static final String ICON_SPACER = "spacer";
     public static final String ICON_SEND = "send";
+    public static final String ICON_WRENCH = "wrench";
 
 
     public static void loadIcons() {
@@ -36,6 +37,7 @@ public class Icons {
         loadIcon(ICON_STOP, "icons/stop");
         loadIcon(ICON_SPACER, "icons/spacer");
         loadIcon(ICON_SEND, "icons/send");
+        loadIcon(ICON_WRENCH, "icons/wrench");
     }
 
     public static void loadIcon(String iconKey, String fileName) {

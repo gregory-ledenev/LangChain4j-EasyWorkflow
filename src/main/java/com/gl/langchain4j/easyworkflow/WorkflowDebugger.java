@@ -986,6 +986,16 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
     }
 
     /**
+     * Key for accessing tool agent ID in the agentic scope.
+     */
+    public static final String KEY_TOOL_AGENT_ID = "$toolAgentID";
+
+    /**
+     * Key for accessing tool ID in the agentic scope.
+     */
+    public static final String KEY_TOOL_ID = "$toolID";
+
+    /**
      * Key for accessing tool name (tool method name) in the agentic scope.
      */
     public static final String KEY_TOOL = "$tool";
@@ -1008,6 +1018,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         for (int i = entries.size() - 1; i >= 0; i--) {
             AgentInvocationTraceEntry traceEntry = entries.get(i);
             if (traceEntry.getAgent() == agent) {
+                traceEntry.addToolInvocationTraceEntry(new ToolInvocationTraceEntry(toolExecutionRequest));
+
                 findAndExecuteToolInputBreakpoints(agentId, toolExecutionRequest, agent, traceEntry);
                 break;
             }
@@ -1024,7 +1036,13 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         for (int i = entries.size() - 1; i >= 0; i--) {
             AgentInvocationTraceEntry traceEntry = entries.get(i);
             if (traceEntry.getAgent() == agent) {
-                traceEntry.addToolInvocationTraceEntry(new ToolInvocationTraceEntry(toolExecutionRequest, result, exception));
+                ToolInvocationTraceEntry toolInvocationTraceEntry = traceEntry.getToolInvocationTraceEntry(toolExecutionRequest.id());
+                if (toolInvocationTraceEntry != null) {
+                    toolInvocationTraceEntry.setResult(result);
+                    toolInvocationTraceEntry.setFailure(exception);
+                } else {
+                    logger.error("Unable to find tool invocation trace entry: " + toolExecutionRequest.id());
+                }
 
                 findAndExecuteToolOutputBreakpoints(agentId, toolExecutionRequest, result, agent, traceEntry);
                 break;
@@ -1035,13 +1053,19 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
     private void findAndExecuteToolInputBreakpoints(String agentId, ToolExecutionRequest toolExecutionRequest, Object agent, AgentInvocationTraceEntry traceEntry) {
         try {
             agenticScope.writeStates(Map.of(
+                    KEY_TRACE_ENTRY, traceEntry,
+                    KEY_TOOL_AGENT_ID, agentId,
                     KEY_TOOL, toolExecutionRequest.name(),
+                    KEY_TOOL_ID, toolExecutionRequest.id(),
                     KEY_TOOL_REQUEST, OBJECT_MAPPER.readValue(
                             toolExecutionRequest.arguments(),
                             new TypeReference<Map<String, String>>() {})));
             findAndExecuteBreakpoints(Breakpoint.Type.TOOL_INPUT, agent,
                     ((EasyWorkflow.AgentExpression)getAgentMetadata(agentId)).getAgentClass(),
                     null, null, traceEntry);
+            agenticScope.writeState(KEY_TRACE_ENTRY, null);
+            agenticScope.writeState(KEY_TOOL_AGENT_ID, null);
+            agenticScope.writeState(KEY_TOOL_ID, null);
             agenticScope.writeState(KEY_TOOL, null);
             agenticScope.writeState(KEY_TOOL_REQUEST, null);
         } catch (Exception ex) {
@@ -1054,6 +1078,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
                                                      Object agent, AgentInvocationTraceEntry traceEntry) {
         try {
             agenticScope.writeStates(Map.of(
+                    KEY_TRACE_ENTRY, traceEntry,
+                    KEY_TOOL_AGENT_ID, agentId,
+                    KEY_TOOL_ID, toolExecutionRequest.id(),
                     KEY_TOOL, toolExecutionRequest.name(),
                     KEY_TOOL_REQUEST, OBJECT_MAPPER.readValue(toolExecutionRequest.arguments(), new TypeReference<Map<String, String>>() {})));
             if (result != null)
@@ -1061,6 +1088,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             findAndExecuteBreakpoints(Breakpoint.Type.TOOL_OUTPUT, agent,
                     ((EasyWorkflow.AgentExpression) getAgentMetadata(agentId)).getAgentClass(),
                     null, null, traceEntry);
+            agenticScope.writeState(KEY_TRACE_ENTRY, null);
+            agenticScope.writeState(KEY_TOOL_ID, null);
+            agenticScope.writeState(KEY_TOOL_AGENT_ID, null);
             agenticScope.writeState(KEY_TOOL, null);
             agenticScope.writeState(KEY_TOOL_REQUEST, null);
             agenticScope.writeState(KEY_TOOL_RESPONSE, null);
@@ -1639,14 +1669,30 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
      * @param result               The result returned by the tool execution, if successful.
      * @param exception            The exception thrown during tool execution, if it failed.
      */
-    public static record ToolInvocationTraceEntry(Map<String, Object> toolExecutionRequest, String result,
-                                                  Throwable exception) {
-        public ToolInvocationTraceEntry(ToolExecutionRequest toolExecutionRequest, String result, Throwable exception) {
-            this(convertToolExecutionRequest(toolExecutionRequest), result, exception);
+    public static class ToolInvocationTraceEntry {
+        private final ToolExecutionRequest originalToolExecutionRequest;
+        private final Map<String, Object> toolExecutionRequest;
+        private String result;
+        private Throwable failure;
+
+        public ToolInvocationTraceEntry(ToolExecutionRequest toolExecutionRequest) {
+            this(toolExecutionRequest, null, null);
+        }
+
+        public ToolInvocationTraceEntry(ToolExecutionRequest toolExecutionRequest, String result, Throwable failure) {
+            this.originalToolExecutionRequest = toolExecutionRequest;
+            this.toolExecutionRequest = convertToolExecutionRequest(toolExecutionRequest);
+            this.result = result;
+            this.failure = failure;
+        }
+
+        ToolExecutionRequest getOriginalToolExecutionRequest() {
+            return originalToolExecutionRequest;
         }
 
         private static Map<String, Object> convertToolExecutionRequest(ToolExecutionRequest toolExecutionRequest) {
             Map<String, Object> result = new HashMap<>();
+            result.put("id", toolExecutionRequest.id());
             result.put("name", toolExecutionRequest.name());
             try {
                 result.put("arguments", OBJECT_MAPPER.readValue(
@@ -1656,6 +1702,53 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
                 logger.error("Unable to parse tool execution request arguments: " + toolExecutionRequest.arguments(), ex);
             }
             return result;
+        }
+
+        /**
+         * Returns the tool execution request.
+         *
+         * @return The tool execution request.
+         */
+        public Map<String, Object> getToolExecutionRequest() {
+            return toolExecutionRequest;
+        }
+
+        /**
+         * Returns the result returned by the tool execution, if successful.
+         *
+         * @return The result.
+         */
+        public String getResult() {
+            return result;
+        }
+
+        public void setResult(String result) {
+            this.result = result;
+        }
+
+        /**
+         * Returns the exception thrown during tool execution, if it failed.
+         *
+         * @return The exception.
+         */
+        public Throwable getFailure() {
+            return failure;
+        }
+
+        public void setFailure(Throwable failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+            ToolInvocationTraceEntry that = (ToolInvocationTraceEntry) o;
+            return Objects.equals(originalToolExecutionRequest.id(), that.originalToolExecutionRequest.id());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(originalToolExecutionRequest.id());
         }
     }
 
@@ -1709,6 +1802,13 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
          */
         public List<ToolInvocationTraceEntry> getToolInvocationTraceEntries() {
             return Collections.unmodifiableList(toolInvocationTraceEntries);
+        }
+
+        public ToolInvocationTraceEntry getToolInvocationTraceEntry(String id) {
+            return Collections.unmodifiableList(toolInvocationTraceEntries).stream()
+                    .filter(entry -> entry.getOriginalToolExecutionRequest().id().equals(id))
+                    .findFirst()
+                    .orElse(null);
         }
 
         /**
@@ -1863,7 +1963,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         public List<ToolInvocationTraceEntry> getFailedToolInvocationTraceEntries() {
             List<ToolInvocationTraceEntry> result = new ArrayList<>();
             for (ToolInvocationTraceEntry toolInvocationTraceEntry : toolInvocationTraceEntries) {
-                if (toolInvocationTraceEntry.exception() != null)
+                if (toolInvocationTraceEntry.getFailure() != null)
                     result.add(toolInvocationTraceEntry);
             }
             return result;

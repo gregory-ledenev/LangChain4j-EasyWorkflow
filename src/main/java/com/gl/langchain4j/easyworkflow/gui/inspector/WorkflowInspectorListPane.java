@@ -69,16 +69,18 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     public static final String NODE_FAILURE = "Failure";
 
     static final Color BACKGROUND_AGENT = new Color(255, 255, 153);
+    static final Color BACKGROUND_AGENT_DARK = new Color(85, 85, 20);
     static final Color BACKGROUND_AGENT_NONAI = new Color(245, 245, 245);
+    static final Color BACKGROUND_AGENT_NONAI_DARK = new Color(70, 70, 70);
+    static final Color BACKGROUND_TOOL = new Color(255, 255, 200);
+    static final Color BACKGROUND_TOOL_DARK = new Color(60, 60, 16);
     static final Color BACKGROUND_STATEMENT = new Color(236, 236, 255);
-    static final Color BACKGROUND_DARK_AGENT = new Color(85, 85, 20);
-    static final Color BACKGROUND_DARK_AGENT_NONAI = new Color(70, 70, 70);
-    static final Color BACKGROUND_DARK_STATEMENT = new Color(50, 50, 90);
+    static final Color BACKGROUND_STATEMENT_DARK = new Color(50, 50, 90);
     static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
     static final String TYPE_START = "start";
     static final String TYPE_END = "end";
-
-
+    static final String TYPE_TOOL = "toolCall";
+    private static final Logger logger = EasyWorkflow.getLogger(WorkflowInspectorListPane.class);
     protected final JList<WorkflowItem> list;
     protected final DefaultListModel<WorkflowItem> model;
     protected final List<WorkflowItem> listModel = new ArrayList<>();
@@ -95,6 +97,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     private WorkflowDebugger.Breakpoint breakpointAgentFinished;
     private WorkflowDebugger.AgentInvocationTraceEntryArchive traceEntryArchive;
     private String highlightedVariable;
+    private WorkflowDebugger.Breakpoint breakpointToolStarted;
+    private WorkflowDebugger.Breakpoint breakpointToolFinished;
 
     /**
      * Constructs a new WorkflowInspectorListPane.
@@ -136,6 +140,17 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         list.getActionMap().put("copy", new Actions.BasicAction("Copy", null, e -> copy()));
     }
 
+    private static String mapToSubTitle(Class<?> agentClass, Map<?, ?> map, boolean simplify) {
+        if (map.isEmpty())
+            return "";
+        if (simplify && map.size() == 1)
+            return map.entrySet().iterator().next().getValue().toString();
+
+        return (agentClass != null ? getAgentMethodParameterNames(getAgentMethod(agentClass)) : map.keySet()).stream()
+                .map(name -> "%s=%s".formatted(name, map.get(name)))
+                .collect(Collectors.joining(", "));
+    }
+
     private static String getSimpleClassName(String className) {
         int lastIndex = Math.max(className.lastIndexOf('.'), className.lastIndexOf('$'));
 
@@ -143,7 +158,40 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     private static String getAgentTitle(Map<String, Object> node) {
-        return ((String) node.get(JSON_KEY_NAME)).replaceAll("(?<=[a-z])(?=[A-Z])", " ");
+        return getAgentName((String) node.get(JSON_KEY_NAME));
+    }
+
+    private static String getAgentName(String name) {
+        String result = name.replaceAll("(?<=[a-z])(?=[A-Z])", " ");
+        return result.substring(0, 1).toUpperCase() + result.substring(1);
+    }
+
+    private static String formatParametersForAgentClass(Class<?> agentClass) {
+        Method agentMethod = getAgentMethod(agentClass);
+        Objects.requireNonNull(agentMethod);
+
+        EasyWorkflow.getAgentMethodParameterNames(agentMethod);
+        return "(%s)".formatted(Arrays.stream(agentMethod.getParameters())
+                .map(parameter -> parameter.getType().getSimpleName() + " " + parameter.getName())
+                .collect(Collectors.joining(", ")));
+    }
+
+    private static Object getHtmlSafeString(Object string) {
+        return string != null ? string.toString().replace("<", "&lt;").replace(">", "&gt;") : "";
+    }
+
+    protected static String getStateIndicator(WorkflowItem.State state, String type, int passCount) {
+        return switch (state) {
+            case Unknown -> "";
+            case Finished -> type.equals(TYPE_END) ?
+                    "✔" :
+                    passCount <= 1 ? "•" :
+                            passCount == Integer.MAX_VALUE ?
+                                    "⟳" :
+                                    String.valueOf(passCount);
+            case Failed -> "✘";
+            case Running -> "▶";
+        };
     }
 
     @Override
@@ -190,28 +238,17 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     private void populateListModel(List<WorkflowItem> listModel, AgentWorkflowBuilder<?> builder) throws JsonProcessingException {
         String jsonString = builder.toJson();
         List<Map<String, Object>> workflowData = objectMapper.readValue(jsonString, List.class);
-        listModel.add(new WorkflowItem(TYPE_START, null, ICON_PLAY, "Start",
-                formatParametersForAgentClass(builder.getAgentClass()),
-                0));
+
+        listModel.add(new WorkflowItem_Start(builder.getAgentClass()));
+
         populateListModel(listModel, workflowData, 0);
         String outputName = builder.getComputedOutputName();
-        listModel.add(new WorkflowItem(TYPE_END, outputName, ICON_STOP, "End",
-                "(%s %s)".formatted(Objects.requireNonNull(getAgentMethod(builder.getAgentClass())).getReturnType().getSimpleName(), outputName), 0));
+        listModel.add(new WorkflowItem_End(outputName, builder.getAgentClass()));
 
         for (WorkflowItem workflowItem : listModel) {
             workflowItemsByUID.put(workflowItem.getUid(), workflowItem);
             workflowItemsByType.put(workflowItem.getType(), workflowItem);
         }
-    }
-
-    private static String formatParametersForAgentClass(Class<?> agentClass) {
-        Method agentMethod = getAgentMethod(agentClass);
-        Objects.requireNonNull(agentMethod);
-
-        EasyWorkflow.getAgentMethodParameterNames(agentMethod);
-        return "(%s)".formatted(Arrays.stream(agentMethod.getParameters())
-                .map(parameter -> parameter.getType().getSimpleName() + " " + parameter.getName())
-                .collect(Collectors.joining(", ")));
     }
 
     @SuppressWarnings("unchecked")
@@ -240,15 +277,17 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         switch (type) {
             case JSON_TYPE_AGENT:
             case JSON_TYPE_NON_AI_AGENT:
-                title = getAgentTitle(node);
-                subtitle = getAgentSubtitle(node);
-                outputName = (String) node.get(JSON_KEY_OUTPUT_NAME);
-                iconKey = ICON_EXPERT;
-                break;
+                return new WorkflowItem_Agent(node,
+                        (String) node.get(JSON_KEY_OUTPUT_NAME),
+                        getAgentTitle(node),
+                        getAgentSubtitle(node),
+                        indentation);
             case "setState":
-                title = "Set State";
-                subtitle = (String) node.get("details");
-                break;
+                return new WorkflowItem_Agent(node,
+                        (String) node.get(JSON_KEY_OUTPUT_NAME),
+                        "Set State",
+                        (String) node.get("details"),
+                        indentation);
             case JSON_TYPE_IF_THEN:
                 title = "<html>if <span style=\"color:%s\">(%s)</span></html>".formatted(
                         "%s",
@@ -295,10 +334,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         return new WorkflowItem(node, outputName, iconKey, title, subtitle, indentation);
     }
 
-    private static Object getHtmlSafeString(Object string) {
-        return string != null ? string.toString().replace("<", "&lt;").replace(">", "&gt;") : "";
-    }
-
     protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
         return new String[]{workflowItem.getSubtitle()};
     }
@@ -328,68 +363,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
      * unavailable.
      */
     public Map<String, Object> getSelectedData() {
-        Map<String, Object> result = new HashMap<>();
-
         WorkflowItem selectedValue = list.getSelectedValue();
-        if (selectedValue != null) {
-            switch (selectedValue.type) {
-                case TYPE_START -> {
-                    getWorkflowInput().forEach((key, value) -> result.put(key, convertValue(value)));
-                }
-                case TYPE_END -> {
-                    if (convertValue(getWorkflowResult()) != null)
-                        result.put(NODE_RESULT, convertValue(getWorkflowResult()));
-                    else if (getWorkflowFailure() != null)
-                        result.put(NODE_FAILURE, convertValue(WorkflowDebugger.getFailureCauseException(getWorkflowFailure())));
-
-                    Map<String, Object> state = getAgenticScopeState();
-                    if (!state.isEmpty())
-                        result.put(NODE_AGENTIC_SCOPE, convertValue(state));
-
-                    Map<String, Object> progression = getProgression();
-                    if (!progression.isEmpty())
-                        result.put(NODE_PROGRESSION, convertValue(progression));
-                }
-                case JSON_TYPE_AGENT, JSON_TYPE_NON_AI_AGENT, JSON_TYPE_BREAKPOINT -> {
-                    List<WorkflowDebugger.AgentInvocationTraceEntry> entries = getTraceEntries(selectedValue);
-
-                    Map<String, Object> passResult = result;
-                    if (entries != null) {
-                        for (WorkflowDebugger.AgentInvocationTraceEntry entry : entries) {
-                            if (entries.size() > 1)
-                                result.put("pass [%s]".formatted(entries.indexOf(entry)), passResult = new HashMap<>());
-                            passResult.put("Input", convertValue(entry.getInput()));
-
-                            if (selectedValue.getOutputName() != null)
-                                passResult.put("Output (%s)".formatted(selectedValue.getOutputName()), convertValue(entry.getOutput()));
-                            else
-                                passResult.put("Output", convertValue(entry.getOutput()));
-
-                            if (entry.getFailure() != null) {
-                                passResult.put("Failure", convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
-                            }
-
-                            if (! entry.getToolInvocationTraceEntries().isEmpty()) {
-                                if (entry.getToolInvocationTraceEntries().size() == 1)
-                                    passResult.put("‣ Tool Call", convertValue(entry.getToolInvocationTraceEntries().get(0)));
-                                else
-                                    passResult.put("‣ Tool Calls", convertValue(entry.getToolInvocationTraceEntries()));
-                            }
-                        }
-                    }
-
-                    if (selectedValue.type.equals(JSON_TYPE_AGENT)) {
-                        String userMessage = workflowDebugger.getUserMessageTemplate(selectedValue.getAgentClassName());
-                        if (userMessage != null)
-                            result.put(NODE_USER_MESSAGE, userMessage);
-                    }
-                }
-                default -> {
-                }
-            }
-        }
-
-        return result;
+        return selectedValue != null ? selectedValue.getSelectedData(this) : Map.of();
     }
 
     private Map<String, Object> getProgression() {
@@ -513,8 +488,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
     }
 
-    private static final Logger logger = EasyWorkflow.getLogger(WorkflowInspectorListPane.class);
-
     private Object convertValue(Object value) {
         if (value == null)
             return null;
@@ -573,6 +546,21 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                         })
                 .build();
         workflowDebugger.addBreakpoint(breakpointAgentFinished);
+
+        breakpointToolStarted = WorkflowDebugger.Breakpoint.builder(WorkflowDebugger.Breakpoint.Type.TOOL_INPUT,
+                        (aBreakpoint, states) -> {
+                            workflowDebuggerToolStarted(states);
+                            return null;
+                        })
+                .build();
+        workflowDebugger.addBreakpoint(breakpointToolStarted);
+        breakpointToolFinished = WorkflowDebugger.Breakpoint.builder(WorkflowDebugger.Breakpoint.Type.TOOL_OUTPUT,
+                        (aBreakpoint, states) -> {
+                            workflowDebuggerToolFinished(states);
+                            return null;
+                        })
+                .build();
+        workflowDebugger.addBreakpoint(breakpointToolFinished);
     }
 
     private void cleanupWorkflowDebugger() {
@@ -581,6 +569,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         workflowDebugger.removeBreakpoint(breakpointSessionFailed);
         workflowDebugger.removeBreakpoint(breakpointAgentStarted);
         workflowDebugger.removeBreakpoint(breakpointAgentFinished);
+        workflowDebugger.removeBreakpoint(breakpointToolStarted);
+        workflowDebugger.removeBreakpoint(breakpointToolFinished);
     }
 
     /**
@@ -719,6 +709,12 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }));
     }
 
+    public void workflowDebuggerToolStarted(Map<String, Object> states) {
+    }
+
+    public void workflowDebuggerToolFinished(Map<String, Object> states) {
+    }
+
     /**
      * Returns the currently set WorkflowDebugger instance.
      */
@@ -773,20 +769,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         return model.getSize() > 0;
     }
 
-    protected static String getStateIndicator(WorkflowItem.State state, String type, int passCount) {
-        return switch (state) {
-            case Unknown -> "";
-            case Finished -> type.equals(TYPE_END) ?
-                    "✓" :
-                    passCount <= 1 ? "•" :
-                            passCount == Integer.MAX_VALUE ?
-                                    "⟳" :
-                                    String.valueOf(passCount);
-            case Failed -> "✘";
-            case Running -> "▶";
-        };
-    }
-
     /**
      * Represents a single item in the workflow list, holding its properties and state. This class is used by the
      * {@link WorkflowInspectorListPane} to display information about each step or component of a workflow.
@@ -811,6 +793,30 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         return null;
     }
 
+    protected boolean isElementHighlighted(int index) {
+        if (highlightedVariable == null)
+            return false;
+
+        if (index == 0) {
+            return getWorkflowInput().containsKey(highlightedVariable);
+        } else {
+            WorkflowItem selectedValue = model.getElementAt(index);
+
+            return selectedValue != null &&
+                    selectedValue.getOutputName() != null &&
+                    selectedValue.getOutputName().equals(highlightedVariable);
+        }
+    }
+
+    protected String getStateIndicator(WorkflowItem aValue, int aIndex) {
+        return aValue.getStateIndicator();
+    }
+
+    public void highlightUsage(String variable) {
+        this.highlightedVariable = variable;
+        repaint();
+    }
+
     /**
      * Represents a single item in the workflow list, holding its properties and state.
      */
@@ -819,17 +825,23 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         private final String iconKey;
         private final String title;
         private final String subtitle;
-        private final String uid;
-        private String type;
         private final String outputName;
         private final Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> traceEntriesByIndex = new HashMap<>();
         private final Map<String, Object> node;
+        protected String type;
+        private String uid;
         private int indentation;
         private State state = State.Unknown;
         private int passCount;
 
         public WorkflowItem(String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
             this((Map<String, Object>) null, outputName, iconKey, title, subtitle, indentation);
+            this.type = type;
+        }
+
+        public WorkflowItem(String uid, String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
+            this((Map<String, Object>) null, outputName, iconKey, title, subtitle, indentation);
+            this.uid = uid;
             this.type = type;
         }
 
@@ -975,11 +987,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
          *
          * @return A Color object for the background.
          */
-        public Color getColor() {
+        public Color getBackgroundColor() {
             return switch (type) {
-                case JSON_TYPE_AGENT -> UISupport.isDarkAppearance() ? BACKGROUND_DARK_AGENT : BACKGROUND_AGENT;
-                case JSON_TYPE_NON_AI_AGENT ->
-                        UISupport.isDarkAppearance() ? BACKGROUND_DARK_AGENT_NONAI : BACKGROUND_AGENT_NONAI;
                 case TYPE_END,
                      TYPE_START,
                      JSON_TYPE_IF_THEN,
@@ -989,7 +998,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                      JSON_TYPE_GROUP,
                      JSON_TYPE_PLANNER_GROUP,
                      JSON_TYPE_DO_PARALLEL ->
-                        UISupport.isDarkAppearance() ? BACKGROUND_DARK_STATEMENT : BACKGROUND_STATEMENT;
+                        UISupport.isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
                 default -> null;
             };
         }
@@ -1009,6 +1018,14 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             traceEntriesByIndex.clear();
         }
 
+        public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
+            return Map.of();
+        }
+
+        protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
+            return new String[]{subtitle};
+        }
+
         public enum State {
             Unknown,
             Running,
@@ -1017,19 +1034,214 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
     }
 
+    public static class WorkflowItem_Start extends WorkflowItem {
+        public WorkflowItem_Start(Class<?> agentClass) {
+            super(TYPE_START, null, ICON_PLAY, "Start", formatParametersForAgentClass(agentClass), 0);
+        }
+
+        public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
+            Map<String, Object> result = new HashMap<>();
+
+            listPane.getWorkflowInput().forEach((key, value) -> result.put(key, listPane.convertValue(value)));
+
+            return result;
+        }
+
+        protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
+            WorkflowDebugger debugger = listPane.getWorkflowDebugger();
+            return new String[]{"→ " + listPane.mapToSubTitle(debugger.getAgentWorkflowBuilder().getAgentClass(),
+                    debugger.getWorkflowInput(),
+                    true)};
+        }
+    }
+
+    public static class WorkflowItem_End extends WorkflowItem {
+        public WorkflowItem_End(String outputName, Class<?> agentClass) {
+            super(TYPE_END, outputName, ICON_STOP, "Stop",
+                    "(%s %s)".formatted(Objects.requireNonNull(getAgentMethod(agentClass)).getReturnType().getSimpleName(), outputName),
+                    0);
+        }
+
+        public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
+            Map<String, Object> result = new HashMap<>();
+
+            if (listPane.convertValue(listPane.getWorkflowResult()) != null)
+                result.put(NODE_RESULT, listPane.convertValue(listPane.getWorkflowResult()));
+            else if (listPane.getWorkflowFailure() != null)
+                result.put(NODE_FAILURE, listPane.convertValue(WorkflowDebugger.getFailureCauseException(listPane.getWorkflowFailure())));
+
+            Map<String, Object> state = listPane.getAgenticScopeState();
+            if (!state.isEmpty())
+                result.put(NODE_AGENTIC_SCOPE, listPane.convertValue(state));
+
+            Map<String, Object> progression = listPane.getProgression();
+            if (!progression.isEmpty())
+                result.put(NODE_PROGRESSION, listPane.convertValue(progression));
+
+            return result;
+        }
+
+        @Override
+        protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
+            String result;
+            if (listPane.getWorkflowFailure() != null)
+                result = WorkflowDebugger.getFailureCauseException(listPane.getWorkflowFailure()).getMessage();
+            else
+                result = listPane.getWorkflowResult() != null ? listPane.getWorkflowResult().toString() : "";
+
+            return new String[]{"← " + result};
+        }
+    }
+
+    public static class WorkflowItem_Tool extends WorkflowItem {
+        public WorkflowItem_Tool(String toolID, String title) {
+            super(toolID, TYPE_TOOL, null, ICON_WRENCH,
+                    "<html>%s <span style=\"color:%s\">(tool)</span></html>".formatted(title, "%s"),
+                    null,
+                    1);
+        }
+
+        @Override
+        public Color getBackgroundColor() {
+            return UISupport.isDarkAppearance() ? BACKGROUND_TOOL_DARK : BACKGROUND_TOOL;
+        }
+
+        public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
+            Map<String, Object> result = new HashMap<>();
+
+            List<WorkflowDebugger.AgentInvocationTraceEntry> entries = listPane.getTraceEntries(this);
+            if (!entries.isEmpty()) {
+                WorkflowDebugger.AgentInvocationTraceEntry entry = entries.get(0);
+                WorkflowDebugger.ToolInvocationTraceEntry toolInvocationTraceEntry = entry.getToolInvocationTraceEntry(getUid());
+                result.put("Input", listPane.convertValue(toolInvocationTraceEntry.getToolExecutionRequest().get("arguments")));
+                if (toolInvocationTraceEntry.getFailure() != null)
+                    result.put("Failure", listPane.convertValue(WorkflowDebugger.getFailureCauseException(toolInvocationTraceEntry.getFailure())));
+                else
+                    result.put("Output", listPane.convertValue(toolInvocationTraceEntry.getResult()));
+                result.put("Request", listPane.convertValue(toolInvocationTraceEntry.getToolExecutionRequest()));
+            }
+
+            return result;
+        }
+
+        @Override
+        protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
+            String inputStr = "→ ";
+            String outputStr = "← ";
+
+            List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = getTraceEntries(index);
+            if (traceEntries != null && !traceEntries.isEmpty()) {
+                WorkflowDebugger.ToolInvocationTraceEntry toolInvocationTraceEntry = traceEntries.get(0).getToolInvocationTraceEntry(getUid());
+                WorkflowDebugger.AgentInvocationTraceEntry traceEntry = traceEntries.get(0);
+                if (toolInvocationTraceEntry != null) {
+                    inputStr += mapToSubTitle(null, (Map<?, ?>) toolInvocationTraceEntry.getToolExecutionRequest().get("arguments"), true);
+                    if (toolInvocationTraceEntry.getFailure() != null)
+                        outputStr += WorkflowDebugger.getFailureCauseException(toolInvocationTraceEntry.getFailure()).getMessage();
+                    else
+                        outputStr += toolInvocationTraceEntry.getResult();
+                }
+            }
+
+            return new String[]{inputStr, outputStr};
+        }
+    }
+
+    public static class WorkflowItem_Agent extends WorkflowItem {
+        public WorkflowItem_Agent(Map<String, Object> node, String outputName, String title, String subtitle, int indentation) {
+            super(node, outputName, ICON_EXPERT, title, subtitle, indentation);
+        }
+
+        @Override
+        public Color getBackgroundColor() {
+            return type.equals(JSON_TYPE_AGENT) ?
+                    UISupport.isDarkAppearance() ? BACKGROUND_AGENT_DARK : BACKGROUND_AGENT :
+                    UISupport.isDarkAppearance() ? BACKGROUND_AGENT_NONAI_DARK : BACKGROUND_AGENT_NONAI;
+        }
+
+        public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
+            Map<String, Object> result = new HashMap<>();
+
+            List<WorkflowDebugger.AgentInvocationTraceEntry> entries = listPane.getTraceEntries(this);
+
+            Map<String, Object> passResult = result;
+            if (entries != null) {
+                for (WorkflowDebugger.AgentInvocationTraceEntry entry : entries) {
+                    if (entries.size() > 1)
+                        result.put("pass [%s]".formatted(entries.indexOf(entry)), passResult = new HashMap<>());
+                    passResult.put("Input", listPane.convertValue(entry.getInput()));
+
+                    if (getOutputName() != null)
+                        passResult.put("Output (%s)".formatted(getOutputName()), listPane.convertValue(entry.getOutput()));
+                    else
+                        passResult.put("Output", listPane.convertValue(entry.getOutput()));
+
+                    if (entry.getFailure() != null) {
+                        passResult.put("Failure", listPane.convertValue(WorkflowDebugger.getFailureCauseException(entry.getFailure())));
+                    }
+
+                    if (!entry.getToolInvocationTraceEntries().isEmpty()) {
+                        if (entry.getToolInvocationTraceEntries().size() == 1)
+                            passResult.put("‣ Tool Call", listPane.convertValue(entry.getToolInvocationTraceEntries().get(0)));
+                        else
+                            passResult.put("‣ Tool Calls", listPane.convertValue(entry.getToolInvocationTraceEntries()));
+                    }
+                }
+            }
+
+            if (type.equals(JSON_TYPE_AGENT)) {
+                String userMessage = listPane.getWorkflowDebugger().getUserMessageTemplate(getAgentClassName());
+                if (userMessage != null)
+                    result.put(NODE_USER_MESSAGE, userMessage);
+            }
+
+            return result;
+        }
+
+        @Override
+        protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
+            String inputStr = "→ ";
+            String outputStr = "← ";
+
+            List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = getTraceEntries(index);
+            if (traceEntries != null && !traceEntries.isEmpty()) {
+
+                WorkflowDebugger.AgentInvocationTraceEntry traceEntry = traceEntries.get(0);
+                if (traceEntry.getInput() instanceof UserMessage userMessage) {
+                    inputStr += userMessage.singleText();
+                } else if (traceEntry.getInput() != null) {
+                    inputStr += traceEntry.getInput().toString();
+                }
+
+                Class<?> agentClass = ((AgentExpression) listPane.getWorkflowDebugger().getAgentMetadata(traceEntry.getAgent())).getAgentClass();
+                boolean isStateAgent = traceEntry.getAgent() instanceof SetStateAgents.SetStatesAgent;
+                if (isStateAgent)
+                    outputStr = "❖ ";
+                boolean simplify = !isStateAgent;
+                String outputStr1 = traceEntry.getOutput() instanceof Map<?, ?> outputMap ?
+                        mapToSubTitle(simplify ? null : agentClass, outputMap, simplify) :
+                        traceEntry.getOutput() != null ? traceEntry.getOutput().toString() : "";
+
+                outputStr += outputStr1;
+
+                return new String[]{isStateAgent ? null : inputStr, outputStr};
+            } else
+                return new String[]{inputStr, outputStr};
+        }
+    }
+
     private static class WorkflowItemRenderer extends JPanel implements ListCellRenderer<WorkflowItem> {
         public static final Color BORDER_COLOR = Color.DARK_GRAY;
+        public static final Color HIGHLIGHT_COLOR = new Color(0, 128, 0);
         static final Border INDICATOR_LINE_BORDER = BorderFactory.createCompoundBorder(
                 UISupport.createRoundRectBorder(Color.GRAY),
                 BorderFactory.createEmptyBorder(1, 8, 1, 8));
         static final Border INDICATOR_BORDER = BorderFactory.createEmptyBorder(1, 5, 1, 5);
-        public static final Color HIGHLIGHT_COLOR = new Color(0, 128, 0);
+        private static final int HIGHLIGHT_BUDGE_SIZE = 7;
+        private static final int HIGHLIGHT_BUDGE_GAP = 7;
         private final JLabel lblIcon = new JLabel();
         private final JLabel lblTitle = new JLabel();
-        private final JLabel lblSubTitle = new JLabel() {
-        };
-        private final JLabel lblSubTitle2 = new JLabel() {
-        };
+        private final JLabel lblSubTitle = new JLabel();
+        private final JLabel lblSubTitle2 = new JLabel();
         private final JLabel lblStateIndicator = new JLabel();
         private final JPanel pnlContent;
         private final Box pnlStateIndicator;
@@ -1114,8 +1326,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             graphics.setColor(getBackground());
             switch (type) {
                 case TYPE_START, TYPE_END -> paintStartEndShape(graphics, rect, isHighlighted);
-                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_PARALLEL, JSON_TYPE_GROUP, JSON_TYPE_PLANNER_GROUP ->
-                        paintControlFlowShape(rect, graphics, isHighlighted);
+                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_PARALLEL, JSON_TYPE_GROUP,
+                     JSON_TYPE_PLANNER_GROUP -> paintControlFlowShape(rect, graphics, isHighlighted);
                 case JSON_TYPE_MATCH -> paintMatchShape(rect, graphics, isHighlighted);
                 default -> paintAgentShape(graphics, rect, isHighlighted);
             }
@@ -1133,9 +1345,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             graphics.setColor(UISupport.isDarkAppearance() ? Color.GREEN : HIGHLIGHT_COLOR);
             graphics.fillOval(rect.x, rect.y, rect.width, rect.height);
         }
-
-        private static final int HIGHLIGHT_BUDGE_SIZE = 7;
-        private static final int HIGHLIGHT_BUDGE_GAP = 7;
 
         private void paintAgentShape(Graphics2D graphics, Rectangle rect, boolean isHighlighted) {
             graphics.fillRoundRect(rect.x, rect.y, rect.width, rect.height, 5, 5);
@@ -1290,7 +1499,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     }
                 }
 
-            if (value != null && (userMessagePresent || errorsPresent))
+            if (value != null && value.getType() != TYPE_TOOL && (userMessagePresent || errorsPresent))
                 title = "<html>%s%s%s</html>".formatted(
                         title,
                         userMessagePresent ? "<span style=\"color: %s;\"> ✽</span>".formatted(isSelected && cellHasFocus ? "white" : "gray") : "",
@@ -1325,7 +1534,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 lblSubTitle.setForeground(list.getSelectionForeground());
                 lblSubTitle2.setForeground(list.getSelectionForeground());
             } else {
-                setBackground(value.getColor() != null ? value.getColor() : list.getBackground());
+                setBackground(value.getBackgroundColor() != null ? value.getBackgroundColor() : list.getBackground());
                 setForeground(list.getForeground());
                 lblTitle.setForeground(list.getForeground());
                 Color subTitleForeground = UISupport.isDarkAppearance() ? Color.LIGHT_GRAY : Color.GRAY;
@@ -1341,30 +1550,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         private enum LinkType {
             None, Top, Bottom, Both
         }
-    }
-
-    protected boolean isElementHighlighted(int index) {
-        if (highlightedVariable == null)
-            return false;
-
-        if (index == 0) {
-            return getWorkflowInput().containsKey(highlightedVariable);
-        } else {
-            WorkflowItem selectedValue = model.getElementAt(index);
-
-            return selectedValue != null &&
-                    selectedValue.getOutputName() != null &&
-                    selectedValue.getOutputName().equals(highlightedVariable);
-        }
-    }
-
-    protected String getStateIndicator(WorkflowItem aValue, int aIndex) {
-        return aValue.getStateIndicator();
-    }
-
-    public void highlightUsage(String variable) {
-        this.highlightedVariable = variable;
-        repaint();
     }
 
     public static class Structure extends WorkflowInspectorListPane {
@@ -1466,58 +1651,38 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         @Override
-        protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
-            if (!(workflowItem.getType().equals(JSON_TYPE_AGENT) ||
-                    workflowItem.getType().equals(JSON_TYPE_NON_AI_AGENT) ||
-                    workflowItem.getType().equals(JSON_TYPE_BREAKPOINT) ||
-                    workflowItem.getType().equals(TYPE_START) ||
-                    workflowItem.getType().equals(TYPE_END)))
-                return new String[0];
-
-            List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = workflowItem.getTraceEntries(index);
-            if (workflowItem.getType().equals(TYPE_START)) {
-                return new String[] {"→ " + mapToSubTitle(workflowBuilder.getAgentClass(), getWorkflowInput(), true)};
-            } else if (workflowItem.getType().equals(TYPE_END)) {
-                String result;
-                if (getWorkflowFailure() != null)
-                    result = WorkflowDebugger.getFailureCauseException(getWorkflowFailure()).getMessage();
-                else
-                    result = getWorkflowResult() != null ? getWorkflowResult().toString() : "";
-
-                return new String[] {"← " + result};
-            } else if (traceEntries != null && !traceEntries.isEmpty()) {
-                String inputStr = "→ ";
-                String outputStr = "← ";
-
-                WorkflowDebugger.AgentInvocationTraceEntry traceEntry = traceEntries.get(0);
-                if (traceEntry.getInput() instanceof UserMessage userMessage) {
-                    inputStr += userMessage.singleText();
-                } else if (traceEntry.getInput() != null) {
-                    inputStr += traceEntry.getInput().toString();
-                }
-
-                Class<?> agentClass = ((AgentExpression) workflowDebugger.getAgentMetadata(traceEntry.getAgent())).getAgentClass();
-                boolean isStateAgent = traceEntry.getAgent() instanceof SetStateAgents.SetStatesAgent;
-                boolean simplify = !isStateAgent;
-                String outputStr1 = traceEntry.getOutput() instanceof Map<?, ?> outputMap ?
-                        mapToSubTitle(simplify ? null : agentClass, outputMap, simplify) :
-                        traceEntry.getOutput() != null ? traceEntry.getOutput().toString() : "";
-
-                outputStr += outputStr1;
-                return new String[]{isStateAgent ? null : inputStr, outputStr};
-            }
-            return new String[0];
+        public void workflowDebuggerToolStarted(Map<String, Object> states) {
+            WorkflowDebugger.AgentInvocationTraceEntry traceEntry = (WorkflowDebugger.AgentInvocationTraceEntry) states.get(WorkflowDebugger.KEY_TRACE_ENTRY);
+            String uid = workflowDebugger.getAgentMetadata(traceEntry.getAgent()).getId();
+            SwingUtilities.invokeLater(() -> {
+                String toolID = states.get(WorkflowDebugger.KEY_TOOL_ID).toString();
+                WorkflowItem element = new WorkflowItem_Tool(toolID, getAgentName((String) states.get(WorkflowDebugger.KEY_TOOL)));
+                model.addElement(element);
+                element.setTraceEntry(model.size() - 1, traceEntry);
+                list.repaint();
+                updateSelection();
+            });
         }
 
-        private String mapToSubTitle(Class<?> agentClass, Map<?, ?> map, boolean simplify) {
-            if (map.isEmpty())
-                return "";
-            if (simplify && map.size() == 1)
-                return map.entrySet().iterator().next().getValue().toString();
+        @Override
+        public void workflowDebuggerToolFinished(Map<String, Object> states) {
+            WorkflowDebugger.AgentInvocationTraceEntry traceEntry = (WorkflowDebugger.AgentInvocationTraceEntry) states.get(WorkflowDebugger.KEY_TRACE_ENTRY);
+            String toolId = (String) (String) states.get(WorkflowDebugger.KEY_TOOL_ID);
+            WorkflowDebugger.ToolInvocationTraceEntry toolInvocationTraceEntry = traceEntry.getToolInvocationTraceEntry(toolId);
+            SwingUtilities.invokeLater(() -> {
+                for (int i = 0; i < model.size(); i++) {
+                    if (toolId.equals(model.getElementAt(i).getUid())) {
+                        model.getElementAt(i).setState(toolInvocationTraceEntry.getFailure() == null ? WorkflowItem.State.Finished : WorkflowItem.State.Failed);
+                    }
+                }
+                list.repaint();
+                updateSelection();
+            });
+        }
 
-            return (agentClass != null ? getAgentMethodParameterNames(getAgentMethod(agentClass)) : map.keySet()).stream()
-                    .map(name -> "%s=%s".formatted(name, map.get(name)))
-                    .collect(Collectors.joining(", "));
+        @Override
+        protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
+            return workflowItem.getSubTitles(this, index);
         }
 
         @Override
