@@ -27,7 +27,7 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.PlaygroundParam;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundParam;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
 import dev.langchain4j.service.Result;

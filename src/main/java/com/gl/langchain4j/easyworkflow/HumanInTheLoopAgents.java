@@ -25,6 +25,7 @@
 
 package com.gl.langchain4j.easyworkflow;
 
+import com.gl.langchain4j.easyworkflow.playground.Playground;
 import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 

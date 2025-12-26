@@ -28,7 +28,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
-import com.gl.langchain4j.easyworkflow.Playground;
+import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;

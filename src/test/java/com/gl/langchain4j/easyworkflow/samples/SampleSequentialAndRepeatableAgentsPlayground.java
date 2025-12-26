@@ -2,9 +2,9 @@ package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
-import com.gl.langchain4j.easyworkflow.Playground;
+import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import dev.langchain4j.agentic.internal.AgentSpecification;
+import dev.langchain4j.agentic.internal.InternalAgent;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.util.List;
@@ -45,7 +45,7 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
         SampleSequentialAndRepeatableAgents.NovelCreator novelCreator = builder
                 .build();
 
-        System.out.println(((AgentSpecification)novelCreator).subagents());
+        System.out.println(((InternalAgent)novelCreator).subagents());
 
         Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class,
                 Playground.Type.GUI,

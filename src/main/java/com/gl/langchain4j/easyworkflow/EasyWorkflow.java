@@ -27,6 +27,7 @@ package com.gl.langchain4j.easyworkflow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundParam;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecifications;
@@ -35,8 +36,8 @@ import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.agentic.UntypedAgent;
 import dev.langchain4j.agentic.agent.AgentBuilder;
 import dev.langchain4j.agentic.internal.A2AClientBuilder;
-import dev.langchain4j.agentic.internal.AgentSpecification;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
+import dev.langchain4j.agentic.internal.InternalAgent;
 import dev.langchain4j.agentic.planner.Planner;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.agentic.supervisor.SupervisorAgent;
@@ -1196,7 +1197,7 @@ public class EasyWorkflow {
             assert agentClass != null;
             return (T) Proxy.newProxyInstance(
                     agentClass.getClassLoader(),
-                    new Class<?>[]{agentClass, AgentSpecification.class, AgenticScopeOwner.class},
+                    new Class<?>[]{agentClass, InternalAgent.class, AgenticScopeOwner.class},
                     (proxy, method, args) -> {
                         boolean isAgentMethod = method.getAnnotation(Agent.class) != null;
 

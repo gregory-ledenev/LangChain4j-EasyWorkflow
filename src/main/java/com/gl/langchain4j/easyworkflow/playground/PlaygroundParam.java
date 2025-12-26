@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow;
+package com.gl.langchain4j.easyworkflow.playground;
 
 import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
 

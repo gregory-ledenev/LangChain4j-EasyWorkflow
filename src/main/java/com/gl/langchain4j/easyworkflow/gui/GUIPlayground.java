@@ -28,6 +28,7 @@ import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.Application;
 import com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter;
+import com.gl.langchain4j.easyworkflow.playground.Playground;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;

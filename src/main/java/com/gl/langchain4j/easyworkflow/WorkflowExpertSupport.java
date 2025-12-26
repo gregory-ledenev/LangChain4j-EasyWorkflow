@@ -2,6 +2,7 @@ package com.gl.langchain4j.easyworkflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.playground.Playground;
 import dev.langchain4j.data.document.DefaultDocument;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.Metadata;
@@ -20,7 +21,7 @@ import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.gl.langchain4j.easyworkflow.Playground.ARG_TITLE;
+import static com.gl.langchain4j.easyworkflow.playground.Playground.ARG_TITLE;
 import static java.lang.System.out;
 
 /**

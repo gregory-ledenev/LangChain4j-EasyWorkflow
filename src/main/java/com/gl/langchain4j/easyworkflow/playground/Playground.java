@@ -22,8 +22,9 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow;
+package com.gl.langchain4j.easyworkflow.playground;
 
+import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.model.chat.ChatModel;

@@ -35,6 +35,7 @@ import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
+import com.gl.langchain4j.easyworkflow.playground.Playground;
 import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
 

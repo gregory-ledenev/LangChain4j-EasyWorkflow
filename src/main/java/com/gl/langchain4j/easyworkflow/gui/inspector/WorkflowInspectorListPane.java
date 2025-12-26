@@ -1148,7 +1148,11 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
     public static class WorkflowItem_Agent extends WorkflowItem {
         public WorkflowItem_Agent(Map<String, Object> node, String outputName, String title, String subtitle, int indentation) {
-            super(node, outputName, ICON_EXPERT, title, subtitle, indentation);
+            super(node,
+                    outputName,
+                    ((String) node.get(JSON_KEY_AGENT_CLASS_NAME)).endsWith("HumanInTheLoop") ? ICON_QUESTION : ICON_EXPERT,
+                    title, subtitle,
+                    indentation);
         }
 
         @Override
