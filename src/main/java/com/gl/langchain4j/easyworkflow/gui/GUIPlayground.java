@@ -28,7 +28,9 @@ import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.Application;
 import com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter;
+import com.gl.langchain4j.easyworkflow.playground.LocalPlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
@@ -128,6 +130,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
         Icons.loadIcons();
         ToolbarIcons.loadIcons();
 
+        LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent);
+
         chatFrame = ChatFrame.createChatFrame(title,
                 new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("icons/logo.png"))),
                 new ChatPane.ChatEngine() {
@@ -144,8 +148,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     }
 
                     @Override
-                    public Parameter[] getMessageParameters() {
-                        return agentMethod.getParameters();
+                    public PlaygroundMetadata.Argument[] getMessageParameters() {
+                        return playgroundContext.getAgentMetadata().getArguments().toArray(PlaygroundMetadata.Argument[]::new);
                     }
 
                     @Override
@@ -158,6 +162,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
                         return EasyWorkflow.getSystemMessageTemplate(agentClass);
                     }
                 },
+                playgroundContext,
                 agent,
                 getWorkflowDebugger(),
                 getChatModels());
@@ -221,6 +226,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
         Icons.loadIcons();
         ToolbarIcons.loadIcons();
 
+        LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent);
+
         chatDialog = new ChatDialog((Frame) arguments.get(ARG_OWNER_FRAME), title,
                 new ChatPane.ChatEngine() {
                     @Override
@@ -244,8 +251,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     }
 
                     @Override
-                    public Parameter[] getMessageParameters() {
-                        return agentMethod.getParameters();
+                    public PlaygroundMetadata.Argument[] getMessageParameters() {
+                        return playgroundContext.getAgentMetadata().getArguments().toArray(PlaygroundMetadata.Argument[]::new);
                     }
                 });
         SwingUtilities.invokeLater(() -> {

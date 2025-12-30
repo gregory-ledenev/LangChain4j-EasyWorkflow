@@ -30,6 +30,7 @@ import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import dev.langchain4j.agentic.planner.AgentInstance;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.openai.OpenAiChatModel;

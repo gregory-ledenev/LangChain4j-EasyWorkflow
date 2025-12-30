@@ -32,6 +32,8 @@ import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import dev.langchain4j.data.message.UserMessage;
 import org.slf4j.Logger;
 
@@ -44,7 +46,6 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyEvent;
 import java.awt.geom.Line2D;
-import java.lang.reflect.Method;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +56,10 @@ import java.util.stream.Collectors;
 
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.*;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.*;
+import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.WorkflowItem.Type.*;
+import static com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata.PROPERTY_IS_AI_AGENT;
+import static com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata.PROPERTY_IS_HUMAN_IN_THE_LOOP_AGENT;
+import static dev.langchain4j.agentic.planner.AgenticSystemTopology.SEQUENCE;
 import static javax.swing.BoxLayout.Y_AXIS;
 
 /**
@@ -99,6 +104,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     private String highlightedVariable;
     private WorkflowDebugger.Breakpoint breakpointToolStarted;
     private WorkflowDebugger.Breakpoint breakpointToolFinished;
+    private PlaygroundContext playgroundContext;
 
     /**
      * Constructs a new WorkflowInspectorListPane.
@@ -157,8 +163,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         return lastIndex == -1 ? className : className.substring(lastIndex + 1);
     }
 
-    private static String getAgentTitle(Map<String, Object> node) {
-        return getAgentName((String) node.get(JSON_KEY_NAME));
+    private static String getAgentTitle(PlaygroundMetadata.Agent agent) {
+        return getAgentName(agent.getName());
     }
 
     private static String getAgentName(String name) {
@@ -166,13 +172,9 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         return result.substring(0, 1).toUpperCase() + result.substring(1);
     }
 
-    private static String formatParametersForAgentClass(Class<?> agentClass) {
-        Method agentMethod = getAgentMethod(agentClass);
-        Objects.requireNonNull(agentMethod);
-
-        EasyWorkflow.getAgentMethodParameterNames(agentMethod);
-        return "(%s)".formatted(Arrays.stream(agentMethod.getParameters())
-                .map(parameter -> parameter.getType().getSimpleName() + " " + parameter.getName())
+    private static String formatParametersForAgent(PlaygroundMetadata.Agent agent) {
+        return "(%s)".formatted(agent.getArguments().stream()
+                .map(argument -> getSimpleClassName(argument.type().name()) + " " + argument.name())
                 .collect(Collectors.joining(", ")));
     }
 
@@ -192,6 +194,23 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             case Failed -> "✘";
             case Running -> "▶";
         };
+    }
+
+    private static String getAgentSubtitle(PlaygroundMetadata.Agent agent) {
+        @SuppressWarnings("unchecked")
+        String parametersStr = null;
+        if (!agent.getArguments().isEmpty()) {
+            parametersStr = agent.getArguments().stream()
+                    .map(argument -> {
+                        String name = argument.name();
+                        String type = argument.type().name();
+                        return getSimpleClassName(type) + " " + name;
+                    })
+                    .collect(Collectors.joining(", "));
+        }
+        return "(%s) → (%s %s)".formatted(parametersStr != null ? parametersStr : "",
+                getSimpleClassName(agent.getOutputType().name()),
+                agent.getOutputKey() != null && !agent.getOutputKey().isEmpty() ? agent.getOutputKey() : "response");
     }
 
     @Override
@@ -221,139 +240,130 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     /**
      * Sets the workflow to be displayed in the inspector.
      *
-     * @param builder The EasyWorkflow.AgentWorkflowBuilder representing the workflow.
+     * @param playgroundContext
+     * @param builder           The EasyWorkflow.AgentWorkflowBuilder representing the workflow.
      */
-    public void setWorkflow(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
+    public void setPlaygroundContext(PlaygroundContext playgroundContext, AgentWorkflowBuilder<?> builder) {
+        this.playgroundContext = playgroundContext;
         this.workflowBuilder = builder;
         model.clear();
         try {
             populateListModel(listModel, builder);
         } catch (JsonProcessingException e) {
             e.printStackTrace();
-            model.addElement(new WorkflowItem((Map<String, Object>) null, null, null, "Error parsing workflow", e.getMessage(), 0));
+            //todo fix me
+//            model.addElement(new WorkflowItem((Map<String, Object>) null, null, null, "Error parsing workflow", e.getMessage(), 0));
         }
     }
 
     @SuppressWarnings("unchecked")
     private void populateListModel(List<WorkflowItem> listModel, AgentWorkflowBuilder<?> builder) throws JsonProcessingException {
         String jsonString = builder.toJson();
-        List<Map<String, Object>> workflowData = objectMapper.readValue(jsonString, List.class);
 
-        listModel.add(new WorkflowItem_Start(builder.getAgentClass()));
+        PlaygroundMetadata.Agent agent = playgroundContext.getAgentMetadata();
+        listModel.add(new WorkflowItem_Start(agent));
 
-        populateListModel(listModel, workflowData, 0);
+        populateListModel(listModel, agent, 0);
         String outputName = builder.getComputedOutputName();
-        listModel.add(new WorkflowItem_End(outputName, builder.getAgentClass()));
+        listModel.add(new WorkflowItem_End(agent));
 
         for (WorkflowItem workflowItem : listModel) {
             workflowItemsByUID.put(workflowItem.getUid(), workflowItem);
-            workflowItemsByType.put(workflowItem.getType(), workflowItem);
+            //todo fix me
+//            workflowItemsByType.put(workflowItem.getType(), workflowItem);
         }
     }
 
     @SuppressWarnings("unchecked")
-    private void populateListModel(List<WorkflowItem> listModel, List<Map<String, Object>> nodes, int indentation) {
-        for (Map<String, Object> node : nodes) {
-            String type = (String) node.get(EasyWorkflow.JSON_KEY_TYPE);
+    private void populateListModel(List<WorkflowItem> listModel, PlaygroundMetadata.Agent agent, int indentation) {
+        int increment = 0;
+        if (!(agent.getTopology() == SEQUENCE && agent.getParent() == null)) {
+            // only render a sequence node for not a root agent
+            WorkflowItem element = createWorkflowItem(agent, indentation);
+            if (element != null)
+                listModel.add(element);
+            increment = 1;
+        }
 
-            WorkflowItem element = createWorkflowItem(indentation, node, type, type);
-
-            listModel.add(element);
-
-            if (node.containsKey("block")) {
-                populateListModel(listModel, (List<Map<String, Object>>) node.get("block"), indentation + 1);
-            }
-            if (node.containsKey("elseBlock")) {
-                listModel.add(new WorkflowItem(node, null, null, "else", "", indentation));
-                populateListModel(listModel, (List<Map<String, Object>>) node.get("elseBlock"), indentation + 1);
-            }
+        for (PlaygroundMetadata.Agent subagent : agent.getSubagents()) {
+            populateListModel(listModel, subagent, indentation + increment);
         }
     }
 
-    private WorkflowItem createWorkflowItem(int indentation, Map<String, Object> node, String type, String title) {
+    private WorkflowItem createWorkflowItem(PlaygroundMetadata.Agent agent, int indentation) {
+        String title = null;
         String subtitle = null;
         String iconKey = null;
         String outputName = null;
-        switch (type) {
-            case JSON_TYPE_AGENT:
-            case JSON_TYPE_NON_AI_AGENT:
-                return new WorkflowItem_Agent(node,
-                        (String) node.get(JSON_KEY_OUTPUT_NAME),
-                        getAgentTitle(node),
-                        getAgentSubtitle(node),
-                        indentation);
-            case "setState":
-                return new WorkflowItem_Agent(node,
-                        (String) node.get(JSON_KEY_OUTPUT_NAME),
-                        "Set State",
-                        (String) node.get("details"),
-                        indentation);
-            case JSON_TYPE_IF_THEN:
-                title = "<html>if <span style=\"color:%s\">(%s)</span></html>".formatted(
-                        "%s",
-                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
-                iconKey = ICON_SIGNPOST;
-                break;
-            case JSON_TYPE_REPEAT:
+        WorkflowItem.Type type = Unknwn;
+        switch (agent.getTopology()) {
+            case SINGLE_AGENT:
+                return new WorkflowItem_Agent(agent, indentation);
+            //todo fix me
+//            case "setState":
+//                return new WorkflowItem_Agent(node,
+//                        (String) node.get(JSON_KEY_OUTPUT_NAME),
+//                        "Set State",
+//                        (String) node.get("details"),
+//                        indentation);
+//            case JSON_TYPE_IF_THEN:
+//                title = "<html>if <span style=\"color:%s\">(%s)</span></html>".formatted(
+//                        "%s",
+//                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
+//                iconKey = ICON_SIGNPOST;
+//                break;
+            case LOOP:
                 title = "<html>repeat <span style=\"color:%s\">(max: %s, until: %s)</span></html>)".formatted(
                         "%s",
-                        node.get(JSON_KEY_MAX_ITERATIONS),
-                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
+                        5,
+                        getHtmlSafeString("..."));
                 iconKey = ICON_REFRESH;
+                type = Repeat;
                 break;
-            case JSON_TYPE_DO_WHEN:
+            case ROUTER:
                 title = "<html>when <span style=\"color:%s\">(%s)</span></html>".formatted(
                         "%s",
-                        getHtmlSafeString(node.getOrDefault(JSON_KEY_EXPRESSION, "...")));
+                        getHtmlSafeString(".."));
                 iconKey = ICON_SIGNPOST;
+                type = DoWhen;
                 break;
-            case JSON_TYPE_MATCH:
-                title = "<html>match <span style=\"color:%s\">(%s)</span></html>".formatted(
-                        "%s",
-                        node.getOrDefault(JSON_KEY_VALUE, "..."));
-                iconKey = ICON_TARGET;
-                break;
-            case JSON_TYPE_DO_PARALLEL:
+//            case JSON_TYPE_MATCH:
+//                title = "<html>match <span style=\"color:%s\">(%s)</span></html>".formatted(
+//                        "%s",
+//                        node.getOrDefault(JSON_KEY_VALUE, "..."));
+//                iconKey = ICON_TARGET;
+//                break;
+            case PARALLEL:
                 title = "Do Parallel";
                 iconKey = ICON_STACK;
+                type = ParallelGroup;
                 break;
-            case JSON_TYPE_GROUP:
-                title = "<html>Group <span style=\"color:%s\">(Supervised)</span></html>";
-                iconKey = ICON_BOX;
+            case SEQUENCE:
+                if (agent.getType().name().endsWith(".SupervisorAgent")) {
+                    title = "<html>Group <span style=\"color:%s\">(Supervised)</span></html>";
+                    iconKey = ICON_BOX;
+                    type = Group;
+                } else {
+                    title = "Sequence";
+                    iconKey = ICON_STACK;
+                    type = Sequence;
+                }
                 break;
-            case JSON_TYPE_PLANNER_GROUP:
-                title = "<html>Group <span style=\"color:%s\">(Planner: %s)</span></html>".formatted("%s", node.getOrDefault(JSON_KEY_PLANNER, "N/A"));
-                iconKey = ICON_BOX;
-                break;
-            case JSON_TYPE_BREAKPOINT:
-                title = "Breakpoint";
-                iconKey = ICON_BREAKPOINT;
-                break;
+//            case JSON_TYPE_PLANNER_GROUP:
+//                title = "<html>Group <span style=\"color:%s\">(Planner: %s)</span></html>".formatted("%s", node.getOrDefault(JSON_KEY_PLANNER, "N/A"));
+//                iconKey = ICON_BOX;
+//                break;
+//            case JSON_TYPE_BREAKPOINT:
+//                title = "Breakpoint";
+//                iconKey = ICON_BREAKPOINT;
+//                break;
         }
 
-        return new WorkflowItem(node, outputName, iconKey, title, subtitle, indentation);
+        return new WorkflowItem(type, agent, iconKey, title, subtitle, indentation);
     }
 
     protected String[] getSubTitles(WorkflowItem workflowItem, int index) {
         return new String[]{workflowItem.getSubtitle()};
-    }
-
-    private String getAgentSubtitle(Map<String, Object> node) {
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> parameters = (List<Map<String, Object>>) node.get(EasyWorkflow.JSON_KEY_PARAMETERS);
-        String parametersStr = null;
-        if (parameters != null && !parameters.isEmpty()) {
-            parametersStr = parameters.stream()
-                    .map(param -> {
-                        String name = (String) param.get(JSON_KEY_NAME);
-                        String type = param.get(JSON_KEY_TYPE).toString();
-                        return getSimpleClassName(type) + " " + name;
-                    })
-                    .collect(Collectors.joining(", "));
-        }
-        return "(%s) → (%s %s)".formatted(parametersStr != null ? parametersStr : "",
-                getSimpleClassName((String) node.getOrDefault(JSON_KEY_OUTPUT_TYPE, "N/A")),
-                node.getOrDefault(JSON_KEY_OUTPUT_NAME, "response"));
     }
 
     /**
@@ -383,7 +393,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
         Object workflowResult = getWorkflowResult();
         if (getWorkflowFailure() == null && workflowResult != null) {
-            progressionMap.computeIfAbsent(listModel.get(listModel.size() - 1).getOutputName(), k -> new ArrayList<>())
+            progressionMap.computeIfAbsent(listModel.get(listModel.size() - 1).getOutputKey(), k -> new ArrayList<>())
                     .add(convertValue(workflowResult));
         }
 
@@ -677,19 +687,20 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         for (int i = index - 1; i >= 0; i--) {
             WorkflowItem item = model.get(i);
             if (item.getState() == WorkflowItem.State.Unknown && item.getIndentation() <= currentItem.getIndentation()) {
-                switch (item.type) {
-                    case JSON_TYPE_IF_THEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_WHEN,
-                         JSON_TYPE_GROUP, JSON_TYPE_DO_PARALLEL:
-                        item.setState(WorkflowItem.State.Finished);
-                        break;
-                    case JSON_TYPE_MATCH:
-                        if (!processedMatches.contains(item.getIndentation())) {
-                            processedMatches.add(item.getIndentation());
-                            item.setState(WorkflowItem.State.Finished);
-                        }
-                        break;
-                    default:
-                }
+                //todo fix me
+//                switch (item.type) {
+//                    case JSON_TYPE_IF_THEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_WHEN,
+//                         JSON_TYPE_GROUP, JSON_TYPE_DO_PARALLEL:
+//                        item.setState(WorkflowItem.State.Finished);
+//                        break;
+//                    case JSON_TYPE_MATCH:
+//                        if (!processedMatches.contains(item.getIndentation())) {
+//                            processedMatches.add(item.getIndentation());
+//                            item.setState(WorkflowItem.State.Finished);
+//                        }
+//                        break;
+//                    default:
+//                }
             }
         }
     }
@@ -803,8 +814,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             WorkflowItem selectedValue = model.getElementAt(index);
 
             return selectedValue != null &&
-                    selectedValue.getOutputName() != null &&
-                    selectedValue.getOutputName().equals(highlightedVariable);
+                    selectedValue.getOutputKey() != null &&
+                    selectedValue.getOutputKey().equals(highlightedVariable);
         }
     }
 
@@ -823,37 +834,24 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     public static class WorkflowItem implements Cloneable {
 
         private final String iconKey;
+
+        ;
         private final String title;
         private final String subtitle;
-        private final String outputName;
+        private final PlaygroundMetadata.Agent agent;
         private final Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> traceEntriesByIndex = new HashMap<>();
-        private final Map<String, Object> node;
-        protected String type;
-        private String uid;
+        protected Type type;
+
         private int indentation;
         private State state = State.Unknown;
         private int passCount;
-
-        public WorkflowItem(String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
-            this((Map<String, Object>) null, outputName, iconKey, title, subtitle, indentation);
+        public WorkflowItem(Type type, PlaygroundMetadata.Agent agent, String iconKey, String title, String subtitle, int indentation) {
             this.type = type;
-        }
-
-        public WorkflowItem(String uid, String type, String outputName, String iconKey, String title, String subtitle, int indentation) {
-            this((Map<String, Object>) null, outputName, iconKey, title, subtitle, indentation);
-            this.uid = uid;
-            this.type = type;
-        }
-
-        public WorkflowItem(Map<String, Object> node, String outputName, String iconKey, String title, String subtitle, int indentation) {
-            this.node = node;
+            this.agent = agent;
             this.iconKey = iconKey;
             this.title = title;
             this.subtitle = subtitle;
             this.indentation = indentation;
-            this.uid = node != null ? (String) node.get(JSON_KEY_UID) : null;
-            this.type = node != null ? (String) node.get(JSON_KEY_TYPE) : null;
-            this.outputName = outputName;
         }
 
         public Map<Integer, List<WorkflowDebugger.AgentInvocationTraceEntry>> getTraceEntriesByIndex() {
@@ -861,20 +859,20 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         public String getAgentClassName() {
-            return node != null ? (String) node.get(JSON_KEY_AGENT_CLASS_NAME) : null;
+            return agent.getType().name();
         }
 
         public String getUserMessage() {
-            return (String) node.get(JSON_KEY_USER_MESSAGE);
+            return null; //todo fix me
         }
 
         /**
-         * Returns the output name of the workflow item.
+         * Returns the output key of the workflow item.
          *
-         * @return The output name.
+         * @return The output key.
          */
-        public String getOutputName() {
-            return outputName;
+        public String getOutputKey() {
+            return agent.getOutputKey();
         }
 
         /**
@@ -902,13 +900,13 @@ public abstract class WorkflowInspectorListPane extends AppPane {
          * Returns the unique identifier of the workflow item.
          */
         public String getUid() {
-            return uid;
+            return agent.getAgentId();
         }
 
         /**
          * Returns the type of the workflow item (e.g., agent, if-then, start, end).
          */
-        public String getType() {
+        public Type getType() {
             return type;
         }
 
@@ -971,7 +969,9 @@ public abstract class WorkflowInspectorListPane extends AppPane {
          * @return A string indicating the state.
          */
         public String getStateIndicator() {
-            return WorkflowInspectorListPane.getStateIndicator(state, type, passCount);
+            //todo fix me
+            return "";
+//            return WorkflowInspectorListPane.getStateIndicator(state, type, passCount);
         }
 
         public int getPassCount() {
@@ -989,16 +989,17 @@ public abstract class WorkflowInspectorListPane extends AppPane {
          */
         public Color getBackgroundColor() {
             return switch (type) {
-                case TYPE_END,
-                     TYPE_START,
-                     JSON_TYPE_IF_THEN,
-                     JSON_TYPE_REPEAT,
-                     JSON_TYPE_DO_WHEN,
-                     JSON_TYPE_MATCH,
-                     JSON_TYPE_GROUP,
-                     JSON_TYPE_PLANNER_GROUP,
-                     JSON_TYPE_DO_PARALLEL ->
-                        UISupport.isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
+                case Start,
+                     End,
+                     IfThen,
+                     ElseIf,
+                     Repeat,
+                     DoWhen,
+                     Match,
+                     Group,
+                     Sequence,
+                     PlannerGroup,
+                     ParallelGroup -> UISupport.isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
                 default -> null;
             };
         }
@@ -1026,6 +1027,25 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             return new String[]{subtitle};
         }
 
+        public enum Type {
+            Unknwn,
+            Start,
+            End,
+            Agent,
+            NonAIAgent,
+            Sequence,
+            IfThen,
+            ElseIf,
+            Repeat,
+            DoWhen,
+            Match,
+            Group,
+            PlannerGroup,
+            ParallelGroup,
+            Tool,
+            Breakpoint
+        }
+
         public enum State {
             Unknown,
             Running,
@@ -1035,8 +1055,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     public static class WorkflowItem_Start extends WorkflowItem {
-        public WorkflowItem_Start(Class<?> agentClass) {
-            super(TYPE_START, null, ICON_PLAY, "Start", formatParametersForAgentClass(agentClass), 0);
+        public WorkflowItem_Start(PlaygroundMetadata.Agent agent) {
+            super(Type.Start, agent, ICON_PLAY, "Start", formatParametersForAgent(agent), 0);
         }
 
         public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
@@ -1056,9 +1076,9 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     public static class WorkflowItem_End extends WorkflowItem {
-        public WorkflowItem_End(String outputName, Class<?> agentClass) {
-            super(TYPE_END, outputName, ICON_STOP, "Stop",
-                    "(%s %s)".formatted(Objects.requireNonNull(getAgentMethod(agentClass)).getReturnType().getSimpleName(), outputName),
+        public WorkflowItem_End(PlaygroundMetadata.Agent agent) {
+            super(Type.End, agent, ICON_STOP, "Stop",
+                    "(%s %s)".formatted(getSimpleClassName(agent.getType().name()), agent.getOutputKey()),
                     0);
         }
 
@@ -1093,71 +1113,72 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
     }
 
-    public static class WorkflowItem_Tool extends WorkflowItem {
-        public WorkflowItem_Tool(String toolID, String title) {
-            super(toolID, TYPE_TOOL, null, ICON_WRENCH,
-                    "<html>%s <span style=\"color:%s\">(tool)</span></html>".formatted(title, "%s"),
-                    null,
-                    1);
-        }
-
-        @Override
-        public Color getBackgroundColor() {
-            return UISupport.isDarkAppearance() ? BACKGROUND_TOOL_DARK : BACKGROUND_TOOL;
-        }
-
-        public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
-            Map<String, Object> result = new HashMap<>();
-
-            List<WorkflowDebugger.AgentInvocationTraceEntry> entries = listPane.getTraceEntries(this);
-            if (!entries.isEmpty()) {
-                WorkflowDebugger.AgentInvocationTraceEntry entry = entries.get(0);
-                WorkflowDebugger.ToolInvocationTraceEntry toolInvocationTraceEntry = entry.getToolInvocationTraceEntry(getUid());
-                result.put("Input", listPane.convertValue(toolInvocationTraceEntry.getToolExecutionRequest().get("arguments")));
-                if (toolInvocationTraceEntry.getFailure() != null)
-                    result.put("Failure", listPane.convertValue(WorkflowDebugger.getFailureCauseException(toolInvocationTraceEntry.getFailure())));
-                else
-                    result.put("Output", listPane.convertValue(toolInvocationTraceEntry.getResult()));
-                result.put("Request", listPane.convertValue(toolInvocationTraceEntry.getToolExecutionRequest()));
-            }
-
-            return result;
-        }
-
-        @Override
-        protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
-            String inputStr = "→ ";
-            String outputStr = "← ";
-
-            List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = getTraceEntries(index);
-            if (traceEntries != null && !traceEntries.isEmpty()) {
-                WorkflowDebugger.ToolInvocationTraceEntry toolInvocationTraceEntry = traceEntries.get(0).getToolInvocationTraceEntry(getUid());
-                WorkflowDebugger.AgentInvocationTraceEntry traceEntry = traceEntries.get(0);
-                if (toolInvocationTraceEntry != null) {
-                    inputStr += mapToSubTitle(null, (Map<?, ?>) toolInvocationTraceEntry.getToolExecutionRequest().get("arguments"), true);
-                    if (toolInvocationTraceEntry.getFailure() != null)
-                        outputStr += WorkflowDebugger.getFailureCauseException(toolInvocationTraceEntry.getFailure()).getMessage();
-                    else
-                        outputStr += toolInvocationTraceEntry.getResult();
-                }
-            }
-
-            return new String[]{inputStr, outputStr};
-        }
-    }
+    //todo fix me
+//    public static class WorkflowItem_Tool extends WorkflowItem {
+//        public WorkflowItem_Tool(String toolID, String title) {
+//            super(toolID, TYPE_TOOL, null, ICON_WRENCH,
+//                    "<html>%s <span style=\"color:%s\">(tool)</span></html>".formatted(title, "%s"),
+//                    null,
+//                    1);
+//        }
+//
+//        @Override
+//        public Color getBackgroundColor() {
+//            return UISupport.isDarkAppearance() ? BACKGROUND_TOOL_DARK : BACKGROUND_TOOL;
+//        }
+//
+//        public Map<String, Object> getSelectedData(WorkflowInspectorListPane listPane) {
+//            Map<String, Object> result = new HashMap<>();
+//
+//            List<WorkflowDebugger.AgentInvocationTraceEntry> entries = listPane.getTraceEntries(this);
+//            if (!entries.isEmpty()) {
+//                WorkflowDebugger.AgentInvocationTraceEntry entry = entries.get(0);
+//                WorkflowDebugger.ToolInvocationTraceEntry toolInvocationTraceEntry = entry.getToolInvocationTraceEntry(getUid());
+//                result.put("Input", listPane.convertValue(toolInvocationTraceEntry.getToolExecutionRequest().get("arguments")));
+//                if (toolInvocationTraceEntry.getFailure() != null)
+//                    result.put("Failure", listPane.convertValue(WorkflowDebugger.getFailureCauseException(toolInvocationTraceEntry.getFailure())));
+//                else
+//                    result.put("Output", listPane.convertValue(toolInvocationTraceEntry.getResult()));
+//                result.put("Request", listPane.convertValue(toolInvocationTraceEntry.getToolExecutionRequest()));
+//            }
+//
+//            return result;
+//        }
+//
+//        @Override
+//        protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
+//            String inputStr = "→ ";
+//            String outputStr = "← ";
+//
+//            List<WorkflowDebugger.AgentInvocationTraceEntry> traceEntries = getTraceEntries(index);
+//            if (traceEntries != null && !traceEntries.isEmpty()) {
+//                WorkflowDebugger.ToolInvocationTraceEntry toolInvocationTraceEntry = traceEntries.get(0).getToolInvocationTraceEntry(getUid());
+//                WorkflowDebugger.AgentInvocationTraceEntry traceEntry = traceEntries.get(0);
+//                if (toolInvocationTraceEntry != null) {
+//                    inputStr += mapToSubTitle(null, (Map<?, ?>) toolInvocationTraceEntry.getToolExecutionRequest().get("arguments"), true);
+//                    if (toolInvocationTraceEntry.getFailure() != null)
+//                        outputStr += WorkflowDebugger.getFailureCauseException(toolInvocationTraceEntry.getFailure()).getMessage();
+//                    else
+//                        outputStr += toolInvocationTraceEntry.getResult();
+//                }
+//            }
+//
+//            return new String[]{inputStr, outputStr};
+//        }
+//    }
 
     public static class WorkflowItem_Agent extends WorkflowItem {
-        public WorkflowItem_Agent(Map<String, Object> node, String outputName, String title, String subtitle, int indentation) {
-            super(node,
-                    outputName,
-                    ((String) node.get(JSON_KEY_AGENT_CLASS_NAME)).endsWith("HumanInTheLoop") ? ICON_QUESTION : ICON_EXPERT,
-                    title, subtitle,
+        public WorkflowItem_Agent(PlaygroundMetadata.Agent agent, int indentation) {
+            super(Boolean.TRUE.equals(agent.getCustomProperties().get(PROPERTY_IS_AI_AGENT)) ? Agent : NonAIAgent,
+                    agent,
+                    Boolean.TRUE.equals(agent.getCustomProperties().get(PROPERTY_IS_HUMAN_IN_THE_LOOP_AGENT)) ? ICON_QUESTION : ICON_EXPERT,
+                    getAgentTitle(agent), getAgentSubtitle(agent),
                     indentation);
         }
 
         @Override
         public Color getBackgroundColor() {
-            return type.equals(JSON_TYPE_AGENT) ?
+            return type == Agent ?
                     UISupport.isDarkAppearance() ? BACKGROUND_AGENT_DARK : BACKGROUND_AGENT :
                     UISupport.isDarkAppearance() ? BACKGROUND_AGENT_NONAI_DARK : BACKGROUND_AGENT_NONAI;
         }
@@ -1174,8 +1195,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                         result.put("pass [%s]".formatted(entries.indexOf(entry)), passResult = new HashMap<>());
                     passResult.put("Input", listPane.convertValue(entry.getInput()));
 
-                    if (getOutputName() != null)
-                        passResult.put("Output (%s)".formatted(getOutputName()), listPane.convertValue(entry.getOutput()));
+                    if (getOutputKey() != null)
+                        passResult.put("Output (%s)".formatted(getOutputKey()), listPane.convertValue(entry.getOutput()));
                     else
                         passResult.put("Output", listPane.convertValue(entry.getOutput()));
 
@@ -1250,7 +1271,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         private final JPanel pnlContent;
         private final Box pnlStateIndicator;
         private LinkType linkType;
-        private String type;
+        private WorkflowItem.Type type;
         private boolean paintLinkArrows;
         private boolean isHighlighted;
 
@@ -1329,10 +1350,10 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
             graphics.setColor(getBackground());
             switch (type) {
-                case TYPE_START, TYPE_END -> paintStartEndShape(graphics, rect, isHighlighted);
-                case JSON_TYPE_IF_THEN, JSON_TYPE_DO_WHEN, JSON_TYPE_REPEAT, JSON_TYPE_DO_PARALLEL, JSON_TYPE_GROUP,
-                     JSON_TYPE_PLANNER_GROUP -> paintControlFlowShape(rect, graphics, isHighlighted);
-                case JSON_TYPE_MATCH -> paintMatchShape(rect, graphics, isHighlighted);
+                case Start, End -> paintStartEndShape(graphics, rect, isHighlighted);
+                case IfThen, DoWhen, Repeat, ParallelGroup, Group, PlannerGroup, Sequence ->
+                        paintControlFlowShape(rect, graphics, isHighlighted);
+                case Match -> paintMatchShape(rect, graphics, isHighlighted);
                 default -> paintAgentShape(graphics, rect, isHighlighted);
             }
 
@@ -1503,7 +1524,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     }
                 }
 
-            if (value != null && value.getType() != TYPE_TOOL && (userMessagePresent || errorsPresent))
+            if (value != null && value.getType() != WorkflowInspectorListPane.WorkflowItem.Type.Tool && (userMessagePresent || errorsPresent))
                 title = "<html>%s%s%s</html>".formatted(
                         title,
                         userMessagePresent ? "<span style=\"color: %s;\"> ✽</span>".formatted(isSelected && cellHasFocus ? "white" : "gray") : "",
@@ -1558,8 +1579,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
     public static class Structure extends WorkflowInspectorListPane {
         @Override
-        public void setWorkflow(EasyWorkflow.AgentWorkflowBuilder<?> builder) {
-            super.setWorkflow(builder);
+        public void setPlaygroundContext(PlaygroundContext playgroundContext, AgentWorkflowBuilder<?> builder) {
+            super.setPlaygroundContext(playgroundContext, builder);
             for (WorkflowItem workflowItem : listModel)
                 model.addElement(workflowItem);
         }
@@ -1660,9 +1681,10 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             String uid = workflowDebugger.getAgentMetadata(traceEntry.getAgent()).getId();
             SwingUtilities.invokeLater(() -> {
                 String toolID = states.get(WorkflowDebugger.KEY_TOOL_ID).toString();
-                WorkflowItem element = new WorkflowItem_Tool(toolID, getAgentName((String) states.get(WorkflowDebugger.KEY_TOOL)));
-                model.addElement(element);
-                element.setTraceEntry(model.size() - 1, traceEntry);
+                //todo fix me
+//                WorkflowItem element = new WorkflowItem_Tool(toolID, getAgentName((String) states.get(WorkflowDebugger.KEY_TOOL)));
+//                model.addElement(element);
+//                element.setTraceEntry(model.size() - 1, traceEntry);
                 list.repaint();
                 updateSelection();
             });
@@ -1691,10 +1713,12 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
         @Override
         protected String getStateIndicator(WorkflowItem value, int index) {
-            if (value.state == WorkflowItem.State.Running && index < model.size() - 1)
-                return getStateIndicator(WorkflowItem.State.Finished, value.type, value.passCount);
-            else
-                return value.getStateIndicator();
+            //todo fix me
+            return "";
+//            if (value.state == WorkflowItem.State.Running && index < model.size() - 1)
+//                return getStateIndicator(WorkflowItem.State.Finished, value.type, value.passCount);
+//            else
+//                return value.getStateIndicator();
         }
     }
 }

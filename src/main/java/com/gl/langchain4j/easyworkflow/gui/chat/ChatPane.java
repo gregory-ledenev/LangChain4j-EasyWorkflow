@@ -27,11 +27,11 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.playground.PlaygroundParam;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata.*;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
 import dev.langchain4j.service.Result;
-import dev.langchain4j.service.V;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -49,7 +49,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.geom.RoundRectangle2D;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.lang.reflect.Parameter;
 import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -605,36 +604,27 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         Objects.requireNonNull(chatEngine);
 
         List<FormPanel.FormElement> formElements = new ArrayList<>();
-        for (Parameter parameter : chatEngine.getMessageParameters()) {
-            String parameterName = parameter.getName();
-            String label = null;
-            String description = null;
-            FormEditorType editorType = FormEditorType.Default;
-            if (parameter.getType() == String.class)
+        for (PlaygroundMetadata.Argument parameter : chatEngine.getMessageParameters()) {
+            String parameterName = parameter.name();
+            String label = parameter.label();
+            String description = parameter.description();
+            FormEditorType editorType = parameter.editorType();
+            if (editorType == FormEditorType.Default && parameter.type().name().equals(String.class.getName()))
                 editorType = FormEditorType.Note;
-            String[] editorChoices = null;
+            String[] editorChoices = parameter.editorChoices();
 
-            PlaygroundParam playgroundParam = parameter.getAnnotation(PlaygroundParam.class);
-            if (playgroundParam != null) {
-                if (!playgroundParam.label().isEmpty())
-                    label = playgroundParam.label();
-                if (!playgroundParam.description().isEmpty())
-                    description = playgroundParam.description();
-                editorType = playgroundParam.editorType();
-                editorChoices = playgroundParam.editorChoices();
-            }
-            V v = parameter.getAnnotation(V.class);
-            if (v != null)
-                parameterName = v.value();
-
-            formElements.add(new FormPanel.FormElement(parameterName,
-                    label,
-                    description,
-                    parameter.getType(),
-                    null,
-                    editorType,
-                    editorChoices, true
-            ));
+            try {
+                formElements.add(new FormPanel.FormElement(parameterName,
+                        label,
+                        description,
+                        Class.forName(parameter.type().name()),
+                        null,
+                        editorType,
+                        editorChoices, true
+                ));
+            } catch (ClassNotFoundException e) {
+                logger.error("Failed to load form editor class for parameter: %s".formatted(parameterName));
+            };
         }
         edtMessage.setFormElements(formElements);
     }
@@ -783,7 +773,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
         String getChatModel();
 
-        Parameter[] getMessageParameters();
+        PlaygroundMetadata.Argument[] getMessageParameters();
 
         String getUserMessageTemplate();
 

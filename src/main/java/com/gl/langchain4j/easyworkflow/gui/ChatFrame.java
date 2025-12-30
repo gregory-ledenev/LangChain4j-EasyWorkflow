@@ -36,6 +36,7 @@ import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPan
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
 
@@ -82,6 +83,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private static final Logger logger = EasyWorkflow.getLogger(ChatFrame.class);
     private final ChatPane pnlChat = new ChatPane();
     private final List<Playground.PlaygroundChatModel> chatModels;
+
+    public PlaygroundContext getPlaygroundContext() {
+        return playgroundContext;
+    }
+
+    private final PlaygroundContext playgroundContext;
     private JScrollPane pnlWorkflowSummary;
     private JEditorPane pnlWorkflowSummaryView;
     private JPanel pnlWorkflowContents;
@@ -135,12 +142,14 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
      */
     public ChatFrame(String title, ImageIcon icon,
                      ChatPane.ChatEngine chatEngine,
+                     PlaygroundContext playgroundContext,
                      Object agent,
                      WorkflowDebugger workflowDebugger,
                      List<Playground.PlaygroundChatModel> chatModels) {
         super("chatFrame");
 
         this.chatModels = chatModels;
+        this.playgroundContext = playgroundContext;
         this.agent = agent;
 
         setWorkflowDebugger(workflowDebugger);
@@ -172,12 +181,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             pnlChat.getHeaderPane().setVisible(true);
 
             pnlWorkflowInspectorStructure = new WorkflowInspectorListPane.Structure();
-            pnlWorkflowInspectorStructure.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
+            pnlWorkflowInspectorStructure.setPlaygroundContext(playgroundContext, workflowDebugger.getAgentWorkflowBuilder());
             pnlWorkflowInspectorStructure.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorStructure.setWorkflowDebugger(workflowDebugger);
 
             pnlWorkflowInspectorExecution = new WorkflowInspectorListPane.Execution();
-            pnlWorkflowInspectorExecution.setWorkflow(workflowDebugger.getAgentWorkflowBuilder());
+            pnlWorkflowInspectorExecution.setPlaygroundContext(playgroundContext, workflowDebugger.getAgentWorkflowBuilder());
             pnlWorkflowInspectorExecution.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorExecution.setWorkflowDebugger(workflowDebugger);
             pnlWorkflowInspectorExecution.setPlaceHolderText("Run workflow to see execution results");
@@ -260,6 +269,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
      */
     public static ChatFrame createChatFrame(String title, ImageIcon icon,
                                             ChatPane.ChatEngine chatEngine,
+                                            PlaygroundContext playgroundContext,
                                             Object agent,
                                             WorkflowDebugger workflowDebugger,
                                             List<Playground.PlaygroundChatModel> chatModels) {
@@ -268,6 +278,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         ChatFrame chatFrame = new ChatFrame(title,
                 icon,
                 chatEngine,
+                playgroundContext,
                 agent,
                 workflowDebugger,
                 chatModels

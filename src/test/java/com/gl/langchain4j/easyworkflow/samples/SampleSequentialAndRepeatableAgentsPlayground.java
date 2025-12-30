@@ -4,7 +4,8 @@ import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.OutputComposers;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
-import dev.langchain4j.agentic.internal.InternalAgent;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
+import dev.langchain4j.agentic.planner.AgentInstance;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.condition;
+import static java.lang.System.out;
 
 public class SampleSequentialAndRepeatableAgentsPlayground {
     static final String GROQ_API_KEY = "groqApiKey";
@@ -45,7 +47,8 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
         SampleSequentialAndRepeatableAgents.NovelCreator novelCreator = builder
                 .build();
 
-        System.out.println(((InternalAgent)novelCreator).subagents());
+        PlaygroundMetadata.Agent agentMetadata = new PlaygroundMetadata.Agent((AgentInstance) novelCreator, null);
+        out.println(agentMetadata);
 
         Playground playground = Playground.createPlayground(SampleSequentialAndRepeatableAgents.NovelCreator.class,
                 Playground.Type.GUI,
