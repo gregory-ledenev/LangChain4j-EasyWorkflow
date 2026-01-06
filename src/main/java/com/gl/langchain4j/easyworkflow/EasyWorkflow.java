@@ -38,6 +38,7 @@ import dev.langchain4j.agentic.agent.AgentBuilder;
 import dev.langchain4j.agentic.internal.A2AClientBuilder;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;
 import dev.langchain4j.agentic.internal.InternalAgent;
+import dev.langchain4j.agentic.observability.*;
 import dev.langchain4j.agentic.planner.Planner;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.agentic.supervisor.SupervisorAgent;
@@ -2117,9 +2118,10 @@ public class EasyWorkflow {
                 return null;
 
             WorkflowContext.Input input = workflowDebugger.getWorkflowContext().input(agentClass);
-            agentBuilder.inputGuardrails(workflowDebugger.createAlterInputGuardrail(agentClass), input);
+//            agentBuilder.inputGuardrails(workflowDebugger.createAlterInputGuardrail(agentClass), input);
             WorkflowContext.Output output = workflowDebugger.getWorkflowContext().output(agentClass, outputName);
-            agentBuilder.outputGuardrails(output);
+//            agentBuilder.outputGuardrails(output);
+            agentBuilder.listener(workflowDebugger);
 
             return new WorkflowContextConfig(input, output);
         }

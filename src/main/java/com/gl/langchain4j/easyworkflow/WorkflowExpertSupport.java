@@ -3,6 +3,7 @@ package com.gl.langchain4j.easyworkflow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
+import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.data.document.DefaultDocument;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.Metadata;
@@ -78,7 +79,7 @@ public class WorkflowExpertSupport {
                 .embeddingStore(embeddingStore)
                 .build().ingest(documents);
 
-        return AiServices.builder(WorkflowExpert.class)
+        return AgenticServices.agentBuilder(WorkflowExpert.class)
                 .chatModel(workflowDebugger.getAgentWorkflowBuilder().getChatModel())
                 .chatMemory(MessageWindowChatMemory.withMaxMessages(10))
                 .contentRetriever(EmbeddingStoreContentRetriever.from(embeddingStore))

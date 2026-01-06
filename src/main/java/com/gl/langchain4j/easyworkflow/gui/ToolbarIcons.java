@@ -14,6 +14,7 @@ public class ToolbarIcons {
     public static final String ICON_EXECUTION_FLOW = "execution-flow";
     public static final String ICON_WORKFLOW = "workflow";
     public static final String ICON_AGENT_TOOLBAR = "agent-toolbar";
+    public static final String ICON_EXPERT_TOOLBAR = "expert-toolbar";
     public static final String ICON_HELP = "help";
     public static final String ICON_GLOBE = "globe";
     public static final String ICON_TOOLBAR_SEND = "toolbar-send";
@@ -39,6 +40,7 @@ public class ToolbarIcons {
         loadIcon(ICON_EXECUTION_FLOW, "icons/toolbar/execution-flow");
         loadIcon(ICON_WORKFLOW, "icons/toolbar/workflow");
         loadIcon(ICON_AGENT_TOOLBAR, "icons/toolbar/agent");
+        loadIcon(ICON_EXPERT_TOOLBAR, "icons/toolbar/expert");
         loadIcon(ICON_HELP, "icons/toolbar/help");
         loadIcon(ICON_GLOBE, "icons/toolbar/globe");
         loadIcon(ICON_TOOLBAR_SEND, "icons/toolbar/send");

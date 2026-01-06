@@ -39,7 +39,6 @@ import org.slf4j.Logger;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +52,12 @@ import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
  */
 public class GUIPlayground extends Playground.BasicPlayground {
     private static final Logger logger = EasyWorkflow.getLogger(GUIPlayground.class);
+
+    static {
+        System.setProperty("apple.awt.application.appearance", "system");
+        System.setProperty("apple.laf.useScreenMenuBar", "true");
+    }
+
     private ChatFrame chatFrame;
     private ChatDialog chatDialog;
     private String humanRequest;
@@ -65,6 +70,32 @@ public class GUIPlayground extends Playground.BasicPlayground {
      */
     public GUIPlayground(Class<?> agentClass) {
         super(agentClass);
+    }
+
+    /**
+     * Creates and returns a {@link EasyWorkflow.LoggerAspect} that intercepts log messages.
+     * Specifically, it captures error messages and displays them as notifications.
+     *
+     * @return A new {@link EasyWorkflow.LoggerAspect} instance.
+     */
+    public static EasyWorkflow.LoggerAspect createLoggerAspect() {
+        return (logger, method, args) -> {
+            if (method.getName().equals("error")) {
+                String text = args[0] != null ? args[0].toString() : "";
+
+                if (args.length > 1 && args[1] instanceof Throwable ex) {
+                    java.io.StringWriter sw = new java.io.StringWriter();
+                    java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+                    ex.printStackTrace(pw);
+                    text += "\n" + sw;
+                }
+
+                String finalText = text;
+                SwingUtilities.invokeLater(() -> NotificationCenter.getInstance().postNotification(
+                        new NotificationCenter.Notification(NotificationCenter.NotificationType.ERROR, "Error", finalText, null)));
+            }
+            return method.invoke(logger, args);
+        };
     }
 
     @Override
@@ -86,11 +117,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
     public WorkflowDebugger getWorkflowDebugger() {
         return (arguments != null && arguments.get(ARG_WORKFLOW_DEBUGGER) instanceof WorkflowDebugger workflowDebugger) ?
                 workflowDebugger : null;
-    }
-
-    static {
-        System.setProperty("apple.awt.application.appearance", "system");
-        System.setProperty("apple.laf.useScreenMenuBar", "true");
     }
 
     /**
@@ -130,7 +156,11 @@ public class GUIPlayground extends Playground.BasicPlayground {
         Icons.loadIcons();
         ToolbarIcons.loadIcons();
 
-        LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent);
+        WorkflowDebugger debugger = getWorkflowDebugger();
+        LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,
+                debugger != null ? debugger.getAgentWorkflowBuilder() : null,
+                debugger != null ? new PlaygroundChatModel(debugger.getAgentWorkflowBuilder().getChatModel()) : null,
+                getChatModels());
 
         chatFrame = ChatFrame.createChatFrame(title,
                 new ImageIcon(Objects.requireNonNull(GUIPlayground.class.getResource("icons/logo.png"))),
@@ -139,12 +169,12 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     public Object send(Map<String, Object> message) {
                         if (chatFrame.getWorkflowDebugger() != null)
                             chatFrame.getWorkflowDebugger().setSessionUID((String) message.get(KEY_SESSION_UID));
-                        return apply(chatFrame.getAgent(), message);
+                        return playgroundContext.sendMessage(message);
                     }
 
                     @Override
                     public String getChatModel() {
-                        return chatFrame.getChatModel().defaultRequestParameters().modelName();
+                        return playgroundContext.getChatModel().name();
                     }
 
                     @Override
@@ -164,8 +194,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 },
                 playgroundContext,
                 agent,
-                getWorkflowDebugger(),
-                getChatModels());
+                debugger);
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
                 EasyWorkflow.setLoggerAspect(createLoggerAspect());
@@ -174,32 +203,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 chatPane.setUserMessage(userMessage);
             }
         });
-    }
-
-    /**
-     * Creates and returns a {@link EasyWorkflow.LoggerAspect} that intercepts log messages.
-     * Specifically, it captures error messages and displays them as notifications.
-     *
-     * @return A new {@link EasyWorkflow.LoggerAspect} instance.
-     */
-    public static EasyWorkflow.LoggerAspect createLoggerAspect() {
-        return (logger, method, args) -> {
-            if (method.getName().equals("error")) {
-                String text = args[0] != null ? args[0].toString() : "";
-
-                if (args.length > 1 && args[1] instanceof Throwable ex) {
-                    java.io.StringWriter sw = new java.io.StringWriter();
-                    java.io.PrintWriter pw = new java.io.PrintWriter(sw);
-                    ex.printStackTrace(pw);
-                    text += "\n" + sw;
-                }
-
-                String finalText = text;
-                SwingUtilities.invokeLater(() -> NotificationCenter.getInstance().postNotification(
-                        new NotificationCenter.Notification(NotificationCenter.NotificationType.ERROR, "Error", finalText, null)));
-            }
-            return method.invoke(logger, args);
-        };
     }
 
     @SuppressWarnings("unchecked")
@@ -226,18 +229,23 @@ public class GUIPlayground extends Playground.BasicPlayground {
         Icons.loadIcons();
         ToolbarIcons.loadIcons();
 
-        LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent);
+        WorkflowDebugger debugger = getWorkflowDebugger();
+        LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,
+                debugger != null ? debugger.getAgentWorkflowBuilder() : null,
+                debugger != null ? new PlaygroundChatModel(debugger.getAgentWorkflowBuilder().getChatModel()) : null,
+                getChatModels());
 
         chatDialog = new ChatDialog((Frame) arguments.get(ARG_OWNER_FRAME), title,
                 new ChatPane.ChatEngine() {
                     @Override
                     public Object send(Map<String, Object> message) {
-                        return apply(agent, message);
+                        return playgroundContext.sendMessage(message);
                     }
 
                     @Override
                     public String getChatModel() {
-                        return null;
+                        PlaygroundMetadata.Model chatModel = playgroundContext.getChatModel();
+                        return chatModel!= null ? chatModel.name() : null;
                     }
 
                     @Override
@@ -329,17 +337,22 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
             CompletableFuture.supplyAsync(() -> WorkflowExpertSupport.getWorkflowExpert(workflowDebugger, executionLog)).
                     whenComplete((workflowExpert, ex) -> {
-                        if (ex == null) {
-                            Playground playground = Playground.createPlayground(WorkflowExpert.class, Type.GUI);
-                            playground.setup(Map.of(ARG_TITLE, "Workflow Expert - %s".formatted(agentClass.getSimpleName()),
-                                    ARG_SHOW_DIALOG, true,
-                                    ARG_OWNER_FRAME, chatFrame));
-                            playground.play(workflowExpert, null);
-                        } else {
-                            logger.error("Failed to get workflow expert", ex);
+                        try {
+                            if (ex == null) {
+                                Playground playground = Playground.createPlayground(WorkflowExpert.class, Type.GUI);
+                                playground.setup(Map.of(ARG_TITLE, "Workflow Expert - %s".formatted(agentClass.getSimpleName()),
+                                        ARG_SHOW_DIALOG, true,
+                                        ARG_OWNER_FRAME, chatFrame));
+                                playground.play(workflowExpert, null);
+                            } else {
+                                logger.error("Failed to get workflow expert", ex);
+                            }
+                        } catch (Exception ex1) {
+                            logger.error("Failed to show workflow expert", ex1);
+                        } finally {
+                            setEnabled(true);
+                            chatFrame.getChatPane().setWaitState(false);
                         }
-                        setEnabled(true);
-                        chatFrame.getChatPane().setWaitState(false);
                     });
         }
     }

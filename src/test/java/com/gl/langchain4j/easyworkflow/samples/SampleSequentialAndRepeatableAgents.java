@@ -180,8 +180,9 @@ public class SampleSequentialAndRepeatableAgents {
         public double scoreStyle(@V("story") String story) {
             double result = 0.74;
             if (workflowDebugger != null) {
-                inputReceived(story);
-                outputProduced(result);
+                //todo: fix me
+//                inputReceived(story);
+//                outputProduced(result);
             }
             return result;
         }

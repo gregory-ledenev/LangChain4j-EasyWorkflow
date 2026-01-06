@@ -42,8 +42,7 @@ import java.util.Objects;
 import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
-import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.NODE_AGENTIC_SCOPE;
-import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.NODE_PROGRESSION;
+import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
@@ -54,11 +53,12 @@ import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
  */
 @SuppressWarnings("ALL")
 public class WorkflowInspectorDetailsPane extends AppSplitPane {
+    public static final String PROP_SELECTED_VARIABLE = "selectedVariable";
     private final ValuesPane pnlValues;
     private final ValueDetailsPane pnlValueDetails;
     private Map<String, Object> values;
-    public static final String PROP_SELECTED_VARIABLE = "selectedVariable";
     private String selectedVariable;
+
     /**
      * Constructs a new {@code WorkflowInspectorDetailsPane}. Initializes the two sub-panes and sets up the selection
      * listener for the tree view.
@@ -221,20 +221,24 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                 new AutoIcon(ICON_COLLAPSE),
                 e -> collapseAllValues(),
                 a -> a.setEnabled(getSelectedValue() != null));
-        private final Action actionShowProgression = new BasicAction("Show Progression",
-                new AutoIcon(ICON_TIMER),
-                e -> showProgression(),
-                a -> a.setEnabled(canShowProgression()));
-        private final Action actionShowAgenticScope = new BasicAction("Show Agentic Scope",
-                new AutoIcon(ICON_FILING_CABINET),
-                e -> showAgenticScope(),
-                a -> a.setEnabled(canShowAgenticScope()));
+        private DefaultMutableTreeNode agentMetadataNode;
+        private final Action actionShowAgentMetadata = new BasicAction("Show Agent Metadata",
+                new AutoIcon(ICON_AGENT_TOOLBAR),
+                e -> showAgentMetadata(),
+                a -> a.setEnabled(canShowAgentMetadata()));
         private Map<String, Object> values;
         private ActionGroup menuActionGroup;
         private ActionGroup toolbarActionGroup;
         private DefaultMutableTreeNode agenticScopeNode;
+        private final Action actionShowAgenticScope = new BasicAction("Show Agentic Scope",
+                new AutoIcon(ICON_FILING_CABINET),
+                e -> showAgenticScope(),
+                a -> a.setEnabled(canShowAgenticScope()));
         private DefaultMutableTreeNode progressionNode;
-
+        private final Action actionShowProgression = new BasicAction("Show Progression",
+                new AutoIcon(ICON_TIMER),
+                e -> showProgression(),
+                a -> a.setEnabled(canShowProgression()));
         /**
          * Constructs a new {@code ValuesPane}. Initializes the tree view and sets up its rendering and selection
          * properties.
@@ -278,7 +282,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
             return UISupport.getPreferences().node("Inspector.ValuesPane");
         }
 
-        private static NamedValue   createNamedValue(String icon, String name, Object value) {
+        private static NamedValue createNamedValue(String icon, String name, Object value) {
             int openParen = name.indexOf('(');
             int closeParen = name.indexOf(')');
             if (openParen != -1 && closeParen != -1 && closeParen > openParen) {
@@ -287,6 +291,14 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                 return new NamedValue(icon, actualName, actualSubName, value);
             }
             return new NamedValue(icon, name, null, value);
+        }
+
+        private boolean canShowAgentMetadata() {
+            return agentMetadataNode != null;
+        }
+
+        private void showAgentMetadata() {
+            showNode(agentMetadataNode);
         }
 
         @Override
@@ -330,6 +342,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
             actionCollapseAll.putValue(Action.SHORT_DESCRIPTION, "Collapse All");
             actionShowAgenticScope.putValue(Action.SHORT_DESCRIPTION, "Show Agentic Scope");
             actionShowProgression.putValue(Action.SHORT_DESCRIPTION, "Show Progression");
+            actionShowAgentMetadata.putValue(Action.SHORT_DESCRIPTION, "Show Agent Metadata");
 
             menuActionGroup = new ActionGroup(
                     new ActionGroup("Copy", new AutoIcon(ICON_COPY), true,
@@ -358,7 +371,8 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
             toolbarActionGroup = new ActionGroup(
                     new ActionGroup(
                             actionShowAgenticScope,
-                            actionShowProgression
+                            actionShowProgression,
+                            actionShowAgentMetadata
                     ),
                     new ActionGroup(
                             actionExpandAll,
@@ -491,6 +505,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
         public void setValues(Map<String, Object> values) {
             agenticScopeNode = null;
             progressionNode = null;
+            agentMetadataNode = null;
             this.values = values;
             if (this.values == null) {
                 treeValues.setModel(null);
@@ -549,6 +564,8 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                                 agenticScopeNode = node;
                             else if (NODE_PROGRESSION.equals(key))
                                 progressionNode = node;
+                            else if (NODE_AGENT_METADATA.equals(key))
+                                agentMetadataNode = node;
 
                             parent.add(node);
                             buildTree(node, value);

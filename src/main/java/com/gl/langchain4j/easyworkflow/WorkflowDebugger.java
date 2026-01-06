@@ -33,6 +33,10 @@ import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.agent.AgentInvocationException;
 import dev.langchain4j.agentic.agent.MissingArgumentException;
+import dev.langchain4j.agentic.observability.AgentListener;
+import dev.langchain4j.agentic.observability.AgentRequest;
+import dev.langchain4j.agentic.observability.AgentResponse;
+import dev.langchain4j.agentic.planner.AgentInstance;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
@@ -71,7 +75,8 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.expandTemplate;
 @SuppressWarnings("ALL")
 public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         WorkflowContext.InputHandler,
-        EasyWorkflow.ToolExecutionListener {
+        EasyWorkflow.ToolExecutionListener,
+        AgentListener {
 
     public static final String KEY_INPUT = "$input";
     public static final String KEY_OUTPUT = "$output";
@@ -81,7 +86,28 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
     public static final String KEY_OUTPUT_NAME = "$outputName";
     public static final String KEY_TRACE_ENTRY = "$traceEntry";
     public static final String KEY_SESSION_UID = "sessionUID";
+    /**
+     * Key for accessing tool agent ID in the agentic scope.
+     */
+    public static final String KEY_TOOL_AGENT_ID = "$toolAgentID";
+    /**
+     * Key for accessing tool ID in the agentic scope.
+     */
+    public static final String KEY_TOOL_ID = "$toolID";
+    /**
+     * Key for accessing tool name (tool method name) in the agentic scope.
+     */
+    public static final String KEY_TOOL = "$tool";
+    /**
+     * Key for accessing the tool execution request ({@code Map<String, String>}) in the agentic scope.
+     */
+    public static final String KEY_TOOL_REQUEST = "$toolRequest";
+    /**
+     * Key for accessing the tool execution response ({@code String}) in the agentic scope.
+     */
+    public static final String KEY_TOOL_RESPONSE = "$toolResponse";
     private static final Logger logger = EasyWorkflow.getLogger(WorkflowDebugger.class);
+    private static final ObjectMapper OBJECT_MAPPER = createObjectMapper();
     private final WorkflowContext workflowContext;
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());
     private final List<AgentInvocationTraceEntry> agentInvocationTraceEntries = Collections.synchronizedList(new ArrayList<>());
@@ -504,11 +530,29 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
 
     /**
      * Returns the agent object associated with a given agent ID.
+     *
      * @param agentId The unique identifier of the agent.
      * @return The agent object, or {@code null} if not found.
-     +     */
+     * +
+     */
     public Object getAgent(String agentId) {
         return agentById.get(agentId);
+    }
+
+    @Override
+    public void beforeAgentInvocation(AgentRequest agentRequest) {
+        inputReceived(agentRequest.agent(), ((AgentInstance) agentRequest.agent()).type(), agentRequest.inputs());
+    }
+
+    @Override
+    public void afterAgentInvocation(AgentResponse agentResponse) {
+        AgentInstance agentInstance = agentResponse.agent();
+        stateChanged(agentResponse.agent(), agentInstance.type(), agentInstance.outputKey(), agentResponse.output());
+    }
+
+    @Override
+    public boolean inheritedBySubagents() {
+        return true;
     }
 
     /**
@@ -939,7 +983,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
      * @return {@code true} if there are user message templates, {@code false} otherwise.
      */
     public boolean hasUserMessageTemplates() {
-        return ! userMessageTemplates.isEmpty();
+        return !userMessageTemplates.isEmpty();
     }
 
     /**
@@ -952,14 +996,14 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         if (agentClassName == null)
             return null;
 
-            return userMessageTemplates.get(agentClassName);
+        return userMessageTemplates.get(agentClassName);
     }
 
     /**
      * Sets the user message template for a given agent class name. Use this method to alter a user message for a particular
      * agent class.
      *
-     * @param agentClassName          The class name of the agent.
+     * @param agentClassName      The class name of the agent.
      * @param userMessageTemplate The user message template string to associate with the agent class.
      */
     public void setUserMessageTemplate(String agentClassName, String userMessageTemplate) {
@@ -984,29 +1028,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         agentInvocationTraceEntries.clear();
         agentInvocationTraceEntryArchives.clear();
     }
-
-    /**
-     * Key for accessing tool agent ID in the agentic scope.
-     */
-    public static final String KEY_TOOL_AGENT_ID = "$toolAgentID";
-
-    /**
-     * Key for accessing tool ID in the agentic scope.
-     */
-    public static final String KEY_TOOL_ID = "$toolID";
-
-    /**
-     * Key for accessing tool name (tool method name) in the agentic scope.
-     */
-    public static final String KEY_TOOL = "$tool";
-    /**
-     * Key for accessing the tool execution request ({@code Map<String, String>}) in the agentic scope.
-     */
-    public static final String KEY_TOOL_REQUEST = "$toolRequest";
-    /**
-     * Key for accessing the tool execution response ({@code String}) in the agentic scope.
-     */
-    public static final String KEY_TOOL_RESPONSE = "$toolResponse";
 
     @Override
     public void beforeExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest) {
@@ -1059,9 +1080,10 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
                     KEY_TOOL_ID, toolExecutionRequest.id(),
                     KEY_TOOL_REQUEST, OBJECT_MAPPER.readValue(
                             toolExecutionRequest.arguments(),
-                            new TypeReference<Map<String, String>>() {})));
+                            new TypeReference<Map<String, String>>() {
+                            })));
             findAndExecuteBreakpoints(Breakpoint.Type.TOOL_INPUT, agent,
-                    ((EasyWorkflow.AgentExpression)getAgentMetadata(agentId)).getAgentClass(),
+                    ((EasyWorkflow.AgentExpression) getAgentMetadata(agentId)).getAgentClass(),
                     null, null, traceEntry);
             agenticScope.writeState(KEY_TRACE_ENTRY, null);
             agenticScope.writeState(KEY_TOOL_AGENT_ID, null);
@@ -1082,7 +1104,8 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
                     KEY_TOOL_AGENT_ID, agentId,
                     KEY_TOOL_ID, toolExecutionRequest.id(),
                     KEY_TOOL, toolExecutionRequest.name(),
-                    KEY_TOOL_REQUEST, OBJECT_MAPPER.readValue(toolExecutionRequest.arguments(), new TypeReference<Map<String, String>>() {})));
+                    KEY_TOOL_REQUEST, OBJECT_MAPPER.readValue(toolExecutionRequest.arguments(), new TypeReference<Map<String, String>>() {
+                    })));
             if (result != null)
                 agenticScope.writeState(KEY_TOOL_RESPONSE, result);
             findAndExecuteBreakpoints(Breakpoint.Type.TOOL_OUTPUT, agent,
@@ -1096,31 +1119,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             agenticScope.writeState(KEY_TOOL_RESPONSE, null);
         } catch (Exception ex) {
             logger.error("Failed to to execute TOOL_OUTPUT breakpoints", ex);
-        }
-    }
-
-    class AlterInputGuardrail implements InputGuardrail, LeadingGuardrail {
-        private final Class<?> agentClass;
-
-        public AlterInputGuardrail(Class<?> aAgentClass) {
-            agentClass = aAgentClass;
-        }
-
-        @Override
-        public InputGuardrailResult validate(InputGuardrailRequest params) {
-            String userMessageTemplate = getUserMessageTemplate(agentClass.getName());
-            if (userMessageTemplate != null) {
-                GuardrailRequestParams requestParams = params.requestParams();
-                try {
-                    return successWith(expandTemplate(userMessageTemplate, requestParams.variables()));
-                } catch (Exception ex) {
-                    String error = "Failed to expand user message template: " + userMessageTemplate;
-                    logger.error(error, ex);
-                    return failure(error, ex);
-                }
-            } else {
-                return success();
-            }
         }
     }
 
@@ -1686,10 +1684,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             this.failure = failure;
         }
 
-        ToolExecutionRequest getOriginalToolExecutionRequest() {
-            return originalToolExecutionRequest;
-        }
-
         private static Map<String, Object> convertToolExecutionRequest(ToolExecutionRequest toolExecutionRequest) {
             Map<String, Object> result = new HashMap<>();
             result.put("id", toolExecutionRequest.id());
@@ -1697,11 +1691,16 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             try {
                 result.put("arguments", OBJECT_MAPPER.readValue(
                         toolExecutionRequest.arguments(),
-                        new TypeReference<Map<String, String>>() {}));
+                        new TypeReference<Map<String, String>>() {
+                        }));
             } catch (JsonProcessingException ex) {
                 logger.error("Unable to parse tool execution request arguments: " + toolExecutionRequest.arguments(), ex);
             }
             return result;
+        }
+
+        ToolExecutionRequest getOriginalToolExecutionRequest() {
+            return originalToolExecutionRequest;
         }
 
         /**
@@ -1752,13 +1751,11 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         }
     }
 
-    private static final ObjectMapper OBJECT_MAPPER = createObjectMapper();
-
     /**
      * Represents a single entry in the agent invocation trace, capturing details about an agent's input and output.
      */
     public static class AgentInvocationTraceEntry {
-        private final String uid = UUID.randomUUID().toString();
+        private final String id;
         private final Object agent;
         private final Class<?> agentClass;
         private final Object input;
@@ -1779,11 +1776,16 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             Objects.requireNonNull(agent);
             Objects.requireNonNull(agentClass);
 
+            this.id = ((AgentInstance) agent).agentId();
             this.agent = agent;
             this.agentClass = agentClass;
             this.input = input;
 
             updateLastAccessTime();
+        }
+
+        public String getId() {
+            return id;
         }
 
         /**
@@ -1798,6 +1800,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         /**
          * Returns an unmodifiable list of {@link ToolInvocationTraceEntry} objects, representing the sequence of tool
          * invocations within this agent invocation.
+         *
          * @return An unmodifiable list of {@link ToolInvocationTraceEntry} objects.
          */
         public List<ToolInvocationTraceEntry> getToolInvocationTraceEntries() {
@@ -1917,12 +1920,12 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             if (aO == null || getClass() != aO.getClass()) return false;
 
             AgentInvocationTraceEntry that = (AgentInvocationTraceEntry) aO;
-            return uid.equals(that.uid); // not equals as they are proxies
+            return id.equals(that.id) && lastAccessTime == that.lastAccessTime;
         }
 
         @Override
         public int hashCode() {
-            return uid.hashCode();
+            return id.hashCode();
         }
 
         @Override
@@ -1938,9 +1941,9 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
          */
         public String toString(int index) {
             String result = MessageFormat.format("""
-                                                       ↓ IN: {0}
-                                                 {4}▷︎ {1}
-                                                       ↓ OUT > "{2}": {3}""",
+                                  ↓ IN: {0}
+                            {4}▷︎ {1}
+                                  ↓ OUT > "{2}": {3}""",
                     replaceNewLineCharacters(input != null ? input.toString() : ""),
                     agentClass.getSimpleName(),
                     outputName != null ? outputName : "N/A",
@@ -1967,6 +1970,31 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
                     result.add(toolInvocationTraceEntry);
             }
             return result;
+        }
+    }
+
+    class AlterInputGuardrail implements InputGuardrail, LeadingGuardrail {
+        private final Class<?> agentClass;
+
+        public AlterInputGuardrail(Class<?> aAgentClass) {
+            agentClass = aAgentClass;
+        }
+
+        @Override
+        public InputGuardrailResult validate(InputGuardrailRequest params) {
+            String userMessageTemplate = getUserMessageTemplate(agentClass.getName());
+            if (userMessageTemplate != null) {
+                GuardrailRequestParams requestParams = params.requestParams();
+                try {
+                    return successWith(expandTemplate(userMessageTemplate, requestParams.variables()));
+                } catch (Exception ex) {
+                    String error = "Failed to expand user message template: " + userMessageTemplate;
+                    logger.error(error, ex);
+                    return failure(error, ex);
+                }
+            } else {
+                return success();
+            }
         }
     }
 

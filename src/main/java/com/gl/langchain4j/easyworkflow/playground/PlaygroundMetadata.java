@@ -1,14 +1,15 @@
 package com.gl.langchain4j.easyworkflow.playground;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
-import dev.langchain4j.agentic.UntypedAgent;
 import dev.langchain4j.agentic.internal.AgentExecutor;
-import dev.langchain4j.agentic.internal.MethodAgentInvoker;
 import dev.langchain4j.agentic.planner.AgentInstance;
 import dev.langchain4j.agentic.planner.AgenticSystemTopology;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.service.V;
+import org.jspecify.annotations.NonNull;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -16,12 +17,33 @@ import java.util.*;
 import java.util.stream.Stream;
 
 public interface PlaygroundMetadata {
-    public static final String PROPERTY_IS_AI_AGENT = "isAiAgent";
-    public static final String PROPERTY_IS_HUMAN_IN_THE_LOOP_AGENT = "isHumanInTheLoopAgent";
-    public static final String PROPERTY_SYSTEM_MESSAGE = "systemMessage";
-    public static final String PROPERTY_USER_MESSAGE = "userMessage";
+    String PROPERTY_SYSTEM_MESSAGE = "systemMessage";
+    String PROPERTY_USER_MESSAGE = "userMessage";
 
     record Type(String name) {
+    }
+
+    enum Category {
+        Agent, NonAiAgent, HumanInTheLoop
+    }
+
+    record Model(String id, String name) {
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+            Model model = (Model) o;
+            return Objects.equals(id, model.id);
+        }
+
+        @Override
+        public @NonNull String toString() {
+            return name;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(id);
+        }
     }
 
     class Agent {
@@ -32,10 +54,17 @@ public interface PlaygroundMetadata {
         private final Type outputType;
         private final String outputKey;
         private final List<Argument> arguments;
+        @JsonBackReference
         private final Agent parent;
+        @JsonManagedReference
         private final List<Agent> subagents;
         private final AgenticSystemTopology topology;
+        private final Category category;
         private final Map<String, Object> customProperties;
+
+        public Category getCategory() {
+            return category;
+        }
 
         public Agent(AgentInstance agentInstance, Agent parent) {
 
@@ -45,16 +74,28 @@ public interface PlaygroundMetadata {
             this.description = agentInstance.description();
             this.outputType = new Type(agentInstance.outputType().getTypeName());
             this.outputKey = agentInstance.outputKey();
-            this.arguments = getArguments(agentInstance);
+            this.arguments = computeArguments(agentInstance);
             this.parent = parent;
             this.topology = agentInstance.topology();
-            this.customProperties = getCustomProperties(agentInstance);
+            this.customProperties = computeCustomProperties(agentInstance);
             this.subagents = agentInstance.subagents().stream()
                     .map(subAgentInstance -> new Agent(subAgentInstance, this))
                     .toList();
+            this.category = computeCategory(agentInstance);
         }
 
-        private static List<Argument> getArguments(AgentInstance agentInstance) {
+        private Category computeCategory(AgentInstance agentInstance) {
+            Category result = Category.Agent;
+
+            if (HumanInTheLoop.class.isAssignableFrom(agentInstance.type()))
+                result = Category.HumanInTheLoop;
+            else if (! (agentInstance instanceof AgentExecutor && ((AgentExecutor) agentInstance).agent() instanceof Proxy))
+                result = Category.NonAiAgent;
+
+            return result;
+        }
+
+        private static List<Argument> computeArguments(AgentInstance agentInstance) {
             Method agentMethod = EasyWorkflow.getAgentMethod(agentInstance.type());
             return agentMethod == null ?
                     List.of() :
@@ -72,11 +113,8 @@ public interface PlaygroundMetadata {
             return customProperties;
         }
 
-        private Map<String, Object> getCustomProperties(AgentInstance agentInstance) {
+        private Map<String, Object> computeCustomProperties(AgentInstance agentInstance) {
             Map<String, Object> customProperties = new HashMap<>();
-            boolean isAIAgent = false;
-            customProperties.put(PROPERTY_IS_AI_AGENT, agentInstance instanceof AgentExecutor && ((AgentExecutor) agentInstance).agent() instanceof Proxy);
-            customProperties.put(PROPERTY_IS_HUMAN_IN_THE_LOOP_AGENT, HumanInTheLoop.class.isAssignableFrom(agentInstance.type()));
 
             String systemMessage = EasyWorkflow.getSystemMessageTemplate(agentInstance.type());
             if (systemMessage != null)

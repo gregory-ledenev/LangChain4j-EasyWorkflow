@@ -35,9 +35,8 @@ import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
-import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
-import dev.langchain4j.model.chat.ChatModel;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -82,7 +81,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
     private static final Logger logger = EasyWorkflow.getLogger(ChatFrame.class);
     private final ChatPane pnlChat = new ChatPane();
-    private final List<Playground.PlaygroundChatModel> chatModels;
 
     public PlaygroundContext getPlaygroundContext() {
         return playgroundContext;
@@ -144,11 +142,9 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                      ChatPane.ChatEngine chatEngine,
                      PlaygroundContext playgroundContext,
                      Object agent,
-                     WorkflowDebugger workflowDebugger,
-                     List<Playground.PlaygroundChatModel> chatModels) {
+                     WorkflowDebugger workflowDebugger) {
         super("chatFrame");
 
-        this.chatModels = chatModels;
         this.playgroundContext = playgroundContext;
         this.agent = agent;
 
@@ -271,8 +267,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                                             ChatPane.ChatEngine chatEngine,
                                             PlaygroundContext playgroundContext,
                                             Object agent,
-                                            WorkflowDebugger workflowDebugger,
-                                            List<Playground.PlaygroundChatModel> chatModels) {
+                                            WorkflowDebugger workflowDebugger) {
         applyAppearance();
 
         ChatFrame chatFrame = new ChatFrame(title,
@@ -280,8 +275,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 chatEngine,
                 playgroundContext,
                 agent,
-                workflowDebugger,
-                chatModels
+                workflowDebugger
         );
 
         return chatFrame;
@@ -296,24 +290,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 e.printStackTrace();
             }
         }
-    }
-
-    /**
-     * Returns the agent object associated with this chat frame.
-     *
-     * @return The agent object.
-     */
-    public Object getAgent() {
-        return agent;
-    }
-
-    /**
-     * Sets the agent object for this chat frame.
-     *
-     * @param aAgent The agent object to be set.
-     */
-    public void setAgent(Object aAgent) {
-        agent = aAgent;
     }
 
     /**
@@ -362,13 +338,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         String exclusiveGroup = "appearance";
 
         ActionGroup modelsActionGroup = null;
-        if (chatModels != null && ! chatModels.isEmpty()) {
+        if (playgroundContext.getChatModels() != null && ! playgroundContext.getChatModels().isEmpty()) {
             String models = "models";
             modelsActionGroup = new ActionGroup("Models", new AutoIcon(ICON_SPACER), true);
-            for (Playground.PlaygroundChatModel chatModel : chatModels) {
+            for (PlaygroundMetadata.Model chatModel : playgroundContext.getChatModels()) {
                 modelsActionGroup.addAction(new StateAction(chatModel.name(), null, models,
-                        e -> setChatModel(chatModel.chatModel()),
-                        a -> a.setSelected(workflowDebugger.getAgentWorkflowBuilder().getChatModel().equals(chatModel.chatModel()))));
+                        e -> playgroundContext.setChatModel(chatModel),
+                        a -> a.setSelected(chatModel.id().equals(playgroundContext.getChatModel().id()))));
             }
         }
 
@@ -704,7 +680,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         shareAction.setShortDescription("Share");
 
         if (workflowDebugger != null) {
-            workflowExpertAction = new GUIPlayground.WorkflowExpertAction(new AutoIcon(ICON_AGENT_TOOLBAR),
+            workflowExpertAction = new GUIPlayground.WorkflowExpertAction(new AutoIcon(ICON_EXPERT_TOOLBAR),
                     this,
                     workflowDebugger.getAgentWorkflowBuilder().getAgentClass(), workflowDebugger
             );
@@ -845,8 +821,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void setupModelsAction() {
-        if (chatModels != null && chatModels.size() > 1) {
-            JComboBox modelsCombobox = new JComboBox(chatModels.toArray()) {
+        if (playgroundContext.getChatModels() != null && playgroundContext.getChatModels().size() > 1) {
+            JComboBox modelsCombobox = new JComboBox(playgroundContext.getChatModels().toArray()) {
                 @Override
                 public String getToolTipText(MouseEvent event) {
                     return getSelectedItem().toString();
@@ -859,14 +835,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             modelsCombobox.setPreferredSize(preferredSize);
             modelsCombobox.setMaximumSize(preferredSize);
             chatModelsAction = new ComponentAction("Model: ", modelsCombobox,
-                    e -> setChatModel(((Playground.PlaygroundChatModel) modelsCombobox.getSelectedItem()).chatModel()),
+                    e -> playgroundContext.setChatModel((PlaygroundMetadata.Model) modelsCombobox.getSelectedItem()),
                     a -> {
                         boolean enabled = !getChatPane().isWaitingForResponse();
                         modelsCombobox.setEnabled(enabled);
                         if (enabled) {
-                            ChatModel chatModel = workflowDebugger.getAgentWorkflowBuilder().getChatModel();
-                            for (Playground.PlaygroundChatModel playgroundChatModel : chatModels) {
-                                if (playgroundChatModel.chatModel().equals(chatModel)) {
+                            for (PlaygroundMetadata.Model playgroundChatModel : playgroundContext.getChatModels()) {
+                                if (playgroundChatModel.id().equals(playgroundContext.getChatModel().id())) {
                                     modelsCombobox.setSelectedItem(playgroundChatModel);
                                     break;
                                 }
@@ -875,17 +850,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             });
             chatModelsAction.putValue(Action.MNEMONIC_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_M, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         }
-    }
-
-    private void setChatModel(ChatModel chatModel) {
-        if (workflowDebugger.getAgentWorkflowBuilder().getChatModel() != chatModel) {
-            workflowDebugger.getAgentWorkflowBuilder().chatModel(chatModel);
-            agent = workflowDebugger.getAgentWorkflowBuilder().build();
-        }
-    }
-
-    public ChatModel getChatModel() {
-        return workflowDebugger.getAgentWorkflowBuilder().getChatModel();
     }
 
     private void setupToolbar(JToolBar toolbar) {

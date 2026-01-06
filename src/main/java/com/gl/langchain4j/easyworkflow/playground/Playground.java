@@ -360,10 +360,19 @@ public interface Playground {
     /**
      * Represents a chat model used within the playground, associating a name with a {@link ChatModel} instance.
      */
-    record PlaygroundChatModel(String name, ChatModel chatModel) {
-        public PlaygroundChatModel(String name, ChatModel chatModel) {
+    record PlaygroundChatModel(String id, String name, ChatModel chatModel) {
+        public PlaygroundChatModel(String id, String name, ChatModel chatModel) {
+            this.id = Objects.requireNonNull(id);
             this.name = Objects.requireNonNull(name);
             this.chatModel = Objects.requireNonNull(chatModel);
+        }
+
+        public PlaygroundChatModel(String name, ChatModel chatModel) {
+            this(name, name, chatModel);
+        }
+
+        public PlaygroundChatModel(ChatModel chatModel) {
+            this(chatModel.defaultRequestParameters().modelName(), chatModel);
         }
 
         @Override

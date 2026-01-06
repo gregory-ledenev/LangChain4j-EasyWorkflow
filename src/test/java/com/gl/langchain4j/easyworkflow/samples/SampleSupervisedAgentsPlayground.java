@@ -29,6 +29,16 @@ public class SampleSupervisedAgentsPlayground {
                 .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
                 .modelName("openai/gpt-oss-120b") // or another model
                 .build();
+        OpenAiChatModel metaLlamaModel1 = new OpenAiChatModel.OpenAiChatModelBuilder()
+                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("llama-3.3-70b-versatile") // or another model
+                .build();
+        OpenAiChatModel qwenModel = new OpenAiChatModel.OpenAiChatModelBuilder()
+                .baseUrl("https://api.groq.com/openai/v1/") // replace it if you use another service
+                .apiKey(Preferences.userRoot().get(GROQ_API_KEY, null)) // replace it with your API key
+                .modelName("qwen/qwen3-32b") // or another model
+                .build();
 
         SampleSupervisedAgents.BankTool bankTool = new SampleSupervisedAgents.BankTool();
         bankTool.createAccount("Mario", 1000.0);
@@ -60,7 +70,7 @@ public class SampleSupervisedAgentsPlayground {
 
         EasyWorkflow.AgentWorkflowBuilder<SampleSupervisedAgents.SupervisorAgent> workflowBuilder = EasyWorkflow.builder(SampleSupervisedAgents.SupervisorAgent.class);
         SampleSupervisedAgents.SupervisorAgent supervisorAgent = workflowBuilder
-                .chatModel(metaLlamaModel)
+                .chatModel(openAIModel)
                 .workflowDebugger(workflowDebugger)
                 .doAsPlannerGroup(EasyWorkflow.lambdaWithDescription(SequentialPlanner::new, "Sequential"))
                     .setState("a", "1")
@@ -85,7 +95,10 @@ public class SampleSupervisedAgentsPlayground {
                 Playground.ARG_WORKFLOW_DEBUGGER, workflowDebugger,
                 Playground.ARG_CHAT_MODELS, List.of(
                         new Playground.PlaygroundChatModel("meta-llama/llama-4-scout-17b-16e-instruct", metaLlamaModel),
-                        new Playground.PlaygroundChatModel("openai/gpt-oss-120b", openAIModel))));
+                        new Playground.PlaygroundChatModel("openai/gpt-oss-120b", openAIModel),
+                        new Playground.PlaygroundChatModel("llama-3.3-70b-versatile", metaLlamaModel1),
+                        new Playground.PlaygroundChatModel("qwen/qwen3-32b", qwenModel)
+                )));
         playground.play(supervisorAgent, Map.of("request", "Transfer 100 EUR from Mario's account to Georgios' one"));
     }
 }

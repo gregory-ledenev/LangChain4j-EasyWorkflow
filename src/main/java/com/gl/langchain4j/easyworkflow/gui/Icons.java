@@ -11,7 +11,7 @@ import java.util.Objects;
 public class Icons {
     private static final Map<String, ImageIcon> icons = new HashMap<>();
 
-    public static final String ICON_EXPERT = "expert";
+    public static final String ICON_AGENT = "agent";
     public static final String ICON_SIGNPOST = "signpost";
     public static final String ICON_REFRESH = "refresh";
     public static final String ICON_BOX = "box";
@@ -27,7 +27,7 @@ public class Icons {
 
 
     public static void loadIcons() {
-        loadIcon(ICON_EXPERT, "icons/expert");
+        loadIcon(ICON_AGENT, "icons/agent");
         loadIcon(ICON_SIGNPOST, "icons/signpost");
         loadIcon(ICON_REFRESH, "icons/refresh");
         loadIcon(ICON_BOX, "icons/box");
