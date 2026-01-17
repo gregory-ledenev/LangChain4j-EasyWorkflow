@@ -21,18 +21,18 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.USER_HOME_FOLDER;
 public class ChatHistoryStorage {
     private static final Logger logger = EasyWorkflow.getLogger(ChatHistoryStorage.class);
     private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
-    private final Class<?> agentClass;
+    private final String agentClassName;
     protected List<ChatHistoryItem> chatHistoryItems = Collections.synchronizedList(new ArrayList<>());
     protected Map<String, ChatHistoryItem> chatHistoryItemsByUid = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Constructs a new ChatHistoryStorage for a given agent class.
      *
-     * @param agentClass The class of the agent for which chat history is being stored.
-     * @throws NullPointerException if agentClass is null.
+     * @param agentClassName The class of the agent for which chat history is being stored.
+     * @throws NullPointerException if agentClassName is null.
      */
-    public ChatHistoryStorage(Class<?> agentClass) {
-        this.agentClass = Objects.requireNonNull(agentClass);
+    public ChatHistoryStorage(String agentClassName) {
+        this.agentClassName = Objects.requireNonNull(agentClassName);
     }
 
     /**
@@ -137,13 +137,13 @@ public class ChatHistoryStorage {
                 Files.writeString(Paths.get(agentFile.getAbsolutePath()),
                         OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(chatHistoryItems));
             } catch (Exception ex) {
-                logger.error("Failed to store chat history for agent {}", agentClass.getName(), ex);
+                logger.error("Failed to store chat history for agent {}", agentClassName, ex);
             }
         }
     }
 
     private String getFileName() {
-        return "chat-history-" + agentClass.getName() + ".json";
+        return "chat-history-" + agentClassName + ".json";
     }
 
     /**
@@ -168,7 +168,7 @@ public class ChatHistoryStorage {
             for (ChatHistoryItem item : chatHistoryItems)
                 chatHistoryItemsByUid.put(item.uid(), item);
         } catch (IOException ex) {
-            logger.error("Failed to load chat history for agent {}", agentClass.getName(), ex);
+            logger.error("Failed to load chat history for agent {}", agentClassName, ex);
         }
     }
 

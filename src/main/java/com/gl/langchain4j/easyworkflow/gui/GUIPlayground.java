@@ -158,7 +158,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
         WorkflowDebugger debugger = getWorkflowDebugger();
         LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,
-                debugger != null ? debugger.getAgentWorkflowBuilder() : null,
+                debugger,
                 debugger != null ? new PlaygroundChatModel(debugger.getAgentWorkflowBuilder().getChatModel()) : null,
                 getChatModels());
 
@@ -231,7 +231,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
         WorkflowDebugger debugger = getWorkflowDebugger();
         LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,
-                debugger != null ? debugger.getAgentWorkflowBuilder() : null,
+                debugger,
                 debugger != null ? new PlaygroundChatModel(debugger.getAgentWorkflowBuilder().getChatModel()) : null,
                 getChatModels());
 
@@ -283,7 +283,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
         WorkflowDebugger workflowDebugger = getWorkflowDebugger();
         if (workflowDebugger != null) {
             EasyWorkflow.AgentExpression agentMetadata = (EasyWorkflow.AgentExpression) workflowDebugger.getAgentMetadata(agent);
-            workflowDebugger.inputReceived(agent, agentMetadata.getAgentClass(), UserMessage.userMessage(request));
+//            workflowDebugger.inputReceived(agent, agentMetadata.getAgentClass(), UserMessage.userMessage(request)); //todo: check me for removal
         }
     }
 
@@ -303,7 +303,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
             String outputName = agentMetadata.getOutputName();
             if (outputName == null)
                 outputName = "$humanResponse";
-            workflowDebugger.stateChanged(agent, agentMetadata.getAgentClass(), outputName, result);
+//            workflowDebugger.stateChanged(agent, agentMetadata.getAgentClass(), outputName, result); //todo: check me for removal
+//        }
         }
 
         return result != null ? result : "canceled";

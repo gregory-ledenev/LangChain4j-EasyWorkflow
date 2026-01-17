@@ -1144,6 +1144,7 @@ public class EasyWorkflow {
             List<Object> agents = new ArrayList<>();
             if (workflowDebugger != null)
                 agents.add(workflowDebugger.serviceAgent());
+
             agents.addAll(block.createAgents());
 
             SequentialAgentService<T> builder = AgenticServices.sequenceBuilder(agentClass)
@@ -1151,6 +1152,8 @@ public class EasyWorkflow {
                     .outputKey(outputName != null && !outputName.isEmpty() ? outputName : getOutputName(agentClass));
             if (outputComposer != null)
                 builder.output(outputComposer);
+            if (workflowDebugger != null)
+                builder.listener(workflowDebugger);
 
             return proxy(builder.build());
         }
@@ -1202,14 +1205,15 @@ public class EasyWorkflow {
                     (proxy, method, args) -> {
                         boolean isAgentMethod = method.getAnnotation(Agent.class) != null;
 
-                        if (isAgentMethod && workflowDebugger != null)
-                            workflowDebugger.sessionStarted(agentClass, method, args);
+                        //todo: think of removing that methods and proxy itself
+//                        if (isAgentMethod && workflowDebugger != null)
+//                            workflowDebugger.sessionStarted(agentClass, method, args);
 
                         try {
                             Object invocationResult = method.invoke(agent, args);
 
-                            if (isAgentMethod && workflowDebugger != null)
-                                workflowDebugger.sessionStopped(invocationResult);
+//                            if (isAgentMethod && workflowDebugger != null)
+//                                workflowDebugger.sessionStopped(invocationResult);
 
                             return invocationResult;
                         } catch (Throwable failure) {
@@ -2118,10 +2122,9 @@ public class EasyWorkflow {
                 return null;
 
             WorkflowContext.Input input = workflowDebugger.getWorkflowContext().input(agentClass);
-//            agentBuilder.inputGuardrails(workflowDebugger.createAlterInputGuardrail(agentClass), input);
+            agentBuilder.inputGuardrails(workflowDebugger.createAlterInputGuardrail(agentClass), input);
             WorkflowContext.Output output = workflowDebugger.getWorkflowContext().output(agentClass, outputName);
 //            agentBuilder.outputGuardrails(output);
-            agentBuilder.listener(workflowDebugger);
 
             return new WorkflowContextConfig(input, output);
         }

@@ -33,6 +33,7 @@ import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.agent.AgentInvocationException;
 import dev.langchain4j.agentic.agent.MissingArgumentException;
+import dev.langchain4j.agentic.observability.AgentInvocationError;
 import dev.langchain4j.agentic.observability.AgentListener;
 import dev.langchain4j.agentic.observability.AgentRequest;
 import dev.langchain4j.agentic.observability.AgentResponse;
@@ -46,6 +47,7 @@ import dev.langchain4j.guardrail.InputGuardrailRequest;
 import dev.langchain4j.guardrail.InputGuardrailResult;
 import dev.langchain4j.service.Result;
 import dev.langchain4j.service.V;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
 import java.io.IOException;
@@ -305,25 +307,15 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
      * @param method     The method that was invoked on the agent.
      * @param args       The arguments passed to the invoked method.
      */
-    public void sessionStarted(Class<?> agentClass, Method method, Object[] args) {
+    public void sessionStarted(Class<?> agentClass, Map<String, Object> inputs) {
         reset();
 
         started = true;
-        saveWorkflowInput(method, args);
+
+        workflowInput.putAll(inputs);
 
         saveBreakpointsState();
         findAndExecuteBreakpoints(Breakpoint.Type.SESSION_STARTED, null, null, null, null, null);
-    }
-
-    private void saveWorkflowInput(Method method, Object[] args) {
-        for (int i = 0; i < method.getParameters().length; i++) {
-            if (method.getParameters()[i].isAnnotationPresent(V.class)) {
-                V annotation = method.getParameters()[i].getAnnotation(V.class);
-                if (annotation == null)
-                    continue;
-                workflowInput.put(annotation.value(), args[i]);
-            }
-        }
     }
 
     /**
@@ -345,7 +337,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
      */
     public void sessionFailed(Throwable failure) {
         this.workflowFailure = failure;
-        updateAgentInvocationTraceEntry(failure);
         findAndExecuteBreakpoints(Breakpoint.Type.SESSION_FAILED, null, null, null, null, null);
         resetBreakpoints();
         started = false;
@@ -540,14 +531,35 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
     }
 
     @Override
+    public void afterAgenticScopeCreated(AgenticScope agenticScope) {
+        this.agenticScope = agenticScope;
+    }
+
+    @Override
     public void beforeAgentInvocation(AgentRequest agentRequest) {
-        inputReceived(agentRequest.agent(), ((AgentInstance) agentRequest.agent()).type(), agentRequest.inputs());
+        AgentInstance agentInstance = agentRequest.agent();
+        if (agentInstance.parent() != null)
+            inputReceived(agentRequest.agent(), agentInstance.type(), agentRequest.inputs());
+        else
+            sessionStarted(agentInstance.type(), agentRequest.inputs());
     }
 
     @Override
     public void afterAgentInvocation(AgentResponse agentResponse) {
         AgentInstance agentInstance = agentResponse.agent();
-        stateChanged(agentResponse.agent(), agentInstance.type(), agentInstance.outputKey(), agentResponse.output());
+        if (agentInstance.parent() != null)
+            stateChanged(agentResponse.agent(), agentInstance.type(), agentInstance.outputKey(), agentResponse.output());
+        else
+            sessionStopped(agentResponse.output());
+    }
+
+    @Override
+    public void onAgentInvocationError(AgentInvocationError agentInvocationError) {
+        AgentInstance agentInstance = agentInvocationError.agent();
+        if (agentInstance.parent() != null)
+            updateAgentInvocationTraceEntry(agentInvocationError.agent(), agentInvocationError.error());
+        else
+            sessionFailed(agentInvocationError.error());
     }
 
     @Override
@@ -622,24 +634,25 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         return result;
     }
 
-    private void updateAgentInvocationTraceEntry(Throwable failure) {
-        ArrayList<AgentInvocationTraceEntry> entries;
-        synchronized (agentInvocationTraceEntries) {
-            entries = new ArrayList<>(agentInvocationTraceEntries);
-        }
-        AgentInvocationTraceEntry traceEntry = null;
-
-        for (int i = entries.size() - 1; i >= 0; i--) {
-            if (traceEntry == null || entries.get(i).getLastAccessTime() > traceEntry.getLastAccessTime()) {
-                traceEntry = entries.get(i);
-            }
-        }
+    private void updateAgentInvocationTraceEntry(Object agent, Throwable failure) {
+        AgentInvocationTraceEntry traceEntry = getAgentInvocationTraceEntry(agent);
 
         if (traceEntry != null)
             traceEntry.setFailure(failure);
     }
 
     private AgentInvocationTraceEntry updateAgentInvocationTraceEntry(Object agent, String outputName, Object output) {
+        AgentInvocationTraceEntry traceEntry = getAgentInvocationTraceEntry(agent);
+
+        if (traceEntry != null)
+            traceEntry.addOutput(outputName, output);
+        else
+            logger.warn("Unable to update trace entry for agent {}", agent);
+
+        return traceEntry;
+    }
+
+    private @Nullable AgentInvocationTraceEntry getAgentInvocationTraceEntry(Object agent) {
         ArrayList<AgentInvocationTraceEntry> entries;
         synchronized (agentInvocationTraceEntries) {
             entries = new ArrayList<>(agentInvocationTraceEntries);
@@ -653,12 +666,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
                     break;
             }
         }
-
-        if (traceEntry != null)
-            traceEntry.addOutput(outputName, output);
-        else
-            logger.warn("Unable to update trace entry for agent {}", agent);
-
         return traceEntry;
     }
 
@@ -1501,9 +1508,13 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             boolean agentClassMatch = (this.agentClasses == null || this.agentClasses.length == 0)
                     || Arrays.asList(this.agentClasses).contains(agentClass);
 
-            boolean outputNameMatch = (type == Type.AGENT_INPUT)
-                    || (this.outputNames == null || this.outputNames.length == 0)
-                    || Arrays.stream(this.outputNamePatterns).anyMatch(pattern -> outputName != null && outputName.matches(pattern));
+            boolean outputNameMatch = (type == Type.AGENT_INPUT);
+            if (!outputNameMatch) {
+                if (outputName == null) {
+                    outputNameMatch = Arrays.stream(this.outputNamePatterns).anyMatch(pattern -> pattern.equals("^.*$"));
+                } else
+                    outputNameMatch = Arrays.stream(this.outputNamePatterns).anyMatch(pattern -> outputName.matches(pattern));
+            }
 
             return agentClassMatch && outputNameMatch;
         }

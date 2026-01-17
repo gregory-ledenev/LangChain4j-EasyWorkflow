@@ -93,7 +93,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     private final ObjectMapper objectMapper = new ObjectMapper();
     protected boolean painLinkArrows;
     protected WorkflowDebugger workflowDebugger;
-    protected AgentWorkflowBuilder<?> workflowBuilder;
     private WorkflowDebugger.Breakpoint breakpointSessionStarted;
     private WorkflowDebugger.Breakpoint breakpointSessionStopped;
     private WorkflowDebugger.Breakpoint breakpointSessionFailed;
@@ -145,13 +144,13 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         list.getActionMap().put("copy", new Actions.BasicAction("Copy", null, e -> copy()));
     }
 
-    private static String mapToSubTitle(Class<?> agentClass, Map<?, ?> map, boolean simplify) {
+    private static String mapToSubTitle(Map<?, ?> map, boolean simplify) {
         if (map.isEmpty())
             return "";
         if (simplify && map.size() == 1)
             return map.entrySet().iterator().next().getValue().toString();
 
-        return (agentClass != null ? getAgentMethodParameterNames(getAgentMethod(agentClass)) : map.keySet()).stream()
+        return map.keySet().stream()
                 .map(name -> "%s=%s".formatted(name, map.get(name)))
                 .collect(Collectors.joining(", "));
     }
@@ -236,34 +235,28 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         return list;
     }
 
+    public PlaygroundContext getPlaygroundContext() {
+        return playgroundContext;
+    }
+
     /**
      * Sets the workflow to be displayed in the inspector.
      *
      * @param playgroundContext
-     * @param builder           The EasyWorkflow.AgentWorkflowBuilder representing the workflow.
      */
-    public void setPlaygroundContext(PlaygroundContext playgroundContext, AgentWorkflowBuilder<?> builder) {
+    public void setPlaygroundContext(PlaygroundContext playgroundContext) {
         this.playgroundContext = playgroundContext;
-        this.workflowBuilder = builder;
         model.clear();
-        try {
-            populateListModel(listModel, builder);
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-            //todo fix me
-//            model.addElement(new WorkflowItem((Map<String, Object>) null, null, null, "Error parsing workflow", e.getMessage(), 0));
-        }
+        populateListModel(listModel);
     }
 
     @SuppressWarnings("unchecked")
-    private void populateListModel(List<WorkflowItem> listModel, AgentWorkflowBuilder<?> builder) throws JsonProcessingException {
-        String jsonString = builder.toJson();
-
+    private void populateListModel(List<WorkflowItem> listModel) {
         PlaygroundMetadata.Agent agent = playgroundContext.getAgentMetadata();
         listModel.add(new WorkflowItem_Start(agent));
 
         populateListModel(listModel, agent, 0);
-        String outputName = builder.getComputedOutputName();
+        String outputName = agent.getOutputKey();
         listModel.add(new WorkflowItem_End(agent));
 
         for (WorkflowItem workflowItem : listModel) {
@@ -474,6 +467,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 scheduler.schedule(() -> workflowDebuggerAgentStarted(states), currentDelay, TimeUnit.MILLISECONDS);
                 currentDelay += delay;
 
+                //todo: groups should be finished obly after chilren are finished; not immediately as of now
+                // think about making traceEntries hierarchical
                 scheduler.schedule(() -> workflowDebuggerAgentFinished(states), currentDelay, TimeUnit.MILLISECONDS);
                 currentDelay += delay;
             }
@@ -671,35 +666,11 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 currentItem.setPassCount(currentItem.getPassCount() + 1);
                 currentItem.setTraceEntry(listModel.indexOf(currentItem),
                         traceEntry);
-                markMissedItemsAsFinished(currentItem);
             });
             findItemByType(Start).ifPresent(item -> item.setState(WorkflowItem.State.Finished));
             list.repaint();
             updateSelection();
         });
-    }
-
-    protected void markMissedItemsAsFinished(WorkflowItem currentItem) {
-        Set<Integer> processedMatches = new HashSet<>();
-        int index = model.indexOf(currentItem);
-        for (int i = index - 1; i >= 0; i--) {
-            WorkflowItem item = model.get(i);
-            if (item.getState() == WorkflowItem.State.Unknown && item.getIndentation() <= currentItem.getIndentation()) {
-                switch (item.type) {
-                    case IfThen, Repeat, DoWhen,
-                         Group, ParallelGroup, Sequence:
-                        item.setState(WorkflowItem.State.Finished);
-                        break;
-                    case Match:
-                        if (!processedMatches.contains(item.getIndentation())) {
-                            processedMatches.add(item.getIndentation());
-                            item.setState(WorkflowItem.State.Finished);
-                        }
-                        break;
-                    default:
-                }
-            }
-        }
     }
 
     /**
@@ -831,8 +802,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     public static class WorkflowItem implements Cloneable {
 
         private final String iconKey;
-
-        ;
         private final String title;
         private final String subtitle;
         private final PlaygroundMetadata.Agent agent;
@@ -865,7 +834,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         public String getUserMessage() {
-            return null; //todo fix me
+            return getAgent().getUserMessage();
         }
 
         /**
@@ -1020,7 +989,11 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         public Map<String, Object> getInspectorData(WorkflowInspectorListPane listPane) {
-            return Map.of();
+            Map<String, Object> result = new HashMap<>();
+
+            result.put(NODE_AGENT_METADATA, listPane.convertValue(getAgent()));
+
+            return result;
         }
 
         protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
@@ -1072,9 +1045,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
         protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
             WorkflowDebugger debugger = listPane.getWorkflowDebugger();
-            return new String[]{"→ " + listPane.mapToSubTitle(debugger.getAgentWorkflowBuilder().getAgentClass(),
-                    debugger.getWorkflowInput(),
-                    true)};
+            return new String[]{"→ " + listPane.mapToSubTitle(debugger.getWorkflowInput(),true)};
         }
     }
 
@@ -1252,7 +1223,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     outputStr = "❖ ";
                 boolean simplify = !isStateAgent;
                 String outputStr1 = traceEntry.getOutput() instanceof Map<?, ?> outputMap ?
-                        mapToSubTitle(simplify ? null : agentClass, outputMap, simplify) :
+                        mapToSubTitle(outputMap, simplify) :
                         traceEntry.getOutput() != null ? traceEntry.getOutput().toString() : "";
 
                 outputStr += outputStr1;
@@ -1621,18 +1592,19 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
     public static class Structure extends WorkflowInspectorListPane {
         @Override
-        public void setPlaygroundContext(PlaygroundContext playgroundContext, AgentWorkflowBuilder<?> builder) {
-            super.setPlaygroundContext(playgroundContext, builder);
+        public void setPlaygroundContext(PlaygroundContext playgroundContext) {
+            super.setPlaygroundContext(playgroundContext);
             for (WorkflowItem workflowItem : listModel)
                 model.addElement(workflowItem);
         }
 
         @Override
         public void copy() {
-            if (workflowBuilder != null) {
-                String json = workflowBuilder.toJson();
+            try {
                 Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-                clipboard.setContents(new StringSelection(json), null);
+                clipboard.setContents(new StringSelection(getPlaygroundContext().getAgentMetadata().toJson()), null);
+            } catch (JsonProcessingException e) {
+                logger.error(e.getMessage(), e);
             }
         }
     }
@@ -1704,12 +1676,10 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             String uid = traceEntry.getId();
             SwingUtilities.invokeLater(() -> {
                 findItemByUid(uid).ifPresent(currentItem -> {
-                    currentItem.setIndentation(0);
                     model.addElement(currentItem);
                     currentItem.setState(WorkflowItem.State.Running);
                     currentItem.setPassCount(currentItem.getPassCount() == 0 ? 1 : Integer.MAX_VALUE);
                     currentItem.setTraceEntry(model.size() - 1, traceEntry);
-                    markMissedItemsAsFinished(currentItem);
                 });
                 findItemByType(Start).ifPresent(item -> item.setState(WorkflowItem.State.Finished));
                 list.repaint();

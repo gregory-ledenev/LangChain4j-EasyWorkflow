@@ -2,6 +2,9 @@ package com.gl.langchain4j.easyworkflow.playground;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
 import dev.langchain4j.agentic.internal.AgentExecutor;
@@ -20,11 +23,11 @@ public interface PlaygroundMetadata {
     String PROPERTY_SYSTEM_MESSAGE = "systemMessage";
     String PROPERTY_USER_MESSAGE = "userMessage";
 
-    record Type(String name) {
-    }
-
     enum Category {
         Agent, NonAiAgent, HumanInTheLoop
+    }
+
+    record Type(String name) {
     }
 
     record Model(String id, String name) {
@@ -61,10 +64,8 @@ public interface PlaygroundMetadata {
         private final AgenticSystemTopology topology;
         private final Category category;
         private final Map<String, Object> customProperties;
-
-        public Category getCategory() {
-            return category;
-        }
+        private final String systemMessage;
+        private final String userMessage;
 
         public Agent(AgentInstance agentInstance, Agent parent) {
 
@@ -82,17 +83,8 @@ public interface PlaygroundMetadata {
                     .map(subAgentInstance -> new Agent(subAgentInstance, this))
                     .toList();
             this.category = computeCategory(agentInstance);
-        }
-
-        private Category computeCategory(AgentInstance agentInstance) {
-            Category result = Category.Agent;
-
-            if (HumanInTheLoop.class.isAssignableFrom(agentInstance.type()))
-                result = Category.HumanInTheLoop;
-            else if (! (agentInstance instanceof AgentExecutor && ((AgentExecutor) agentInstance).agent() instanceof Proxy))
-                result = Category.NonAiAgent;
-
-            return result;
+            this.systemMessage = EasyWorkflow.getSystemMessageTemplate(agentInstance.type());
+            this.userMessage = EasyWorkflow.getUserMessageTemplate(agentInstance.type());
         }
 
         private static List<Argument> computeArguments(AgentInstance agentInstance) {
@@ -107,6 +99,33 @@ public interface PlaygroundMetadata {
                                 return new Argument(new Type(parameter.getType().getName()), name, null, parameter.getAnnotation(com.gl.langchain4j.easyworkflow.playground.PlaygroundParam.class));
                             })
                             .toList();
+        }
+
+        public String toJson() throws JsonProcessingException {
+            return new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(this);
+        }
+
+        public String getSystemMessage() {
+            return systemMessage;
+        }
+
+        public String getUserMessage() {
+            return userMessage;
+        }
+
+        public Category getCategory() {
+            return category;
+        }
+
+        private Category computeCategory(AgentInstance agentInstance) {
+            Category result = Category.Agent;
+
+            if (HumanInTheLoop.class.isAssignableFrom(agentInstance.type()))
+                result = Category.HumanInTheLoop;
+            else if (!(agentInstance instanceof AgentExecutor && ((AgentExecutor) agentInstance).agent() instanceof Proxy))
+                result = Category.NonAiAgent;
+
+            return result;
         }
 
         public Map<String, Object> getCustomProperties() {

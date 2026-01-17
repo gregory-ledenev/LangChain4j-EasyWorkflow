@@ -30,6 +30,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
+import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import org.slf4j.Logger;
 
 import java.io.File;
@@ -49,21 +50,21 @@ import static com.gl.langchain4j.easyworkflow.EasyWorkflow.USER_HOME_FOLDER;
  */
 public class UserMessagesStorage {
     private static final Logger logger = EasyWorkflow.getLogger(UserMessagesStorage.class);
-    private final WorkflowDebugger workflowDebugger;
+    private final PlaygroundContext playgroundContext;
     private final Function<String, String> originalUserMessageProvider;
 
     /**
      * Creates a new instance of {@code UserMessagesPersistentStorage} and initializes it with a workflow debugger and a
      * function that provides original user messages
      *
-     * @param workflowDebugger            A {@code WorkflowDebugger} to work with
+     * @param playgroundContext            A {@code WorkflowDebugger} to work with
      * @param originalUserMessageProvider A function that provides original user messages
      */
-    public UserMessagesStorage(WorkflowDebugger workflowDebugger, Function<String, String> originalUserMessageProvider) {
-        Objects.requireNonNull(workflowDebugger);
+    public UserMessagesStorage(PlaygroundContext playgroundContext, Function<String, String> originalUserMessageProvider) {
+        Objects.requireNonNull(playgroundContext);
         Objects.requireNonNull(originalUserMessageProvider);
 
-        this.workflowDebugger = workflowDebugger;
+        this.playgroundContext = playgroundContext;
         this.originalUserMessageProvider = originalUserMessageProvider;
     }
 
@@ -75,7 +76,7 @@ public class UserMessagesStorage {
      * @return a JSON string representing user messages or {@code null} if no user messages as present
      */
     public String asJson() {
-        Map<String, String> userMessageTemplates = workflowDebugger.getUserMessageTemplates();
+        Map<String, String> userMessageTemplates = playgroundContext.getUserMessageTemplates();
         if (userMessageTemplates.isEmpty())
             return null;
 
@@ -107,10 +108,10 @@ public class UserMessagesStorage {
                 logger.error("Failed to create folders for path: " + userHome);
         }
 
-        Class<?> agentClass = workflowDebugger.getAgentWorkflowBuilder().getAgentClass();
-        File agentFile = new File(userHome, getFileName(agentClass));
+        String agentClassName = playgroundContext.getAgentMetadata().getType().name();
+        File agentFile = new File(userHome, getFileName(agentClassName));
 
-        if (! workflowDebugger.hasUserMessageTemplates()) {
+        if (! playgroundContext.hasUserMessageTemplates()) {
             if (agentFile.exists()) {
                 boolean result = agentFile.delete();
                 if (! result)
@@ -120,13 +121,13 @@ public class UserMessagesStorage {
             try {
                 Files.writeString(Paths.get(agentFile.getAbsolutePath()), asJson());
             } catch (Exception ex) {
-                logger.error("Failed to store user messages for agent {}", agentClass.getName(), ex);
+                logger.error("Failed to store user messages for agent {}", agentClassName, ex);
             }
         }
     }
 
-    private static String getFileName(Class<?> agentClass) {
-        return "user-messages-" + agentClass.getName() + ".json";
+    private static String getFileName(String agentClassName) {
+        return "user-messages-" + agentClassName + ".json";
     }
 
     /**
@@ -137,8 +138,8 @@ public class UserMessagesStorage {
         if (!userHome.exists())
             return;
 
-        Class<?> agentClass = workflowDebugger.getAgentWorkflowBuilder().getAgentClass();
-        File agentFile = new File(userHome, getFileName(agentClass));
+        String agentClassName = playgroundContext.getAgentMetadata().getType().name();
+        File agentFile = new File(userHome, getFileName(agentClassName));
 
         if (!agentFile.exists())
             return;
@@ -149,14 +150,14 @@ public class UserMessagesStorage {
                     OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, UserMessageEntry.class));
 
             userMessageEntries.forEach(userMessageEntry -> {
-                String agentClassName = userMessageEntry.agentClassName();
-                if (Objects.equals(userMessageEntry.originalUserMessage(), getUserMessage(agentClassName)))
-                    workflowDebugger.setUserMessageTemplate(agentClassName, userMessageEntry.userMessage());
+                String currentAgentClassName = userMessageEntry.agentClassName();
+                if (Objects.equals(userMessageEntry.originalUserMessage(), getUserMessage(currentAgentClassName)))
+                    playgroundContext.setUserMessageTemplate(currentAgentClassName, userMessageEntry.userMessage());
                 else
-                    logger.debug("Skipping custom user message for class: " + agentClassName);
+                    logger.debug("Skipping custom user message for class: " + currentAgentClassName);
             });
         } catch (IOException ex) {
-            logger.error("Failed to load user messages for agent {}", agentClass.getName(), ex);
+            logger.error("Failed to load user messages for agent {}", agentClassName, ex);
         }
     }
 }

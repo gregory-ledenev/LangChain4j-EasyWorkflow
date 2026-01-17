@@ -3,7 +3,6 @@ package com.gl.langchain4j.easyworkflow.playground;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agentic.planner.AgentInstance;
-import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.V;
 
 import java.lang.reflect.Method;
@@ -14,6 +13,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 public class LocalPlaygroundContext implements PlaygroundContext {
+    private final WorkflowDebugger workflowDebugger;
     private PlaygroundMetadata.Agent agentMetadata;
     private Object agent;
     private Method agentMethod;
@@ -22,11 +22,12 @@ public class LocalPlaygroundContext implements PlaygroundContext {
     private final List<Playground.PlaygroundChatModel> chatModels;
     private List<PlaygroundMetadata.Model> metadataChatModels;
 
-    public LocalPlaygroundContext(Object agent, EasyWorkflow.AgentWorkflowBuilder<?> builder,
+    public LocalPlaygroundContext(Object agent, WorkflowDebugger workflowDebugger,
                                   Playground.PlaygroundChatModel chatModel,
                                   List<Playground.PlaygroundChatModel> chatModels) {
         this.agent = Objects.requireNonNull(agent);
-        this.builder = builder;
+        this.workflowDebugger = workflowDebugger;
+        this.builder = workflowDebugger != null ? workflowDebugger.getAgentWorkflowBuilder() : null;
         this.chatModel = chatModel;
         this.chatModels = chatModels;
         if (chatModels != null)
@@ -38,16 +39,6 @@ public class LocalPlaygroundContext implements PlaygroundContext {
             this.agentMethod = Objects.requireNonNull(EasyWorkflow.getAgentMethod(agentInstance.type()));
             this.agentMetadata = new PlaygroundMetadata.Agent(agentInstance, null);
         }
-    }
-
-    public static LocalPlaygroundContext createLocalPlaygroundContext(Object agent, EasyWorkflow.AgentWorkflowBuilder<?> builder,
-                                                                      ChatModel model,
-                                                                      List<ChatModel> models) {
-        return new LocalPlaygroundContext(agent, builder,
-                new Playground.PlaygroundChatModel(model),
-                models.stream()
-                        .map(Playground.PlaygroundChatModel::new)
-                        .toList());
     }
 
     public PlaygroundMetadata.Agent getAgentMetadata() {
@@ -103,5 +94,34 @@ public class LocalPlaygroundContext implements PlaygroundContext {
         }
 
         return arguments;
+    }
+
+    @Override
+    public boolean supportsUserMessageTemplates() {
+        return true;
+    }
+
+    @Override
+    public Map<String, String> getUserMessageTemplates() {
+        return workflowDebugger.getUserMessageTemplates();
+    }
+
+    @Override
+    public boolean hasUserMessageTemplates() {
+        return workflowDebugger.hasUserMessageTemplates();
+    }
+
+    @Override
+    public String getUserMessageTemplate(String agentClassName) {
+        return workflowDebugger.getUserMessageTemplate(agentClassName);
+    }
+
+    @Override
+    public void setUserMessageTemplate(String agentClassName, String userMessageTemplate) {
+        workflowDebugger.setUserMessageTemplate(agentClassName, userMessageTemplate);
+    }
+    @Override
+    public String generateAgentSummary() {
+        return workflowDebugger.getAgentWorkflowBuilder().generateAISummary();
     }
 }

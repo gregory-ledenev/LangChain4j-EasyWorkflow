@@ -88,8 +88,8 @@ public class WorkflowContext {
         if (result.isSuccess() && result.successfulText() != null)
             message = new UserMessage(result.successfulText());
 
-        if (inputHandler != null)
-            inputHandler.inputReceived(inputGuardrail.getAgent(), inputGuardrail.getAgentClass(), message);
+//        if (inputHandler != null)
+//            inputHandler.inputReceived(inputGuardrail.getAgent(), inputGuardrail.getAgentClass(), message);
 
         return result;
     }

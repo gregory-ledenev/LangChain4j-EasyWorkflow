@@ -61,6 +61,7 @@ import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.LOGO_ICON;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane.PROP_SELECTED_VARIABLE;
+import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter.*;
 import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
@@ -165,9 +166,9 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
 
         if (workflowDebugger != null) {
-            userMessagesStorage = new UserMessagesStorage(workflowDebugger,
+            userMessagesStorage = new UserMessagesStorage(getPlaygroundContext(),
                     agentClassName -> pnlWorkflowInspectorStructure.getUserMessage(agentClassName));
-            chatHistoryStorage = new ChatHistoryStorage(workflowDebugger.getAgentWorkflowBuilder().getAgentClass());
+            chatHistoryStorage = new ChatHistoryStorage(getPlaygroundContext().getAgentMetadata().getType().name());
 
             setMinimumSize(new Dimension(1280, 720));
 
@@ -176,13 +177,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             contentPane.setLeftComponent(pnlChat);
             pnlChat.getHeaderPane().setVisible(true);
 
-            pnlWorkflowInspectorStructure = new WorkflowInspectorListPane.Structure();
-            pnlWorkflowInspectorStructure.setPlaygroundContext(playgroundContext, workflowDebugger.getAgentWorkflowBuilder());
+            pnlWorkflowInspectorStructure = new Structure();
+            pnlWorkflowInspectorStructure.setPlaygroundContext(playgroundContext);
             pnlWorkflowInspectorStructure.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorStructure.setWorkflowDebugger(workflowDebugger);
 
-            pnlWorkflowInspectorExecution = new WorkflowInspectorListPane.Execution();
-            pnlWorkflowInspectorExecution.setPlaygroundContext(playgroundContext, workflowDebugger.getAgentWorkflowBuilder());
+            pnlWorkflowInspectorExecution = new Execution();
+            pnlWorkflowInspectorExecution.setPlaygroundContext(playgroundContext);
             pnlWorkflowInspectorExecution.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorExecution.setWorkflowDebugger(workflowDebugger);
             pnlWorkflowInspectorExecution.setPlaceHolderText("Run workflow to see execution results");
@@ -569,9 +570,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void shareStructure() {
-        shareContent("Structure", workflowDebugger.getAgentWorkflowBuilder().toJson(),
-                PROP_STRUCTURE_FILE,
-                "workflow-structure.json");
+        try {
+            shareContent("Structure", getPlaygroundContext().getAgentMetadata().toJson(),
+                    PROP_STRUCTURE_FILE,
+                    "workflow-structure.json");
+        } catch (JsonProcessingException e) {
+            logger.error("Failed to share structure", e);
+        }
     }
 
     private void shareFlowChart() {
@@ -680,12 +685,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         shareAction.setShortDescription("Share");
 
         if (workflowDebugger != null) {
-            workflowExpertAction = new GUIPlayground.WorkflowExpertAction(new AutoIcon(ICON_EXPERT_TOOLBAR),
-                    this,
-                    workflowDebugger.getAgentWorkflowBuilder().getAgentClass(), workflowDebugger
-            );
-            workflowExpertAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_E,
-                    menuShortcutKeyMask));
+            //todo: fix me
+//            workflowExpertAction = new GUIPlayground.WorkflowExpertAction(new AutoIcon(ICON_EXPERT_TOOLBAR),
+//                    this,
+//                    workflowDebugger.getAgentWorkflowBuilder().getAgentClass(), workflowDebugger
+//            );
+//            workflowExpertAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_E,
+//                    menuShortcutKeyMask));
         }
 
         chatHistoryAction = new BasicAction("Open Chat...", new AutoIcon(ICON_TIMER),
@@ -759,7 +765,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         return pane != null &&
                 pane.isVisible() &&
                 pane.getSelectedWorkflowItem() != null &&
-                pane.getSelectedWorkflowItem().getType().equals(EasyWorkflow.JSON_TYPE_AGENT);
+                pane.getSelectedWorkflowItem().getType() == WorkflowItem.Type.Agent;
     }
 
     private WorkflowInspectorListPane getVisibleWorkflowInspectorListPane() {
@@ -774,37 +780,32 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private void editUserMessage() {
         WorkflowInspectorListPane pane = getVisibleWorkflowInspectorListPane();
 
-        WorkflowInspectorListPane.WorkflowItem workflowItem = pane != null ? pane.getSelectedWorkflowItem() : null;
+        WorkflowItem workflowItem = pane != null ? pane.getSelectedWorkflowItem() : null;
         if (workflowItem == null)
             return;
 
-        try {
-            String agentClassName = workflowItem.getAgentClassName();
-            Class<?> agentClass = Class.forName(agentClassName);
-            String userMessage = workflowDebugger.getUserMessageTemplate(agentClass.getName());
-            boolean canReset = userMessage != null;
-            if (userMessage == null)
-                userMessage = workflowItem.getUserMessage();
+        String agentClassName = workflowItem.getAgentClassName();
+        String userMessage = workflowDebugger.getUserMessageTemplate(agentClassName);
+        boolean canReset = userMessage != null;
+        if (userMessage == null)
+            userMessage = workflowItem.getUserMessage();
 
-            EditUserMessageDialog.Result result = EditUserMessageDialog.editUserMessage(this,
-                    userMessage,
-                    EasyWorkflow.getAgentMethodParameterNames(EasyWorkflow.getAgentMethod(agentClass)),
-                    canReset);
-            switch (result.modalResult()) {
-                case AppDialog.ACTION_COMMAND_OK:
-                    if (!Objects.equals(userMessage, result.userMessage())) {
-                        workflowDebugger.setUserMessageTemplate(agentClassName, result.userMessage());
-                        agentsChanged();
-                    }
-                    break;
-                case EditUserMessageDialog.ACTION_COMMAND_RESET:
-                    workflowDebugger.setUserMessageTemplate(agentClassName, null);
+        EditUserMessageDialog.Result result = EditUserMessageDialog.editUserMessage(this,
+                userMessage,
+                getPlaygroundContext().getAgentMetadata().getArguments().stream().map(arg -> arg.name()).toList(),
+                canReset);
+        switch (result.modalResult()) {
+            case AppDialog.ACTION_COMMAND_OK:
+                if (!Objects.equals(userMessage, result.userMessage())) {
+                    workflowDebugger.setUserMessageTemplate(agentClassName, result.userMessage());
                     agentsChanged();
-                    break;
-                default:
-            }
-        } catch (ClassNotFoundException ex) {
-            logger.error("Failed to edit user message", ex);
+                }
+                break;
+            case EditUserMessageDialog.ACTION_COMMAND_RESET:
+                workflowDebugger.setUserMessageTemplate(agentClassName, null);
+                agentsChanged();
+                break;
+            default:
         }
     }
 
@@ -940,7 +941,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             summaryGenerating = true;
             pnlWorkflowSummaryView.setText("Generating summary..."); // Set initial text immediately
             pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR)); // Set cursor immediately
-            CompletableFuture.supplyAsync(() -> workflowDebugger.getAgentWorkflowBuilder().generateAISummary()).
+            CompletableFuture.supplyAsync(() -> getPlaygroundContext().generateAgentSummary()).
                     thenAccept(summary -> {
                         summaryGenerated = true;
                         SwingUtilities.invokeLater(() -> {
