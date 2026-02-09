@@ -10,6 +10,8 @@ import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
 import dev.langchain4j.agentic.internal.AgentExecutor;
 import dev.langchain4j.agentic.planner.AgentInstance;
 import dev.langchain4j.agentic.planner.AgenticSystemTopology;
+import dev.langchain4j.agentic.workflow.ConditionalAgent;
+import dev.langchain4j.agentic.workflow.ConditionalAgentInstance;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
 import dev.langchain4j.service.V;
 import org.jspecify.annotations.NonNull;
@@ -24,7 +26,7 @@ public interface PlaygroundMetadata {
     String PROPERTY_USER_MESSAGE = "userMessage";
 
     enum Category {
-        Agent, NonAiAgent, HumanInTheLoop
+        Agent, NonAiAgent, HumanInTheLoop, ConditionalAgent
     }
 
     record Type(String name) {
@@ -68,7 +70,29 @@ public interface PlaygroundMetadata {
         private final String userMessage;
 
         public Agent(AgentInstance agentInstance, Agent parent) {
+            this(agentInstance, parent, null, null);
+        }
 
+        public Agent(ConditionalAgent conditionalAgent, Agent parent) {
+            this.type = null;
+            this.name = conditionalAgent.condition();
+            this.agentId = UUID.randomUUID().toString();
+            this.description = conditionalAgent.predicate().toString();
+            this.outputType = null;
+            this.outputKey = null;
+            this.arguments = List.of();
+            this.parent = parent;
+            this.topology = AgenticSystemTopology.NON_AI_AGENT;
+
+            this.customProperties = Map.of();
+            this.subagents = computeSubagents(conditionalAgent.agentInstances());
+
+            this.category = Category.ConditionalAgent;
+            this.systemMessage = null;
+            this.userMessage = null;
+        }
+
+        public Agent(AgentInstance agentInstance, Agent parent, String description, List<Agent> subagents) {
             this.type = new Type(agentInstance.type().getName());
             this.name = agentInstance.name();
             this.agentId = agentInstance.agentId();
@@ -78,10 +102,10 @@ public interface PlaygroundMetadata {
             this.arguments = computeArguments(agentInstance);
             this.parent = parent;
             this.topology = agentInstance.topology();
+
             this.customProperties = computeCustomProperties(agentInstance);
-            this.subagents = agentInstance.subagents().stream()
-                    .map(subAgentInstance -> new Agent(subAgentInstance, this))
-                    .toList();
+            this.subagents = subagents != null ? subagents : computeSubagents(agentInstance);
+
             this.category = computeCategory(agentInstance);
             this.systemMessage = EasyWorkflow.getSystemMessageTemplate(agentInstance.type());
             this.userMessage = EasyWorkflow.getUserMessageTemplate(agentInstance.type());
@@ -99,6 +123,22 @@ public interface PlaygroundMetadata {
                                 return new Argument(new Type(parameter.getType().getName()), name, null, parameter.getAnnotation(com.gl.langchain4j.easyworkflow.playground.PlaygroundParam.class));
                             })
                             .toList();
+        }
+
+        private List<Agent> computeSubagents(AgentInstance agentInstance) {
+            if (this.topology == AgenticSystemTopology.ROUTER) {
+                return agentInstance.as(ConditionalAgentInstance.class).conditionalSubagents().stream()
+                        .map(conditionalAgent -> new Agent(conditionalAgent, this))
+                        .toList();
+            } else {
+                return computeSubagents(agentInstance.subagents());
+            }
+        }
+
+        private @NonNull List<Agent> computeSubagents(List<AgentInstance> subagents1) {
+            return subagents1.stream()
+                    .map(subAgentInstance -> new Agent(subAgentInstance, this))
+                    .toList();
         }
 
         public String toJson() throws JsonProcessingException {

@@ -124,7 +124,7 @@ public class SampleSupervisedAgents {
     @SuppressWarnings("unused")
     public interface ExchangeAgent {
         @AgentBuilderConfigurator
-        static AgentBuilder<?> configure(AgentBuilder<?> builder) {
+        static AgentBuilder<?, ?> configure(AgentBuilder<?, ?> builder) {
             builder.tools(new ExchangeTool());
             return builder;
         }

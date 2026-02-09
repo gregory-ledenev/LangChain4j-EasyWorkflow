@@ -689,7 +689,7 @@ public class EasyWorkflow {
          * @param configurator A consumer to configure the {@link AgentBuilder} for this agent.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> agent(Class<?> agentClass, Consumer<AgentBuilder<?>> configurator) {
+        public AgentWorkflowBuilder<T> agent(Class<?> agentClass, Consumer<AgentBuilder<?, ?>> configurator) {
             return agent(agentClass, null, configurator);
         }
 
@@ -701,7 +701,7 @@ public class EasyWorkflow {
          * @param configurator A consumer to configure the {@link AgentBuilder} for this agent.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> agent(Class<?> agentClass, String outputName, Consumer<AgentBuilder<?>> configurator) {
+        public AgentWorkflowBuilder<T> agent(Class<?> agentClass, String outputName, Consumer<AgentBuilder<?, ?>> configurator) {
             addExpression(new AgentExpression(this, agentClass, outputName, configurator));
             return this;
         }
@@ -735,7 +735,7 @@ public class EasyWorkflow {
          * @param configurator A consumer to configure the {@link AgentBuilder} for this agent.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> agent(Object agent, Consumer<AgentBuilder<?>> configurator) {
+        public AgentWorkflowBuilder<T> agent(Object agent, Consumer<AgentBuilder<?, ?>> configurator) {
             return agent(agent, null, configurator);
         }
 
@@ -747,7 +747,7 @@ public class EasyWorkflow {
          * @param configurator A consumer to configure the {@link AgentBuilder} for this agent.
          * @return This builder instance.
          */
-        public AgentWorkflowBuilder<T> agent(Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
+        public AgentWorkflowBuilder<T> agent(Object agent, String outputName, Consumer<AgentBuilder<?, ?>> configurator) {
             addExpression(new NonAIAgentExpression(this, agent, outputName, configurator));
             return this;
         }
@@ -1610,7 +1610,7 @@ public class EasyWorkflow {
         public Object createAgent() {
             Object[] subAgents = getBlocks().get(0).createAgents().toArray();
             return AgenticServices.conditionalBuilder()
-                    .subAgents(condition, subAgents)
+                    .subAgents(condition.toString(), condition, subAgents)
                     .build();
         }
 
@@ -1672,9 +1672,10 @@ public class EasyWorkflow {
 
             for (Expression expression : getBlocks().get(0).getExpressions()) {
                 if (expression instanceof MatchStatement matchStatement) {
-                    builder.subAgents(ctx -> {
+                    Object valueToCompare = matchStatement.getValue();
+                    builder.subAgents("%s == %s".formatted(whenExpression, valueToCompare),
+                            ctx -> {
                                 Object state = function.apply(ctx);
-                                Object valueToCompare = matchStatement.getValue();
                                 return state == valueToCompare ||
                                         (state != null && state.equals(valueToCompare)) ||
                                         (valueToCompare != null && valueToCompare.equals(state));
@@ -1943,11 +1944,11 @@ public class EasyWorkflow {
         private final String id = UUID.randomUUID().toString();
         private final AgentWorkflowBuilder<?> agentWorkflowBuilder;
         private final String outputName;
-        private final Consumer<AgentBuilder<?>> configurator;
+        private final Consumer<AgentBuilder<?, ?>> configurator;
         private Class<?> agentClass;
         private Object agent;
 
-        public AgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
+        public AgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent, String outputName, Consumer<AgentBuilder<?, ?>> configurator) {
             Objects.requireNonNull(agent, "Agent can't be null");
             this.agentWorkflowBuilder = agentWorkflowBuilder;
             this.agent = agent;
@@ -1955,7 +1956,7 @@ public class EasyWorkflow {
             this.configurator = configurator;
         }
 
-        public AgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Class<?> agentClass, String outputName, Consumer<AgentBuilder<?>> configurator) {
+        public AgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Class<?> agentClass, String outputName, Consumer<AgentBuilder<?, ?>> configurator) {
             Objects.requireNonNull(agentClass, "Agent class can't be null");
             this.agentWorkflowBuilder = agentWorkflowBuilder;
             this.agentClass = agentClass;
@@ -1982,7 +1983,7 @@ public class EasyWorkflow {
 
             if (result == null) {
                 String outName = getOutputName();
-                AgentBuilder<?> agentBuilder = createAgentBuilder(id, workflowDebugger)
+                AgentBuilder<?, ?> agentBuilder = createAgentBuilder(id, workflowDebugger)
                         .chatModel(agentWorkflowBuilder.getChatModel());
                 if (outName != null && !outName.isEmpty())
                     agentBuilder.outputKey(outName);
@@ -2117,7 +2118,7 @@ public class EasyWorkflow {
             return "#ffff99";
         }
 
-        private WorkflowContextConfig setupWorkflowDebugger(AgentBuilder<?> agentBuilder, WorkflowDebugger workflowDebugger, String outputName) {
+        private WorkflowContextConfig setupWorkflowDebugger(AgentBuilder<?, ?> agentBuilder, WorkflowDebugger workflowDebugger, String outputName) {
             if (workflowDebugger == null)
                 return null;
 
@@ -2129,14 +2130,14 @@ public class EasyWorkflow {
             return new WorkflowContextConfig(input, output);
         }
 
-        private void setupLogging(AgentBuilder<?> agentBuilder, boolean logInput, boolean logOutput, String outName) {
+        private void setupLogging(AgentBuilder<?, ?> agentBuilder, boolean logInput, boolean logOutput, String outName) {
             if (logInput)
                 agentBuilder.inputGuardrails(new LoggingGuardrails.Input(agentClass));
             if (logOutput)
                 agentBuilder.outputGuardrails(new LoggingGuardrails.Output(agentClass, outName));
         }
 
-        private void invokeAnnotatedConfigurator(AgentBuilder<?> agentBuilder) {
+        private void invokeAnnotatedConfigurator(AgentBuilder<?, ?> agentBuilder) {
             for (Method method : agentClass.getDeclaredMethods()) {
                 if (method.isAnnotationPresent(AgentBuilderConfigurator.class)
                         && Modifier.isStatic(method.getModifiers())
@@ -2153,8 +2154,8 @@ public class EasyWorkflow {
         }
 
         @SuppressWarnings({"rawtypes", "unchecked"})
-        protected AgentBuilder<?> createAgentBuilder(String agentId, WorkflowDebugger aWorkflowDebugger) {
-            return new AgentBuilder(agentClass, validateAgentClass(agentClass)) {
+        protected AgentBuilder<?, ?> createAgentBuilder(String agentId, WorkflowDebugger aWorkflowDebugger) {
+            return new AgentBuilder(agentClass) {
                 private InputGuardrail[] inputGuardrailsLocal;
                 private OutputGuardrail[] outputGuardrailsLocal;
                 private Class[] inputGuardrailClassesLocal;
@@ -2190,7 +2191,7 @@ public class EasyWorkflow {
                 }
 
                 @Override
-                public AgentBuilder<?> inputGuardrails(InputGuardrail... inputGuardrails) {
+                public AgentBuilder<?, ?> inputGuardrails(InputGuardrail... inputGuardrails) {
                     inputGuardrailsLocal = inputGuardrailsLocal == null ?
                             inputGuardrails : mergeInputGuardrails(inputGuardrailsLocal, inputGuardrails);
 
@@ -2202,7 +2203,7 @@ public class EasyWorkflow {
                 }
 
                 @Override
-                public AgentBuilder<?> outputGuardrails(OutputGuardrail... outputGuardrails) {
+                public AgentBuilder<?, ?> outputGuardrails(OutputGuardrail... outputGuardrails) {
                     outputGuardrailsLocal = outputGuardrailsLocal == null ?
                             outputGuardrails : mergeOutputGuardrails(outputGuardrailsLocal, outputGuardrails);
 
@@ -2214,7 +2215,7 @@ public class EasyWorkflow {
                 }
 
                 @Override
-                public AgentBuilder<?> inputGuardrailClasses(Class... inputGuardrailClasses) {
+                public AgentBuilder<?, ?> inputGuardrailClasses(Class... inputGuardrailClasses) {
                     inputGuardrailClassesLocal = inputGuardrailClassesLocal == null ?
                             inputGuardrailClasses : mergeInputGuardrailClasses(inputGuardrailClassesLocal, inputGuardrailClasses);
 
@@ -2226,7 +2227,7 @@ public class EasyWorkflow {
                 }
 
                 @Override
-                public AgentBuilder<?> outputGuardrailClasses(Class... outputGuardrailClasses) {
+                public AgentBuilder<?, ?> outputGuardrailClasses(Class... outputGuardrailClasses) {
                     outputGuardrailClassesLocal = outputGuardrailClassesLocal == null ?
                             outputGuardrailClasses : mergeOutputGuardrailClasses(outputGuardrailClassesLocal, outputGuardrailClasses);
                     return super.outputGuardrailClasses(outputGuardrailClassesLocal);
@@ -2309,7 +2310,7 @@ public class EasyWorkflow {
     }
 
     static class NonAIAgentExpression extends AgentExpression {
-        public NonAIAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent, String outputName, Consumer<AgentBuilder<?>> configurator) {
+        public NonAIAgentExpression(AgentWorkflowBuilder<?> agentWorkflowBuilder, Object agent, String outputName, Consumer<AgentBuilder<?, ?>> configurator) {
             super(agentWorkflowBuilder, agent, outputName, configurator);
         }
 

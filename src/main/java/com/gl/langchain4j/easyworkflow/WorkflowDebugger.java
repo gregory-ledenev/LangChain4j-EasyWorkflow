@@ -1872,14 +1872,6 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
         }
 
         /**
-         * Returns the class of the agent.
-         *
-         * @return The agent's class.
-         */
-        public Class<?> getAgentClass() {
-            return agentClass;
-        }
-
         /**
          * Returns the input provided to the agent.
          *

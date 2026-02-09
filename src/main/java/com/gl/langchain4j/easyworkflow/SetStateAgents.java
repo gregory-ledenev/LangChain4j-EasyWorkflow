@@ -107,9 +107,7 @@ public class SetStateAgents {
         @Agent(name = "Set States", description = "Sets the given states in agentic scope")
         @Override
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
-            inputReceived("-");
             agenticScope.writeStates(states);
-            agenticScopeOutputProduced(states);
             return null;
         }
 

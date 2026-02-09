@@ -45,6 +45,7 @@ import java.awt.*;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.KeyEvent;
+import java.awt.geom.GeneralPath;
 import java.awt.geom.Line2D;
 import java.util.*;
 import java.util.List;
@@ -84,7 +85,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     static final String TYPE_START = "start";
     static final String TYPE_END = "end";
     static final String TYPE_TOOL = "toolCall";
-    private static final Logger logger = EasyWorkflow.getLogger(WorkflowInspectorListPane.class);
+    private static final Logger logger = getLogger(WorkflowInspectorListPane.class);
     protected final JList<WorkflowItem> list;
     protected final DefaultListModel<WorkflowItem> model;
     protected final List<WorkflowItem> listModel = new ArrayList<>();
@@ -195,7 +196,11 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     }
 
     private static String getAgentSubtitle(PlaygroundMetadata.Agent agent) {
+        if (agent.getCategory() == PlaygroundMetadata.Category.ConditionalAgent)
+            return null;
+
         @SuppressWarnings("unchecked")
+
         String parametersStr = null;
         if (!agent.getArguments().isEmpty()) {
             parametersStr = agent.getArguments().stream()
@@ -288,7 +293,8 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         String outputName = null;
         WorkflowItem.Type type = Unknown;
         switch (agent.getTopology()) {
-            case SINGLE_AGENT:
+            case AI_AGENT:
+            case NON_AI_AGENT:
                 return new WorkflowItem_Agent(agent, indentation);
             //todo fix me
 //            case "setState":
@@ -830,7 +836,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         public String getAgentClassName() {
-            return agent.getType().name();
+            return agent.getType() != null ? agent.getType().name() : null;
         }
 
         public String getUserMessage() {
@@ -983,7 +989,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         public void clear() {
-            setState(WorkflowItem.State.Unknown);
+            setState(State.Unknown);
             setPassCount(0);
             traceEntriesByIndex.clear();
         }
@@ -1030,7 +1036,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
     public static class WorkflowItem_Start extends WorkflowItem {
         public WorkflowItem_Start(PlaygroundMetadata.Agent agent) {
-            super(Type.Start, agent, ICON_PLAY, "Start", formatParametersForAgent(agent), 0);
+            super(Start, agent, ICON_PLAY, "Start", formatParametersForAgent(agent), 0);
         }
 
         public Map<String, Object> getInspectorData(WorkflowInspectorListPane listPane) {
@@ -1051,7 +1057,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
     public static class WorkflowItem_End extends WorkflowItem {
         public WorkflowItem_End(PlaygroundMetadata.Agent agent) {
-            super(Type.End, agent, ICON_STOP, "Stop",
+            super(End, agent, ICON_STOP, "Stop",
                     "(%s %s)".formatted(getSimpleClassName(agent.getOutputType().name()), agent.getOutputKey()),
                     0);
         }
@@ -1144,21 +1150,32 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     public static class WorkflowItem_Agent extends WorkflowItem {
         public WorkflowItem_Agent(PlaygroundMetadata.Agent agent, int indentation) {
             super(switch (agent.getCategory()) {
-                        case Agent -> Type.Agent;
-                        case NonAiAgent -> Type.NonAIAgent;
-                        case HumanInTheLoop -> Type.HumanInTheLoop;
+                        case Agent -> Agent;
+                        case NonAiAgent -> NonAIAgent;
+                        case HumanInTheLoop -> HumanInTheLoop;
+                        case ConditionalAgent -> Match;
                     },
                     agent,
-                    agent.getCategory() == PlaygroundMetadata.Category.HumanInTheLoop ? ICON_QUESTION : ICON_AGENT,
+                    computeIconKey(agent.getCategory()),
                     getAgentTitle(agent), getAgentSubtitle(agent),
                     indentation);
         }
 
+        private static String computeIconKey(PlaygroundMetadata.Category category) {
+            return switch (category) {
+                case ConditionalAgent -> ICON_TARGET;
+                case HumanInTheLoop -> ICON_QUESTION;
+                default -> ICON_AGENT;
+            };
+        }
+
         @Override
         public Color getBackgroundColor() {
-            return type == Agent ?
-                    UISupport.isDarkAppearance() ? BACKGROUND_AGENT_DARK : BACKGROUND_AGENT :
-                    UISupport.isDarkAppearance() ? BACKGROUND_AGENT_NONAI_DARK : BACKGROUND_AGENT_NONAI;
+            return (switch (type) {
+                case Agent -> UISupport.isDarkAppearance() ? BACKGROUND_AGENT_DARK : BACKGROUND_AGENT;
+                case Match -> UISupport.isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
+                default -> UISupport.isDarkAppearance() ? BACKGROUND_AGENT_NONAI_DARK : BACKGROUND_AGENT_NONAI;
+            });
         }
 
         public Map<String, Object> getInspectorData(WorkflowInspectorListPane listPane) {
@@ -1217,7 +1234,6 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     inputStr += traceEntry.getInput().toString();
                 }
 
-                Class<?> agentClass = traceEntry.getAgentClass();
                 boolean isStateAgent = traceEntry.getAgent() instanceof SetStateAgents.SetStatesAgent;
                 if (isStateAgent)
                     outputStr = "❖ ";
@@ -1370,7 +1386,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             int arc = 5;
             int skew = 10;
 
-            java.awt.geom.GeneralPath parallelogram = new java.awt.geom.GeneralPath();
+            GeneralPath parallelogram = new GeneralPath();
 
             float slopeOffset = (float) skew * arc / Math.max(1, rect.height);
 
@@ -1400,7 +1416,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             int arc = 3; // Radius for rounded corners
 
             // Create a GeneralPath to draw the rounded pentagon
-            java.awt.geom.GeneralPath pentagon = new java.awt.geom.GeneralPath();
+            GeneralPath pentagon = new GeneralPath();
 
             // Start at the top-left corner (flat vertical side)
             pentagon.moveTo(rect.x, rect.y + arc);
@@ -1431,7 +1447,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             int arc = 3; // Radius for rounded corners
 
             // Create a GeneralPath to draw the rounded hexagon
-            java.awt.geom.GeneralPath hexagon = new java.awt.geom.GeneralPath();
+            GeneralPath hexagon = new GeneralPath();
 
             // Start at the top-left rounded corner
             hexagon.moveTo(rect.x + cornerSize + arc, rect.y);
@@ -1537,7 +1553,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     }
                 }
 
-            if (value != null && value.getType() != WorkflowInspectorListPane.WorkflowItem.Type.Tool && (userMessagePresent || errorsPresent))
+            if (value != null && value.getType() != Tool && (userMessagePresent || errorsPresent))
                 title = "<html>%s%s%s</html>".formatted(
                         title,
                         userMessagePresent ? "<span style=\"color: %s;\"> ✽</span>".formatted(isSelected && cellHasFocus ? "white" : "gray") : "",
