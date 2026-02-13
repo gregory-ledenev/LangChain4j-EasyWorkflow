@@ -37,7 +37,7 @@ public class SampleSequentialAndRepeatableAgentsPlayground {
                 .outputName("finalStory")
                 .agent(SampleSequentialAndRepeatableAgents.CreativeWriter.class)
                 .agent(SampleSequentialAndRepeatableAgents.AudienceEditor.class)
-                .repeat( condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score < 0.8"))
+                .repeat( condition(agenticScope -> agenticScope.readState("score", 0.0) < 0.8, "score >= 0.8"))
                     .agent(SampleSequentialAndRepeatableAgents.StyleScorer.class)
                     .agent(SampleSequentialAndRepeatableAgents.StyleEditor.class)
                 .end()

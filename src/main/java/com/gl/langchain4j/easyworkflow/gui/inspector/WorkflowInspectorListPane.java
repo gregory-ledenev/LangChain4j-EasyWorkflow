@@ -26,7 +26,6 @@ package com.gl.langchain4j.easyworkflow.gui.inspector;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
-import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.SetStateAgents;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
@@ -35,6 +34,7 @@ import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import dev.langchain4j.data.message.UserMessage;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -276,9 +276,10 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         if (!(agent.getTopology() == SEQUENCE && agent.getParent() == null)) {
             // only render a sequence node for not a root agent
             WorkflowItem element = createWorkflowItem(agent, indentation);
-            if (element != null)
+            if (element != null) {
                 listModel.add(element);
-            increment = 1;
+                increment = 1;
+            }
         }
 
         for (PlaygroundMetadata.Agent subagent : agent.getSubagents()) {
@@ -295,6 +296,11 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         switch (agent.getTopology()) {
             case AI_AGENT:
             case NON_AI_AGENT:
+            case HUMAN_IN_THE_LOOP:
+                // skip adding MATCH of the only match statement; it's rendered as simplified IF
+                 if (agent.getCategory() == PlaygroundMetadata.Category.ConditionalAgent && agent.getParent().getSubagents().size() == 1)
+                    return null;
+
                 return new WorkflowItem_Agent(agent, indentation);
             //todo fix me
 //            case "setState":
@@ -303,33 +309,29 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 //                        "Set State",
 //                        (String) node.get("details"),
 //                        indentation);
-//            case JSON_TYPE_IF_THEN:
-//                title = "<html>if <span style=\"color:%s\">(%s)</span></html>".formatted(
-//                        "%s",
-//                        getHtmlSafeString(node.getOrDefault(JSON_KEY_CONDITION, "...")));
-//                iconKey = ICON_SIGNPOST;
-//                break;
+
             case LOOP:
-                title = "<html>repeat <span style=\"color:%s\">(max: %s, until: %s)</span></html>)".formatted(
+                PlaygroundMetadata.LoopAgent loopAgent = (PlaygroundMetadata.LoopAgent) agent;
+                title = "<html>REPEAT <span style=\"color:%s\">(max: <b>%s</b>, exitWhen: <b>%s</b>)</span></html>".formatted(
                         "%s",
-                        5,
-                        getHtmlSafeString("..."));
+                        loopAgent.getMaxIterations(),
+                        getHtmlSafeString(loopAgent.getExitCondition()));
                 iconKey = ICON_REFRESH;
                 type = Repeat;
                 break;
             case ROUTER:
-                title = "<html>when <span style=\"color:%s\">(%s)</span></html>".formatted(
-                        "%s",
-                        getHtmlSafeString(".."));
                 iconKey = ICON_SIGNPOST;
-                type = DoWhen;
+                if (agent.getSubagents().size() > 1) {
+                    title = "WHEN";
+                    type = DoWhen;
+                } else {
+                    title = "<html>IF <span style=\"color:%s\">(%s)</span></html>".formatted(
+                            "%s",
+                            getHtmlSafeString(((PlaygroundMetadata.ConditionalAgent) agent.getSubagents().get(0)).getCondition()));
+                    iconKey = ICON_SIGNPOST;
+                    type = IfThen;
+                }
                 break;
-//            case JSON_TYPE_MATCH:
-//                title = "<html>match <span style=\"color:%s\">(%s)</span></html>".formatted(
-//                        "%s",
-//                        node.getOrDefault(JSON_KEY_VALUE, "..."));
-//                iconKey = ICON_TARGET;
-//                break;
             case PARALLEL:
                 title = "Do Parallel";
                 iconKey = ICON_STACK;
@@ -657,6 +659,25 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
     }
 
+    protected void markMissedItemsAsFinished(WorkflowItem currentItem) {
+        int index = model.indexOf(currentItem);
+        for (int i = index - 1; i >= 0; i--) {
+            WorkflowItem item = model.get(i);
+            if (item.getState() == WorkflowItem.State.Unknown && item.getIndentation() <= currentItem.getIndentation()) {
+                switch (item.type) {
+                    case IfThen, Repeat, DoWhen, Group, ParallelGroup:
+                        item.setState(WorkflowItem.State.Finished);
+                        break;
+                    case Match:
+                         if (currentItem.getAgent().getParent() == item.getAgent())
+                            item.setState(WorkflowItem.State.Finished);
+                        break;
+                    default:
+                }
+            }
+        }
+    }
+
     /**
      * Callback method invoked when an agent starts its execution. Updates the UI to mark the agent as running and
      * previous items as finished if they were skipped.
@@ -672,6 +693,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 currentItem.setPassCount(currentItem.getPassCount() + 1);
                 currentItem.setTraceEntry(listModel.indexOf(currentItem),
                         traceEntry);
+                markMissedItemsAsFinished(currentItem);
             });
             findItemByType(Start).ifPresent(item -> item.setState(WorkflowItem.State.Finished));
             list.repaint();
@@ -1157,8 +1179,17 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                     },
                     agent,
                     computeIconKey(agent.getCategory()),
-                    getAgentTitle(agent), getAgentSubtitle(agent),
+                    computeAgentTitle(agent), getAgentSubtitle(agent),
                     indentation);
+        }
+
+        private static @NonNull String computeAgentTitle(PlaygroundMetadata.Agent agent) {
+            return switch (agent.getCategory()) {
+                case ConditionalAgent -> "<html>MATCH <span style=\"color:%s\">(%s)</span></html>".formatted(
+                        "%s",
+                        getHtmlSafeString(((PlaygroundMetadata.ConditionalAgent) agent).getCondition()));
+                default -> getAgentTitle(agent);
+            };
         }
 
         private static String computeIconKey(PlaygroundMetadata.Category category) {
@@ -1221,6 +1252,9 @@ public abstract class WorkflowInspectorListPane extends AppPane {
 
         @Override
         protected String[] getSubTitles(WorkflowInspectorListPane listPane, int index) {
+            if (getAgent().getCategory() == PlaygroundMetadata.Category.ConditionalAgent)
+                return new String[0];
+
             String inputStr = "→ ";
             String outputStr = "← ";
 
@@ -1692,6 +1726,16 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             String uid = traceEntry.getId();
             SwingUtilities.invokeLater(() -> {
                 findItemByUid(uid).ifPresent(currentItem -> {
+                    // hanlde missing parent MATCH item
+                    if (currentItem.getAgent().getParent().getCategory() == PlaygroundMetadata.Category.ConditionalAgent) {
+                        findItemByUid(currentItem.getAgent().getParent().getAgentId()).ifPresent(workflowItem -> {
+                            if (!model.contains(workflowItem)) {
+                                model.addElement(workflowItem);
+                                workflowItem.setState(WorkflowItem.State.Finished);
+                            }
+                        });
+                    }
+                    // handle current item
                     model.addElement(currentItem);
                     currentItem.setState(WorkflowItem.State.Running);
                     currentItem.setPassCount(currentItem.getPassCount() == 0 ? 1 : Integer.MAX_VALUE);

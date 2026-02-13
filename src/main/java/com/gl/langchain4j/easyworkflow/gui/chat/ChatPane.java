@@ -27,8 +27,8 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.gui.ChatPromptsStorage;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
-import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata.*;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
 import dev.langchain4j.service.Result;
@@ -337,18 +337,34 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 resendLast(),
                 a -> a.setEnabled(canResendLast()));
         resendAction.setShortDescription("Resend last message");
+
         BasicAction resetExecutionAction = new BasicAction("Reset Execution", new AutoIcon(ICON_TOOLBAR_PLAY), e ->
                 resetExecutionDetails(),
                 a -> a.setEnabled(canResetExecutionDetails()));
         resetExecutionAction.setShortDescription("Reset execution details");
+
+        BasicAction promptsAction = new BasicAction("Prompts", new AutoIcon(ICON_PROMPTS), e ->
+                showChatPrompts(),
+                a -> a.setEnabled(canShowChatPrompts()));
+        promptsAction.setShortDescription("Show prompts");
+
         toolsActionGroup = new ActionGroup(
                 new ActionGroup(
+                        promptsAction,
                         resendAction,
                         resetExecutionAction
                 )
         );
 
         UISupport.setupToolbar(toolsToolbar, toolsActionGroup);
+    }
+
+    private boolean canShowChatPrompts() {
+        return chatEngine.getChatPromptsStorage() != null;
+    }
+
+    private void showChatPrompts() {
+
     }
 
     private boolean canResetExecutionDetails() {
@@ -458,6 +474,9 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 Object response = chatEngine.send(message);
                 return chatMessageForResponse(response);
             }).whenComplete(this::processChatEngineResponse);
+
+            if (chatEngine.getChatPromptsStorage() != null)
+                CompletableFuture.runAsync(() -> chatEngine.getChatPromptsStorage().addChatPrompt(new ChatPromptsStorage.ChatPrompt(ChatPromptsStorage.PromptType.Map, message)));
         }
     }
 
@@ -770,6 +789,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
      */
     public interface ChatEngine {
         Object send(Map<String, Object> message);
+
+        ChatPromptsStorage getChatPromptsStorage();
 
         String getChatModel();
 

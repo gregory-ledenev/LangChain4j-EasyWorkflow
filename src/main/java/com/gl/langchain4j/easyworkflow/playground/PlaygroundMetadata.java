@@ -10,9 +10,9 @@ import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
 import dev.langchain4j.agentic.internal.AgentExecutor;
 import dev.langchain4j.agentic.planner.AgentInstance;
 import dev.langchain4j.agentic.planner.AgenticSystemTopology;
-import dev.langchain4j.agentic.workflow.ConditionalAgent;
 import dev.langchain4j.agentic.workflow.ConditionalAgentInstance;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
+import dev.langchain4j.agentic.workflow.LoopAgentInstance;
 import dev.langchain4j.service.V;
 import org.jspecify.annotations.NonNull;
 
@@ -51,48 +51,35 @@ public interface PlaygroundMetadata {
         }
     }
 
+    public static Agent createAgent(AgentInstance agentInstance, Agent parent) {
+        return switch (agentInstance.topology()) {
+            case LOOP -> new LoopAgent(agentInstance.as(LoopAgentInstance.class), parent);
+            default -> new Agent(agentInstance, parent);
+        };
+    }
+
     class Agent {
-        private final Type type;
-        private final String name;
-        private final String agentId;
-        private final String description;
-        private final Type outputType;
-        private final String outputKey;
-        private final List<Argument> arguments;
+        protected Type type;
+        protected String name;
+        protected String agentId;
+        protected String description;
+        protected Type outputType;
+        protected String outputKey;
+        protected List<Argument> arguments;
         @JsonBackReference
-        private final Agent parent;
+        protected Agent parent;
         @JsonManagedReference
-        private final List<Agent> subagents;
-        private final AgenticSystemTopology topology;
-        private final Category category;
-        private final Map<String, Object> customProperties;
-        private final String systemMessage;
-        private final String userMessage;
+        protected List<? extends Agent> subagents;
+        protected AgenticSystemTopology topology;
+        protected Category category;
+        protected Map<String, Object> customProperties;
+        protected String systemMessage;
+        protected String userMessage;
+
+        protected Agent() {
+        }
 
         public Agent(AgentInstance agentInstance, Agent parent) {
-            this(agentInstance, parent, null, null);
-        }
-
-        public Agent(ConditionalAgent conditionalAgent, Agent parent) {
-            this.type = null;
-            this.name = conditionalAgent.condition();
-            this.agentId = UUID.randomUUID().toString();
-            this.description = conditionalAgent.predicate().toString();
-            this.outputType = null;
-            this.outputKey = null;
-            this.arguments = List.of();
-            this.parent = parent;
-            this.topology = AgenticSystemTopology.NON_AI_AGENT;
-
-            this.customProperties = Map.of();
-            this.subagents = computeSubagents(conditionalAgent.agentInstances());
-
-            this.category = Category.ConditionalAgent;
-            this.systemMessage = null;
-            this.userMessage = null;
-        }
-
-        public Agent(AgentInstance agentInstance, Agent parent, String description, List<Agent> subagents) {
             this.type = new Type(agentInstance.type().getName());
             this.name = agentInstance.name();
             this.agentId = agentInstance.agentId();
@@ -104,7 +91,7 @@ public interface PlaygroundMetadata {
             this.topology = agentInstance.topology();
 
             this.customProperties = computeCustomProperties(agentInstance);
-            this.subagents = subagents != null ? subagents : computeSubagents(agentInstance);
+            this.subagents = computeSubagents(agentInstance);
 
             this.category = computeCategory(agentInstance);
             this.systemMessage = EasyWorkflow.getSystemMessageTemplate(agentInstance.type());
@@ -125,19 +112,19 @@ public interface PlaygroundMetadata {
                             .toList();
         }
 
-        private List<Agent> computeSubagents(AgentInstance agentInstance) {
+        private List<? extends Agent> computeSubagents(AgentInstance agentInstance) {
             if (this.topology == AgenticSystemTopology.ROUTER) {
                 return agentInstance.as(ConditionalAgentInstance.class).conditionalSubagents().stream()
-                        .map(conditionalAgent -> new Agent(conditionalAgent, this))
+                        .map(conditionalAgent -> new ConditionalAgent(conditionalAgent, this))
                         .toList();
             } else {
                 return computeSubagents(agentInstance.subagents());
             }
         }
 
-        private @NonNull List<Agent> computeSubagents(List<AgentInstance> subagents1) {
+        protected @NonNull List<Agent> computeSubagents(List<AgentInstance> subagents1) {
             return subagents1.stream()
-                    .map(subAgentInstance -> new Agent(subAgentInstance, this))
+                    .map(subAgentInstance -> createAgent(subAgentInstance, this))
                     .toList();
         }
 
@@ -223,7 +210,7 @@ public interface PlaygroundMetadata {
             return parent;
         }
 
-        public List<Agent> getSubagents() {
+        public List<? extends Agent> getSubagents() {
             return subagents;
         }
 
@@ -250,6 +237,54 @@ public interface PlaygroundMetadata {
                     "outputKey=" + getOutputKey() + ", " +
                     "arguments=" + getArguments() + ", " +
                     "subagents=" + getSubagents() + ']';
+        }
+    }
+
+    class ConditionalAgent extends Agent {
+        private final String condition;
+
+        public ConditionalAgent(dev.langchain4j.agentic.workflow.ConditionalAgent conditionalAgent, Agent parent) {
+            this.condition = conditionalAgent.condition();
+            this.name = "MATCH (%s)".formatted(this.condition);
+            this.agentId = UUID.randomUUID().toString();
+            this.description = conditionalAgent.predicate().toString();
+            this.arguments = List.of();
+            this.parent = parent;
+            this.topology = AgenticSystemTopology.NON_AI_AGENT;
+
+            this.customProperties = Map.of();
+            this.subagents = computeSubagents(conditionalAgent.agentInstances());
+
+            this.category = Category.ConditionalAgent;
+        }
+
+        public String getCondition() {
+            return condition;
+        }
+    }
+
+    class LoopAgent extends Agent {
+        private final int maxIterations;
+        private final boolean testExitAtLoopEnd;
+        private final String exitCondition;
+
+        public LoopAgent(LoopAgentInstance loopAgentInstance, Agent parent) {
+            super(loopAgentInstance, parent);
+            this.maxIterations = loopAgentInstance.maxIterations();
+            this.testExitAtLoopEnd = loopAgentInstance.testExitAtLoopEnd();
+            this.exitCondition = loopAgentInstance.exitCondition();
+        }
+
+        public int getMaxIterations() {
+            return maxIterations;
+        }
+
+        public boolean isTestExitAtLoopEnd() {
+            return testExitAtLoopEnd;
+        }
+
+        public String getExitCondition() {
+            return exitCondition;
         }
     }
 

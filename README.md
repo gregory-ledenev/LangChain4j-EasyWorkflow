@@ -290,7 +290,7 @@ NovelCreator novelCreator = EasyWorkflow.builder(NovelCreator.class)
         .build();
 ```
 The `BreakpointActions` class provides several methods that allow creation of common utility breakpoint actions:
-* `log(...)` - action that logs a message using a prompt template.
+* `log(...)` - action that logs a message using a chatPrompt template.
 * `toggleBreakpoints(...)` - action that toggles the enabled state of other specified breakpoints.
 * `toHtmlFile(...)` - action that generates an HTML file representing the workflow execution. 
 

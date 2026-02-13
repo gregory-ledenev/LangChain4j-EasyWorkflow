@@ -47,6 +47,8 @@ import dev.langchain4j.guardrail.InputGuardrailRequest;
 import dev.langchain4j.guardrail.InputGuardrailResult;
 import dev.langchain4j.service.Result;
 import dev.langchain4j.service.V;
+import dev.langchain4j.service.tool.BeforeToolExecution;
+import dev.langchain4j.service.tool.ToolExecution;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -537,6 +539,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
 
     @Override
     public void beforeAgentInvocation(AgentRequest agentRequest) {
+        System.out.println("beforeAgentInvocation: " + agentRequest.agent().agentId());
         AgentInstance agentInstance = agentRequest.agent();
         if (agentInstance.parent() != null)
             inputReceived(agentRequest.agent(), agentInstance.type(), agentRequest.inputs());
@@ -565,6 +568,16 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
     @Override
     public boolean inheritedBySubagents() {
         return true;
+    }
+
+    @Override
+    public void beforeToolExecution(BeforeToolExecution beforeToolExecution) {
+        System.out.println("beforeToolExecution: " + beforeToolExecution);
+    }
+
+    @Override
+    public void afterToolExecution(ToolExecution toolExecution) {
+        System.out.println("afterToolExecution: " + toolExecution);
     }
 
     /**
@@ -1409,7 +1422,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
 
         @Agent
         public Object invoke(@V("agenticScope") AgenticScope agenticScope) {
-            inputReceived(WorkflowDebugger.deepClone(agenticScope.state()));
+//            inputReceived(WorkflowDebugger.deepClone(agenticScope.state()));
 
             Object output = null;
 
@@ -1417,7 +1430,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
             if (lineBreakpoint.getCondition() == null || lineBreakpoint.getCondition().test(agenticScopeState))
                 output = lineBreakpoint.executeAction(agenticScopeState);
 
-            outputProduced(output);
+//            outputProduced(output);
             return null;
         }
 

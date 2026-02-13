@@ -37,7 +37,7 @@ public class LocalPlaygroundContext implements PlaygroundContext {
                     .toList();
         if (agent instanceof AgentInstance agentInstance) {
             this.agentMethod = Objects.requireNonNull(EasyWorkflow.getAgentMethod(agentInstance.type()));
-            this.agentMetadata = new PlaygroundMetadata.Agent(agentInstance, null);
+            this.agentMetadata = PlaygroundMetadata.createAgent(agentInstance, null);
         }
     }
 
@@ -72,7 +72,7 @@ public class LocalPlaygroundContext implements PlaygroundContext {
             this.chatModel = playgroundChatModel;
             builder.chatModel(playgroundChatModel.chatModel());
             agent = builder.build();
-            this.agentMetadata = new PlaygroundMetadata.Agent((AgentInstance) agent, null);
+            this.agentMetadata = PlaygroundMetadata.createAgent((AgentInstance) agent, null);
         });
     }
 

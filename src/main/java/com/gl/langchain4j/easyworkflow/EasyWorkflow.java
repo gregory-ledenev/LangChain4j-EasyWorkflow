@@ -1547,7 +1547,7 @@ public class EasyWorkflow {
                     .loopBuilder()
                     .subAgents(subAgents)
                     .maxIterations(maxIterations)
-                    .exitCondition(condition)
+                    .exitCondition(conditionExpression, condition)
                     .build();
         }
 
@@ -1610,7 +1610,7 @@ public class EasyWorkflow {
         public Object createAgent() {
             Object[] subAgents = getBlocks().get(0).createAgents().toArray();
             return AgenticServices.conditionalBuilder()
-                    .subAgents(condition.toString(), condition, subAgents)
+                    .subAgents(conditionExpression, condition, subAgents)
                     .build();
         }
 
@@ -1986,7 +1986,7 @@ public class EasyWorkflow {
                 AgentBuilder<?, ?> agentBuilder = createAgentBuilder(id, workflowDebugger)
                         .chatModel(agentWorkflowBuilder.getChatModel());
                 if (outName != null && !outName.isEmpty())
-                    agentBuilder.outputKey(outName);
+                    agentBuilder.outputKey(outputName);
                 ChatMemory chatMemory = agentWorkflowBuilder.getChatMemory();
                 if (chatMemory != null)
                     agentBuilder.chatMemoryProvider(memoryId -> chatMemory);
@@ -2155,7 +2155,7 @@ public class EasyWorkflow {
 
         @SuppressWarnings({"rawtypes", "unchecked"})
         protected AgentBuilder<?, ?> createAgentBuilder(String agentId, WorkflowDebugger aWorkflowDebugger) {
-            return new AgentBuilder(agentClass) {
+            AgentBuilder agentBuilder = new AgentBuilder(agentClass) {
                 private InputGuardrail[] inputGuardrailsLocal;
                 private OutputGuardrail[] outputGuardrailsLocal;
                 private Class[] inputGuardrailClassesLocal;
@@ -2163,10 +2163,10 @@ public class EasyWorkflow {
                 private final String id = agentId;
                 private final WorkflowDebugger workflowDebugger = aWorkflowDebugger;
 
-                @Override
-                public AgentBuilder tools(Object... objectsWithTools) {
-                    return super.toolProvider(getToolProvider(objectsWithTools));
-                }
+//                @Override
+//                public AgentBuilder tools(Object... objectsWithTools) {
+//                    return super.toolProvider(getToolProvider(objectsWithTools));
+//                }
 
                 private ToolProvider getToolProvider(Object[] tools) {
                     return new ToolProvider() {
@@ -2299,6 +2299,19 @@ public class EasyWorkflow {
                     return leadingGuardrailClasses.toArray(new Class[0]);
                 }
             };
+            //todo: temporaty woraround; should be removed when hierarhcial lister supports tool calls
+            agentBuilder.listener(new AgentListener() {
+                @Override
+                public void beforeToolExecution(BeforeToolExecution beforeToolExecution) {
+                    aWorkflowDebugger.beforeToolExecution(beforeToolExecution);
+                }
+
+                @Override
+                public void afterToolExecution(ToolExecution toolExecution) {
+                    aWorkflowDebugger.afterToolExecution(toolExecution);
+                }
+            });
+            return agentBuilder;
         }
 
         public String getOutputName() {

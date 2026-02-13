@@ -32,7 +32,6 @@ import com.gl.langchain4j.easyworkflow.playground.LocalPlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
-import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import org.slf4j.Logger;
 
@@ -169,7 +168,13 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     public Object send(Map<String, Object> message) {
                         if (chatFrame.getWorkflowDebugger() != null)
                             chatFrame.getWorkflowDebugger().setSessionUID((String) message.get(KEY_SESSION_UID));
+
                         return playgroundContext.sendMessage(message);
+                    }
+
+                    @Override
+                    public ChatPromptsStorage getChatPromptsStorage() {
+                        return chatFrame.getChatPromptsStorage();
                     }
 
                     @Override
@@ -240,6 +245,11 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     @Override
                     public Object send(Map<String, Object> message) {
                         return playgroundContext.sendMessage(message);
+                    }
+
+                    @Override
+                    public ChatPromptsStorage getChatPromptsStorage() {
+                        return null;
                     }
 
                     @Override

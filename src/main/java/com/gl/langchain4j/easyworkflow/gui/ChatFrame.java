@@ -82,12 +82,9 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
     private static final Logger logger = EasyWorkflow.getLogger(ChatFrame.class);
     private final ChatPane pnlChat = new ChatPane();
-
-    public PlaygroundContext getPlaygroundContext() {
-        return playgroundContext;
-    }
-
     private final PlaygroundContext playgroundContext;
+    private final UserMessagesStorage userMessagesStorage;
+    private ChatPromptsStorage chatPromptsStorage;
     private JScrollPane pnlWorkflowSummary;
     private JEditorPane pnlWorkflowSummaryView;
     private JPanel pnlWorkflowContents;
@@ -116,16 +113,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                     Breakpoint.Type.SESSION_STARTED,
                     (b, m) -> agentInvocationTraceEntryArchive = null)
             .build();
-
     private Object agent;
     private ComponentAction chatModelsAction;
     private BasicAction editUserMessageAction;
-
-    private final UserMessagesStorage userMessagesStorage;
     private BasicAction chatHistoryAction;
     private BasicAction newChatAction;
     private ActionGroup chatToolbarActionGroup;
-
     private ChatHistoryStorage chatHistoryStorage;
     private String chatHistoryItemUid;
 
@@ -169,6 +162,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             userMessagesStorage = new UserMessagesStorage(getPlaygroundContext(),
                     agentClassName -> pnlWorkflowInspectorStructure.getUserMessage(agentClassName));
             chatHistoryStorage = new ChatHistoryStorage(getPlaygroundContext().getAgentMetadata().getType().name());
+            chatPromptsStorage = new ChatPromptsStorage(getPlaygroundContext().getAgentMetadata().getType().name());
 
             setMinimumSize(new Dimension(1280, 720));
 
@@ -252,7 +246,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         });
     }
 
-
     /**
      * Displays a new chat frame with the given parameters.
      *
@@ -291,6 +284,29 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 e.printStackTrace();
             }
         }
+    }
+
+    private static void openFile(File file) {
+        CompletableFuture.supplyAsync(() -> {
+                    try {
+                        Desktop.getDesktop().open(file);
+                    } catch (IOException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                    return null;
+                }
+        ).exceptionally(ex -> {
+            logger.error("Failed to open file", ex);
+            return null;
+        });
+    }
+
+    public ChatPromptsStorage getChatPromptsStorage() {
+        return chatPromptsStorage;
+    }
+
+    public PlaygroundContext getPlaygroundContext() {
+        return playgroundContext;
     }
 
     /**
@@ -339,7 +355,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         String exclusiveGroup = "appearance";
 
         ActionGroup modelsActionGroup = null;
-        if (playgroundContext.getChatModels() != null && ! playgroundContext.getChatModels().isEmpty()) {
+        if (playgroundContext.getChatModels() != null && !playgroundContext.getChatModels().isEmpty()) {
             String models = "models";
             modelsActionGroup = new ActionGroup("Models", new AutoIcon(ICON_SPACER), true);
             for (PlaygroundMetadata.Model chatModel : playgroundContext.getChatModels()) {
@@ -520,6 +536,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 userMessagesStorage.load();
         }).thenRun(() -> SwingUtilities.invokeLater(() -> repaint()));
         CompletableFuture.runAsync(() -> chatHistoryStorage.load());
+        CompletableFuture.runAsync(() -> chatPromptsStorage.load());
     }
 
     private boolean canShareUserMessages() {
@@ -617,21 +634,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
     }
 
-    private static void openFile(File file) {
-        CompletableFuture.supplyAsync(() -> {
-                    try {
-                        Desktop.getDesktop().open(file);
-                    } catch (IOException ex) {
-                        throw new RuntimeException(ex);
-                    }
-                    return null;
-                }
-        ).exceptionally(ex -> {
-            logger.error("Failed to open file", ex);
-            return null;
-        });
-    }
-
     private void setupActions() {
         final String showGroup = "show";
         showStructureAction = new StateAction("Structure", new AutoIcon(ICON_WORKFLOW), showGroup,
@@ -702,13 +704,13 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
         newChatAction = new BasicAction("New Chat", new AutoIcon(ICON_PLUS),
                 e -> newChat(),
-                a -> a.setEnabled(! getChatMessages().isEmpty() && ! getChatPane().isWaitingForResponse()));
+                a -> a.setEnabled(!getChatMessages().isEmpty() && !getChatPane().isWaitingForResponse()));
         newChatAction.setShortDescription("New chat");
         newChatAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_N, menuShortcutKeyMask));
     }
 
     private boolean canShowChats() {
-        return ! getChatPane().isWaitingForResponse() && chatHistoryStorage.getChatHistoryItemsSize() > 0;
+        return !getChatPane().isWaitingForResponse() && chatHistoryStorage.getChatHistoryItemsSize() > 0;
     }
 
     @Override
@@ -741,7 +743,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
     private void storeNewChat() {
         List<ChatMessage> chatMessages = getChatMessages();
-        if (! chatMessages.isEmpty()) {
+        if (!chatMessages.isEmpty()) {
             chatHistoryStorage.addChatMessages(chatHistoryItemUid, new ArrayList<>(chatMessages));
         }
     }
@@ -848,7 +850,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                                 }
                             }
                         }
-            });
+                    });
             chatModelsAction.putValue(Action.MNEMONIC_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_M, Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         }
     }
@@ -868,7 +870,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
     private void setupChatToolbar(JToolBar toolbar) {
         ActionGroup chatModelsActionGroup = chatModelsAction != null ? new ActionGroup(chatModelsAction) : null;
-        chatToolbarActionGroup =new ActionGroup(
+        chatToolbarActionGroup = new ActionGroup(
                 chatModelsActionGroup,
                 new ActionGroup(
                         chatHistoryAction,
@@ -1024,9 +1026,9 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         int result = JOptionPane.showOptionDialog(
                 parent,
                 """
-                <html><b>Playground</b> by "%s"<br><br>
-                <b>v%s</b>#%s <i>%s</i><br><br>
-                Copyright © 2025 Gregory Ledenev <i>(gregory.ledenev37@gmail.com)</i></html>""".formatted(
+                        <html><b>Playground</b> by "%s"<br><br>
+                        <b>v%s</b>#%s <i>%s</i><br><br>
+                        Copyright © 2025 Gregory Ledenev <i>(gregory.ledenev37@gmail.com)</i></html>""".formatted(
                         version.getProjectName(),
                         version.getProjectVersion(), version.getBuildNumber(), version.getBuildDate().toString()),
                 "About",
@@ -1049,7 +1051,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
     private boolean isRestoreFrameBounds() {
         return System.getProperty("com.gl.langchain4j.easyworkflow.gui.ChatFrame.restoreFrameBounds",
-                String.valueOf(true)).
+                        String.valueOf(true)).
                 equals(String.valueOf(true));
     }
 
