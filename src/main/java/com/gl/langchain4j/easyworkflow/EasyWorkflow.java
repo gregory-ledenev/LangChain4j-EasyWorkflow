@@ -1986,7 +1986,7 @@ public class EasyWorkflow {
                 AgentBuilder<?, ?> agentBuilder = createAgentBuilder(id, workflowDebugger)
                         .chatModel(agentWorkflowBuilder.getChatModel());
                 if (outName != null && !outName.isEmpty())
-                    agentBuilder.outputKey(outputName);
+                    agentBuilder.outputKey(outName);
                 ChatMemory chatMemory = agentWorkflowBuilder.getChatMemory();
                 if (chatMemory != null)
                     agentBuilder.chatMemoryProvider(memoryId -> chatMemory);

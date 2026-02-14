@@ -367,4 +367,9 @@ public class GUIPlayground extends Playground.BasicPlayground {
                     });
         }
     }
+
+    public static Object getHtmlSafeString(Object string) {
+        return string != null ? string.toString().replace("<", "&lt;").replace(">", "&gt;") : "";
+    }
+
 }

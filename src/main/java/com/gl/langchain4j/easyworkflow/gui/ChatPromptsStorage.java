@@ -40,6 +40,10 @@ import java.util.*;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.USER_HOME_FOLDER;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 
+/**
+ * Manages the persistence and retrieval of chat prompts for a specific agent.
+ * Supports pinning, ordering, and limiting the number of stored prompts.
+ */
 public class ChatPromptsStorage {
     private static final Logger logger = EasyWorkflow.getLogger(ChatPromptsStorage.class);
     private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
@@ -47,37 +51,143 @@ public class ChatPromptsStorage {
 
     private List<ChatPrompt> chatPrompts = new ArrayList<>();
 
+    /**
+     * Creates a new storage instance for the specified agent class.
+     * @param agentClassName the name of the agent class associated with these prompts
+     */
     public ChatPromptsStorage(String agentClassName) {
         this.agentClassName = Objects.requireNonNull(agentClassName);
     }
 
-    public List<ChatPrompt> getChatPrompts() {
+    /**
+     * Returns an unmodifiable list of the currently stored chat prompts.
+     * @return a list of {@link ChatPrompt} objects
+     */
+    public synchronized List<ChatPrompt> getChatPrompts() {
         return Collections.unmodifiableList(chatPrompts);
     }
 
-    static final int MAX_COUNT = 20;
+    /**
+     * Maximum number of prompts to store.
+     */
+    static final int MAX_COUNT = 50;
 
+    /**
+     * Adds a chat prompt to the storage. If the prompt already exists, it is moved to the top
+     * (preserving its pinned status). Maintains the {@link #MAX_COUNT} limit.
+     * @param chatPrompt the prompt to add
+     */
     public synchronized void addChatPrompt(ChatPrompt chatPrompt) {
-        chatPrompts.remove(chatPrompt);
-        chatPrompts.add(0, chatPrompt);
-        if (chatPrompts.size() > MAX_COUNT)
-            chatPrompts.remove(chatPrompts.size()-1);
+        int index = chatPrompts.indexOf(chatPrompt);
+        if (index >= 0) {
+            if (chatPrompts.get(index).isPinned())
+                chatPrompt.setPinned(true);
+            chatPrompts.remove(index);
+        }
 
+        // Insert logic for new or moved items
+        int insertIndex = 0;
+        while (! chatPrompt.isPinned() && insertIndex < chatPrompts.size() && chatPrompts.get(insertIndex).isPinned())
+            insertIndex++;
+
+        chatPrompts.add(insertIndex, chatPrompt);
+
+        if (chatPrompts.size() > MAX_COUNT) {
+            chatPrompts.remove(chatPrompts.size() - 1);
+        }
         store();
     }
 
+    /**
+     * Removes a specific chat prompt from the storage.
+     * @param chatPrompt the prompt to remove
+     */
     public synchronized void removeChatPrompt(ChatPrompt chatPrompt) {
         chatPrompts.remove(chatPrompt);
 
         store();
     }
 
+    /**
+     * Sets the pinned status of a chat prompt and reorders the list accordingly.
+     * @param chatPrompt the prompt to update
+     * @param pinned true to pin the prompt, false to unpin
+     */
+    public synchronized void setPinned(ChatPrompt chatPrompt, boolean pinned) {
+        if (chatPrompt.isPinned() == pinned)
+            return;
+
+        int index = chatPrompts.indexOf(chatPrompt);
+        if (index < 0)
+            return;
+
+        chatPrompts.remove(index);
+        chatPrompt.setPinned(pinned);
+
+        // insert it to the top if pinned; or right after the last pinned prompt
+        int insertIndex = 0;
+        while (! chatPrompt.isPinned() && insertIndex < chatPrompts.size() && chatPrompts.get(insertIndex).isPinned())
+            insertIndex++;
+        chatPrompts.add(insertIndex, chatPrompt);
+
+        store();
+    }
+    
+    /**
+     * Checks if a prompt can be moved up in the list.
+     * @param chatPrompt the prompt to check
+     * @return true if the prompt can be moved up
+     */
+    public synchronized boolean canMoveUp(ChatPrompt chatPrompt) {
+        int index = chatPrompts.indexOf(chatPrompt);
+        if (index <= 0) return false;
+        ChatPrompt prev = chatPrompts.get(index - 1);
+        return chatPrompt.isPinned() || !prev.isPinned();
+    }
+
+    /**
+     * Moves a prompt up in the list if possible.
+     * @param chatPrompt the prompt to move
+     */
+    public synchronized void moveUp(ChatPrompt chatPrompt) {
+        if (!canMoveUp(chatPrompt)) return;
+        int index = chatPrompts.indexOf(chatPrompt);
+        Collections.swap(chatPrompts, index, index - 1);
+        store();
+    }
+
+    /**
+     * Checks if a prompt can be moved down in the list.
+     * @param chatPrompt the prompt to check
+     * @return true if the prompt can be moved down
+     */
+    public synchronized boolean canMoveDown(ChatPrompt chatPrompt) {
+        int index = chatPrompts.indexOf(chatPrompt);
+        if (index < 0 || index >= chatPrompts.size() - 1) return false;
+        ChatPrompt next = chatPrompts.get(index + 1);
+        return !chatPrompt.isPinned() || next.isPinned();
+    }
+
+    /**
+     * Moves a prompt down in the list if possible.
+     * @param chatPrompt the prompt to move
+     */
+    public synchronized void moveDown(ChatPrompt chatPrompt) {
+        if (!canMoveDown(chatPrompt)) return;
+        int index = chatPrompts.indexOf(chatPrompt);
+        Collections.swap(chatPrompts, index, index + 1);
+        store();
+    }
+
+    /**
+     * Persists the current list of prompts to a JSON file.
+     */
     public synchronized void store() {
         File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
         if (!userHome.exists()) {
             boolean result = userHome.mkdirs();
             if (!result)
-                logger.error("Failed to create folders for path: " + userHome);
+                logger.error("Failed to create folders for path: {}", userHome);
         }
 
         File file = new File(userHome, getFileName());
@@ -98,6 +208,9 @@ public class ChatPromptsStorage {
         }
     }
 
+    /**
+     * Loads the list of prompts from the JSON file.
+     */
     public synchronized void load() {
         File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
         if (!userHome.exists())
@@ -121,39 +234,70 @@ public class ChatPromptsStorage {
         return "prompts-" + agentClassName + ".json";
     }
 
-    public enum PromptType {
+    /**
+     * Defines the type of the prompt content.
+     */
+    public enum ChatPromptType {
         String, Map
     }
-    public static class ChatPrompt {
-        private final PromptType promptType;
-        private final long timestamp;
-        private final Object chatPrompt;
 
-        public ChatPrompt(PromptType promptType, Object prompt) {
-            this(promptType, System.currentTimeMillis(), prompt);
+    /**
+     * Represents a single chat prompt entry with metadata.
+     */
+    public static class ChatPrompt {
+        /**
+         * Maximum length of the string representation in HTML.
+         */
+        public static final int MAX_HTML_STRING_LENGTH = 100;
+        private volatile boolean pinned;
+        private final ChatPromptType type;
+        private final long timestamp;
+        private final Object prompt;
+
+        /**
+         * Creates a new ChatPrompt.
+         * @param type the type of the prompt
+         * @param prompt the prompt content
+         */
+        public ChatPrompt(ChatPromptType type, Object prompt) {
+            this(type, System.currentTimeMillis(), prompt, false);
         }
 
+        /**
+         * Constructor used for JSON deserialization.
+         */
         @JsonCreator
-        public ChatPrompt(@JsonProperty("promptType") PromptType promptType,
+        public ChatPrompt(@JsonProperty("type") ChatPromptType type,
                           @JsonProperty("timestamp") long timestamp,
-                          @JsonProperty("chatPrompt") Object prompt) {
+                          @JsonProperty("prompt") Object prompt,
+                          @JsonProperty("pinned")boolean pinned) {
             Objects.requireNonNull(prompt);
 
-            this.promptType = promptType;
+            this.type = type;
             this.timestamp = timestamp;
-            if (promptType == PromptType.Map) {
+            this.pinned = pinned;
+
+            if (type == ChatPromptType.Map) {
                 Map<?, ?> promptCopy = new HashMap<>((Map<?, ?>) prompt);
                 promptCopy.remove(KEY_SESSION_UID);
-                this.chatPrompt = promptCopy;
+                this.prompt = promptCopy;
             } else {
-                this.chatPrompt = prompt;
+                this.prompt = prompt;
             }
         }
 
-        public PromptType getPromptType() {
-            return promptType;
+        /**
+         * Returns the type of the prompt.
+         * @return the {@link ChatPromptType}
+         */
+        public ChatPromptType getType() {
+            return type;
         }
 
+        /**
+         * Returns the creation timestamp of the prompt.
+         * @return timestamp in milliseconds
+         */
         public long getTimestamp() {
             return timestamp;
         }
@@ -162,16 +306,70 @@ public class ChatPromptsStorage {
         public boolean equals(Object o) {
             if (o == null || getClass() != o.getClass()) return false;
             ChatPrompt chatPrompt1 = (ChatPrompt) o;
-            return Objects.equals(chatPrompt, chatPrompt1.chatPrompt);
+            return Objects.equals(prompt, chatPrompt1.prompt);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hashCode(chatPrompt);
+            return Objects.hashCode(prompt);
         }
 
-        public Object getChatPrompt() {
-            return chatPrompt;
+        /**
+         * Returns the raw prompt object.
+         * @return the prompt content
+         */
+        public Object getPrompt() {
+            return prompt;
+        }
+
+        /**
+         * Checks if the prompt is pinned.
+         * @return true if pinned
+         */
+        public boolean isPinned() {
+            return pinned;
+        }
+
+        void setPinned(boolean pinned) {
+            this.pinned = pinned;
+        }
+
+        /**
+         * Returns an HTML representation of the prompt for display in the UI.
+         * @return HTML formatted string
+         */
+        public String toHtmlString() {
+            String result = "";
+
+            if (type == ChatPromptType.Map) {
+                StringBuilder sb = new StringBuilder();
+                Map<?, ?> map = (Map<?, ?>) prompt;
+                if (map.size() > 1) {
+                    map.forEach((k, v) -> {
+                        if (!sb.isEmpty())
+                            sb.append(", ");
+                        sb.append("<b>")
+                                .append(GUIPlayground.getHtmlSafeString(k))
+                                .append(":</b> ")
+                                .append(GUIPlayground.getHtmlSafeString(v));
+                    });
+                    result = sb.toString();
+                } else {
+                    result = map.values().iterator().next().toString();
+                }
+            } else {
+                result = prompt.toString();
+            }
+
+            if (result.length() > MAX_HTML_STRING_LENGTH)
+                result = result.substring(0, MAX_HTML_STRING_LENGTH) + "...";
+
+            return "<html>%s %s</html>".formatted(pinned ? "◼" : "◻", result);
+        }
+
+        @Override
+        public String toString() {
+            return prompt.toString();
         }
     }
 }

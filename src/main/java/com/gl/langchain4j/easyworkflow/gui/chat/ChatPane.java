@@ -27,6 +27,7 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.langchain4j.easyworkflow.gui.ChatPromptsDialog;
 import com.gl.langchain4j.easyworkflow.gui.ChatPromptsStorage;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
@@ -93,11 +94,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private final JToolBar toolsToolbar;
     private final HeaderPane pnlHeader;
     private ChatEngine chatEngine;
-
-    public boolean isWaitingForResponse() {
-        return waitingForResponse;
-    }
-
     private boolean waitingForResponse;
     private boolean waitState;
     private Timer waitStateTimer;
@@ -106,7 +102,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private ActionGroup toolsActionGroup;
     private ChatMessage lastUserMessage;
     private ExecutionDetailsProvider executionDetailsProvider;
-
     /**
      * Constructs a new ChatPane.
      */
@@ -215,15 +210,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     /**
-     * Returns the header pane of this chat panel.
-     *
-     * @return The {@link HeaderPane} instance used in this chat panel.
-     */
-    public HeaderPane getHeaderPane() {
-        return pnlHeader;
-    }
-
-    /**
      * Retrieves the ChatPane instance that contains the given subComponent.
      *
      * @param subComponent The sub-component to search from.
@@ -247,6 +233,26 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     public static void applyAppearance(Appearance darkAppearance, ChatPane chatPane) {
         UISupport.applyAppearance(darkAppearance);
         SwingUtilities.updateComponentTreeUI(chatPane.getParent());
+    }
+
+    public boolean isWaitingForResponse() {
+        return waitingForResponse;
+    }
+
+    private void setWaitingForResponse(boolean isWaitingForResponse) {
+        if (waitingForResponse != isWaitingForResponse) {
+            waitingForResponse = isWaitingForResponse;
+            updateSendButton();
+        }
+    }
+
+    /**
+     * Returns the header pane of this chat panel.
+     *
+     * @return The {@link HeaderPane} instance used in this chat panel.
+     */
+    public HeaderPane getHeaderPane() {
+        return pnlHeader;
     }
 
     @Override
@@ -344,7 +350,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         resetExecutionAction.setShortDescription("Reset execution details");
 
         BasicAction promptsAction = new BasicAction("Prompts", new AutoIcon(ICON_PROMPTS), e ->
-                showChatPrompts(),
+                showChatPrompts((JButton) e.getSource()),
                 a -> a.setEnabled(canShowChatPrompts()));
         promptsAction.setShortDescription("Show prompts");
 
@@ -363,8 +369,31 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         return chatEngine.getChatPromptsStorage() != null;
     }
 
-    private void showChatPrompts() {
+    static final int MAX_CHAT_PROMPTS_TO_SHOW = 15;
 
+    private void showChatPrompts(JButton source) {
+        editChatPromts();
+//        ChatPromptsStorage storage = chatEngine.getChatPromptsStorage();
+//        if (storage == null) return;
+//
+//        ActionGroup group = new ActionGroup();
+//        List<ChatPromptsStorage.ChatPrompt> prompts = storage.getChatPrompts();
+//        int count = Math.min(prompts.size(), MAX_CHAT_PROMPTS_TO_SHOW);
+//        for (int i = 0; i < count; i++) {
+//            ChatPromptsStorage.ChatPrompt prompt = prompts.get(i);
+//            group.addAction(new BasicAction(prompt.toHtmlString(), null, e -> setUserMessage(prompt)));
+//        }
+//        JPopupMenu popupMenu = new JPopupMenu();
+//        UISupport.setupPopupMenu(popupMenu, group);
+//        popupMenu.pack();
+//        popupMenu.show(source, 0, -popupMenu.getPreferredSize().height);
+    }
+
+    private void editChatPromts() {
+        ChatPromptsStorage storage = chatEngine.getChatPromptsStorage();
+        if (storage == null) return;
+        ChatPromptsDialog dialog = new ChatPromptsDialog((JFrame) SwingUtilities.getAncestorOfClass(JFrame.class, this));
+        dialog.executeModal(storage);
     }
 
     private boolean canResetExecutionDetails() {
@@ -434,6 +463,13 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             setUserMessage(userMessage.toString());
     }
 
+    public void setUserMessage(ChatPromptsStorage.ChatPrompt chatPrompt) {
+        if (chatPrompt.getType() == ChatPromptsStorage.ChatPromptType.Map)
+            setUserMessage((Map<String, Object>) chatPrompt.getPrompt());
+        else
+            setUserMessage(chatPrompt.getPrompt().toString());
+    }
+
     /**
      * Sets the content of the user message editor with a single string value. This method attempts to find the first
      * form element of type {@code String.class} and sets its value to the provided {@code userMessage}.
@@ -476,7 +512,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             }).whenComplete(this::processChatEngineResponse);
 
             if (chatEngine.getChatPromptsStorage() != null)
-                CompletableFuture.runAsync(() -> chatEngine.getChatPromptsStorage().addChatPrompt(new ChatPromptsStorage.ChatPrompt(ChatPromptsStorage.PromptType.Map, message)));
+                CompletableFuture.runAsync(() -> chatEngine.getChatPromptsStorage().addChatPrompt(new ChatPromptsStorage.ChatPrompt(ChatPromptsStorage.ChatPromptType.Map, message)));
         }
     }
 
@@ -567,7 +603,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             html = convertMarkdownToHtml(text);
         }
 
-        return new ChatMessage(new Date(), ! isFromUser ? chatEngine.getChatModel() : null, uid, message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent, false);
+        return new ChatMessage(new Date(), !isFromUser ? chatEngine.getChatModel() : null, uid, message, text, html, isFromUser ? ChatMessage.Type.User : ChatMessage.Type.Agent, false);
     }
 
     private void processChatEngineResponse(ChatMessage result, Throwable ex) {
@@ -583,13 +619,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             chatMessagesHostPane.removeTypingIndicator();
             updateSendButton();
         });
-    }
-
-    private void setWaitingForResponse(boolean isWaitingForResponse) {
-        if (waitingForResponse != isWaitingForResponse) {
-            waitingForResponse = isWaitingForResponse;
-            updateSendButton();
-        }
     }
 
     private void addChatMessage(ChatMessage message) {
@@ -643,7 +672,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 ));
             } catch (ClassNotFoundException e) {
                 logger.error("Failed to load form editor class for parameter: %s".formatted(parameterName));
-            };
+            }
+            ;
         }
         edtMessage.setFormElements(formElements);
     }
@@ -732,6 +762,35 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     /**
+     * Checks if execution details can be shown.
+     *
+     * @return {@code true} if an {@link ExecutionDetailsProvider} is set, {@code false} otherwise.
+     */
+    public boolean canShowExecutionDetails(ChatMessage chatMessage) {
+        return chatMessage != null && !chatMessage.history() && executionDetailsProvider != null && !waitingForResponse;
+    }
+
+    /**
+     * Displays the execution details for a given chat message using the configured {@link ExecutionDetailsProvider}.
+     * If no provider is set, this method does nothing.
+     *
+     * @param chatMessage The chat message for which to display execution details.
+     */
+    public void showExecutionDetails(ChatMessage chatMessage) {
+        if (executionDetailsProvider != null) {
+            getChatMessagesPane().selectChatMessage(chatMessage);
+            waitingForResponse = true;
+            updateSendButton();
+            executionDetailsProvider.showExecutionDetails(chatMessage, b -> {
+                waitingForResponse = false;
+                updateSendButton();
+            });
+        } else {
+            logger.warn("No execution details provider set");
+        }
+    }
+
+    /**
      * Interface for providing execution details for a given chat message.
      */
     public interface ExecutionDetailsProvider {
@@ -752,35 +811,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
          */
         default boolean canShowExecutionDetails(ChatMessage chatMessage) {
             return true;
-        }
-    }
-
-    /**
-     * Checks if execution details can be shown.
-     *
-     * @return {@code true} if an {@link ExecutionDetailsProvider} is set, {@code false} otherwise.
-     */
-    public boolean canShowExecutionDetails(ChatMessage chatMessage) {
-        return chatMessage != null && ! chatMessage.history() && executionDetailsProvider != null && ! waitingForResponse;
-    }
-
-    /**
-     * Displays the execution details for a given chat message using the configured {@link ExecutionDetailsProvider}.
-     * If no provider is set, this method does nothing.
-     *
-     * @param chatMessage The chat message for which to display execution details.
-     */
-    public void showExecutionDetails(ChatMessage chatMessage) {
-        if (executionDetailsProvider != null) {
-            getChatMessagesPane().selectChatMessage(chatMessage);
-            waitingForResponse = true;
-            updateSendButton();
-            executionDetailsProvider.showExecutionDetails(chatMessage, b -> {
-                waitingForResponse = false;
-                updateSendButton();
-            });
-        } else {
-            logger.warn("No execution details provider set");
         }
     }
 
