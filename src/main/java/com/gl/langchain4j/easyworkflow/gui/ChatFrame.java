@@ -29,7 +29,6 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.langchain4j.easyworkflow.*;
-import com.gl.langchain4j.easyworkflow.gui.chat.ChatHistoryDialog;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;

@@ -7,15 +7,16 @@ import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
+
+import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 
 public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPromptsStorage.ChatPrompt> {
     private ChatPromptsStorage chatPromptsStorage;
     private JList<ChatPromptsStorage.ChatPrompt> list;
     private DefaultListModel<ChatPromptsStorage.ChatPrompt> listModel;
-    private Actions.BasicAction actionPin;
-    private Actions.BasicAction actionMoveUp;
-    private Actions.BasicAction actionMoveDown;
-    private Actions.BasicAction actionDelete;
+    private Actions.ActionGroup toolbarActionGroup;
+    private ChatPromptsStorage originalChatPromptsStorage;
 
     /**
      * Constructs a new AppDialog.
@@ -25,14 +26,14 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
     public ChatPromptsDialog(JFrame owner) {
         super(owner, "Chat Prompts");
 
-        setContent(createContent());
+        init();
     }
 
-    private JComponent createContent() {
+    private void init() {
+        JPanel content = new JPanel(new BorderLayout());
+        content.setPreferredSize(new Dimension(450, 300));
         setMinimumSize(new Dimension(400, 300));
         setMaximumSize(new Dimension(600, 400));
-        setPreferredSize(new Dimension(600, 400));
-        JPanel panel = new JPanel(new BorderLayout());
 
         listModel = new DefaultListModel<>();
         list = new JList<>(listModel);
@@ -49,63 +50,97 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
         });
 
         list.addListSelectionListener(e -> updateActions());
-        UISupport.bindDoubleClickAction(list, new Actions.BasicAction("Select", null, e -> close(ACTION_COMMAND_OK)));
 
-        JScrollPane scrollPane = UISupport.createScrollPane(list, true);
-        panel.add(scrollPane, BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(list);
+        content.add(scrollPane, BorderLayout.CENTER);
 
         JToolBar toolbar = new JToolBar();
         toolbar.setFloatable(false);
 
-        actionPin = new Actions.BasicAction("Pin", null, this::pinUnpin);
-        actionMoveUp = new Actions.BasicAction("Move Up", null, this::moveUp);
-        actionMoveDown = new Actions.BasicAction("Move Down", null, this::moveDown);
-        actionDelete = new Actions.BasicAction("Delete", null, this::delete);
+        Actions.BasicAction actionPin = new Actions.StateAction("Pin", new UISupport.AutoIcon(ICON_PIN), null,
+                this::togglePinned,
+                a -> {
+                    ChatPromptsStorage.ChatPrompt selectedValue = list.getSelectedValue();
+                    a.setSelected(selectedValue != null && selectedValue.isPinned());
+                    a.setEnabled(selectedValue != null);
+                });
+        actionPin.setCopyName(true);
+        actionPin.setShortDescription("Toggle pinned prompt");
+        String disableReason = "Disabled because no prompt is selected";
+        actionPin.setDisableReason(disableReason);
+        KeyStroke keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0);
+        actionPin.setAccelerator(keyStroke);
+        UISupport.bindAction(list, "pin", keyStroke, actionPin);
 
-        toolbar.add(UISupport.createToolbarButton(actionPin));
-        toolbar.add(UISupport.createToolbarButton(actionMoveUp));
-        toolbar.add(UISupport.createToolbarButton(actionMoveDown));
-        toolbar.add(Box.createHorizontalGlue());
-        toolbar.add(UISupport.createToolbarButton(actionDelete));
+        Actions.BasicAction actionMoveUp = new Actions.BasicAction("Move Up", new UISupport.AutoIcon(ICON_UP),
+                this::moveUp,
+                a -> a.setEnabled(list.getSelectedValue() != null && chatPromptsStorage.canMoveUp(list.getSelectedValue())));
+        actionMoveUp.setCopyName(true);
+        actionMoveUp.setShortDescription("Move selected prompt up");
+        actionMoveUp.setDisableReason(disableReason + " or prompt can't be moved up");
+        keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_UP, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask());
+        actionMoveUp.setAccelerator(keyStroke);
+        UISupport.bindAction(list, "moveUp", keyStroke, actionMoveUp);
 
-        panel.add(toolbar, BorderLayout.NORTH);
+        Actions.BasicAction actionMoveDown = new Actions.BasicAction("Move Down", new UISupport.AutoIcon(ICON_DOWN),
+                this::moveDown,
+                a -> a.setEnabled(list.getSelectedValue() != null && chatPromptsStorage.canMoveDown(list.getSelectedValue())));
+        actionMoveDown.setCopyName(true);
+        actionMoveDown.setShortDescription("Move selected prompt down");
+        actionMoveDown.setDisableReason(disableReason + " or prompt can't be moved down");
+        keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask());
+        actionMoveDown.setAccelerator(keyStroke);
+        UISupport.bindAction(list, "moveDown", keyStroke, actionMoveDown);
 
-        return panel;
+        Actions.BasicAction actionDelete = new Actions.BasicAction("Delete", new UISupport.AutoIcon(ICON_DELETE),
+                this::delete,
+                a -> a.setEnabled(list.getSelectedValue() != null));
+        actionDelete.setCopyName(true);
+        actionDelete.setShortDescription("Delete selected prompt");
+        actionDelete.setDisableReason(disableReason);
+        keyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0);
+        actionDelete.setAccelerator(keyStroke);
+        UISupport.bindAction(list, "delete", keyStroke, actionDelete);
+
+        toolbarActionGroup = new Actions.ActionGroup(
+                new Actions.ActionGroup(actionPin),
+                new Actions.ActionGroup(actionMoveUp, actionMoveDown),
+                new Actions.ActionGroup(actionDelete)
+        );
+        UISupport.setupToolbar(toolbar, toolbarActionGroup);
+        content.add(toolbar, BorderLayout.NORTH);
+
+        setContent(content);
     }
 
     private void refreshList() {
         ChatPromptsStorage.ChatPrompt selected = list.getSelectedValue();
+        int selectedIndex = list.getSelectedIndex();
         listModel.clear();
         for (ChatPromptsStorage.ChatPrompt prompt : chatPromptsStorage.getChatPrompts()) {
             listModel.addElement(prompt);
         }
-        if (selected != null && listModel.contains(selected)) {
-            list.setSelectedValue(selected, true);
-        } else if (!listModel.isEmpty() && list.getSelectedIndex() == -1) {
-            list.setSelectedIndex(0);
+
+        if (!listModel.isEmpty()) {
+            if (selected != null && listModel.contains(selected)) {
+                list.setSelectedValue(selected, true);
+            } else if (selectedIndex == -1){
+                list.setSelectedIndex(0);
+            } else {
+                if (selectedIndex >= listModel.size())
+                    selectedIndex = listModel.size() - 1;
+                list.setSelectedIndex(selectedIndex);
+            }
         }
+
         updateActions();
     }
 
     private void updateActions() {
-        ChatPromptsStorage.ChatPrompt selected = list.getSelectedValue();
-        boolean hasSelection = selected != null;
-
-        actionPin.setEnabled(hasSelection);
-        actionDelete.setEnabled(hasSelection);
-
-        if (hasSelection) {
-            actionMoveUp.setEnabled(chatPromptsStorage.canMoveUp(selected));
-            actionMoveDown.setEnabled(chatPromptsStorage.canMoveDown(selected));
-            actionPin.putValue(Action.NAME, selected.isPinned() ? "Unpin" : "Pin");
-        } else {
-            actionMoveUp.setEnabled(false);
-            actionMoveDown.setEnabled(false);
-            actionPin.putValue(Action.NAME, "Pin");
-        }
+        toolbarActionGroup.update();
     }
 
-    private void pinUnpin(ActionEvent e) {
+    private void togglePinned(ActionEvent e) {
         ChatPromptsStorage.ChatPrompt selected = list.getSelectedValue();
         if (selected != null) {
             chatPromptsStorage.setPinned(selected, !selected.isPinned());
@@ -143,12 +178,21 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
 
     @Override
     protected void toForm(ChatPromptsStorage chatPromptsStorage) {
-        this.chatPromptsStorage = chatPromptsStorage;
+        this.originalChatPromptsStorage = chatPromptsStorage;
+
+        this.chatPromptsStorage = new ChatPromptsStorage(chatPromptsStorage.getAgentClassName());
+        this.chatPromptsStorage.setAutocommit(false);
+        this.chatPromptsStorage.replaceChatPrompts(chatPromptsStorage.getChatPrompts()
+                .stream()
+                .map(ChatPromptsStorage.ChatPrompt::clone)
+                .toList());
+
         refreshList();
     }
 
     @Override
     protected ChatPromptsStorage.ChatPrompt fromForm() {
+        originalChatPromptsStorage.replaceChatPrompts(chatPromptsStorage.getChatPrompts());
         return list.getSelectedValue();
     }
 }

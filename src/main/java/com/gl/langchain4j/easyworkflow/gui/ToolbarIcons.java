@@ -28,6 +28,11 @@ public class ToolbarIcons {
     public static final String ICON_COMPOSE = "compose";
     public static final String ICON_PLUS = "plus";
     public static final String ICON_PROMPTS = "prompts";
+    public static final String ICON_CLOSE = "close";
+    public static final String ICON_DOWN = "down";
+    public static final String ICON_UP = "up";
+    public static final String ICON_PIN = "pin";
+    public static final String ICON_DELETE= "delete";
 
     public static void loadIcons()  {
         loadIcon(ICON_COPY, "icons/toolbar/copy");
@@ -55,9 +60,18 @@ public class ToolbarIcons {
         loadIcon(ICON_COMPOSE, "icons/toolbar/compose");
         loadIcon(ICON_PLUS, "icons/toolbar/plus");
         loadIcon(ICON_PROMPTS, "icons/toolbar/prompts");
+        loadIcon(ICON_CLOSE, "icons/toolbar/close");
+        loadIcon(ICON_DOWN, "icons/toolbar/down");
+        loadIcon(ICON_UP, "icons/toolbar/up");
+        loadIcon(ICON_PIN, "icons/toolbar/pin");
+        loadIcon(ICON_DELETE, "icons/toolbar/delete", true);
     }
 
     public static void loadIcon(String iconKey, String fileName) {
-        UISupport.loadIcon(ToolbarIcons.class, iconKey, fileName);
+        loadIcon(iconKey, fileName, false);
+    }
+
+    public static void loadIcon(String iconKey, String fileName, boolean preserveOriginal) {
+        UISupport.loadIcon(ToolbarIcons.class, iconKey, fileName, preserveOriginal);
     }
 }

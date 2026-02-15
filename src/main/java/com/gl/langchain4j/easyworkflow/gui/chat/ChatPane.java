@@ -372,21 +372,23 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     static final int MAX_CHAT_PROMPTS_TO_SHOW = 15;
 
     private void showChatPrompts(JButton source) {
-        editChatPromts();
-//        ChatPromptsStorage storage = chatEngine.getChatPromptsStorage();
-//        if (storage == null) return;
-//
-//        ActionGroup group = new ActionGroup();
-//        List<ChatPromptsStorage.ChatPrompt> prompts = storage.getChatPrompts();
-//        int count = Math.min(prompts.size(), MAX_CHAT_PROMPTS_TO_SHOW);
-//        for (int i = 0; i < count; i++) {
-//            ChatPromptsStorage.ChatPrompt prompt = prompts.get(i);
-//            group.addAction(new BasicAction(prompt.toHtmlString(), null, e -> setUserMessage(prompt)));
-//        }
-//        JPopupMenu popupMenu = new JPopupMenu();
-//        UISupport.setupPopupMenu(popupMenu, group);
-//        popupMenu.pack();
-//        popupMenu.show(source, 0, -popupMenu.getPreferredSize().height);
+        ChatPromptsStorage storage = chatEngine.getChatPromptsStorage();
+        if (storage == null) return;
+
+        ActionGroup group = new ActionGroup();
+        List<ChatPromptsStorage.ChatPrompt> prompts = storage.getChatPrompts();
+        int count = Math.min(prompts.size(), MAX_CHAT_PROMPTS_TO_SHOW);
+        for (int i = 0; i < count; i++) {
+            ChatPromptsStorage.ChatPrompt prompt = prompts.get(i);
+            group.addAction(new BasicAction(prompt.toHtmlString(), null, e -> setUserMessage(prompt)));
+        }
+        JPopupMenu popupMenu = new JPopupMenu();
+        UISupport.setupPopupMenu(popupMenu, new ActionGroup(
+                group,
+                new ActionGroup(new BasicAction("Edit Chat Prompts...", null, actionEvent -> editChatPromts()))
+        ));
+        popupMenu.pack();
+        popupMenu.show(source, 0, -popupMenu.getPreferredSize().height);
     }
 
     private void editChatPromts() {

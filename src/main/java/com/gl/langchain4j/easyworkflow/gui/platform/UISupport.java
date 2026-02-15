@@ -502,7 +502,12 @@ public class UISupport {
      * @return A new {@link JButton} instance configured for toolbar use.
      */
     public static JButton createToolbarButton(Action action) {
-        JButton result = new JButton(action);
+        JButton result = new JButton(action) {
+            @Override
+            public JToolTip createToolTip() {
+                return ActionTooltip.FACTORY.createToolTip(this);
+            }
+        };
         if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
             result.setText(null);
 
@@ -530,7 +535,12 @@ public class UISupport {
                 buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
         }
 
-        JToggleButton result = new JToggleButton(action);
+        JToggleButton result = new JToggleButton(action) {
+            @Override
+            public JToolTip createToolTip() {
+                return ActionTooltip.FACTORY.createToolTip(this);
+            }
+        };
         if (buttonGroup != null)
             buttonGroup.add(result);
         if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {

@@ -1,7 +1,7 @@
-package com.gl.langchain4j.easyworkflow.gui.chat;
+package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
+import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
 import com.gl.langchain4j.easyworkflow.gui.platform.AppDialog;
 import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;

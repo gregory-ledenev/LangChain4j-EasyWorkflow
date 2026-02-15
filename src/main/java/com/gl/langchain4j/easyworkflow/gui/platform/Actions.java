@@ -69,6 +69,7 @@ public class Actions {
             super(name, icon);
             this.actionListener = actionListener;
             this.actionUpdater = actionUpdater;
+            setShortDescription(name);
         }
 
         private boolean isMenuBarSource(ActionEvent e) {
@@ -136,7 +137,26 @@ public class Actions {
             putValue(Action.SHORT_DESCRIPTION, text);
         }
 
-        static final String COPY_NAME = "copyName";
+        /**
+         * Returns the long description for the action.
+         *
+         * @return The long description text.
+         */
+        public String getLongDescription() {
+            return (String) getValue(Action.LONG_DESCRIPTION);
+        }
+
+        /**
+         * Sets the long description for the action.
+         *
+         * @param text The long description text.
+         */
+        public void setLongDescription(String text) {
+            putValue(Action.LONG_DESCRIPTION, text);
+        }
+
+        public static final String COPY_NAME = "copyName";
+        public static final String DISABLE_REASON = "disableReason";
 
         public boolean isCopyName() {
             return Boolean.TRUE.equals(getValue(COPY_NAME));
@@ -181,6 +201,24 @@ public class Actions {
          */
         public void setAccelerator(KeyStroke accelerator) {
             putValue(Action.ACCELERATOR_KEY, accelerator);
+        }
+
+        /**
+         * Returns the reason why this action is disabled.
+         *
+         * @return The disable reason text, or {@code null} if not set.
+         */
+        public String getDisableReason() {
+            return (String) getValue(DISABLE_REASON);
+        }
+
+        /**
+         * Sets the reason why this action is disabled.
+         *
+         * @param disableReason The text explaining why the action is disabled.
+         */
+        public void setDisableReason(String disableReason) {
+            putValue(DISABLE_REASON, disableReason);
         }
     }
 

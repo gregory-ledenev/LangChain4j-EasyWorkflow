@@ -39,20 +39,27 @@ import java.util.*;
 
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.USER_HOME_FOLDER;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
+import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.deepClone;
 
 /**
  * Manages the persistence and retrieval of chat prompts for a specific agent.
  * Supports pinning, ordering, and limiting the number of stored prompts.
  */
 public class ChatPromptsStorage {
+    /**
+     * Maximum number of prompts to store.
+     */
+    static final int MAX_COUNT = 50;
     private static final Logger logger = EasyWorkflow.getLogger(ChatPromptsStorage.class);
     private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
     private final String agentClassName;
-
     private List<ChatPrompt> chatPrompts = new ArrayList<>();
+    private boolean autocommit = true;
+    private boolean dirty = false;
 
     /**
      * Creates a new storage instance for the specified agent class.
+     *
      * @param agentClassName the name of the agent class associated with these prompts
      */
     public ChatPromptsStorage(String agentClassName) {
@@ -60,7 +67,45 @@ public class ChatPromptsStorage {
     }
 
     /**
+     * Checks if the storage has unsaved changes.
+     *
+     * @return true if there are unsaved changes, false otherwise
+     */
+    public boolean isDirty() {
+        return dirty;
+    }
+
+    /**
+     * Sets the dirty flag for the storage.
+     *
+     * @param dirty true to mark as dirty, false to clear
+     */
+    public void setDirty(boolean dirty) {
+        this.dirty = dirty;
+    }
+
+    /**
+     * Checks if changes to the storage are automatically persisted to disk.
+     *
+     * @return true if autocommit is enabled, false otherwise
+     */
+    public boolean isAutocommit() {
+        return autocommit;
+    }
+
+    /**
+     * Sets whether changes to the storage should be automatically persisted to disk.
+     * If disabled, {@link #store()} must be called manually.
+     *
+     * @param autocommit true to enable autocommit, false to disable
+     */
+    public void setAutocommit(boolean autocommit) {
+        this.autocommit = autocommit;
+    }
+
+    /**
      * Returns an unmodifiable list of the currently stored chat prompts.
+     *
      * @return a list of {@link ChatPrompt} objects
      */
     public synchronized List<ChatPrompt> getChatPrompts() {
@@ -68,13 +113,9 @@ public class ChatPromptsStorage {
     }
 
     /**
-     * Maximum number of prompts to store.
-     */
-    static final int MAX_COUNT = 50;
-
-    /**
      * Adds a chat prompt to the storage. If the prompt already exists, it is moved to the top
      * (preserving its pinned status). Maintains the {@link #MAX_COUNT} limit.
+     *
      * @param chatPrompt the prompt to add
      */
     public synchronized void addChatPrompt(ChatPrompt chatPrompt) {
@@ -87,7 +128,7 @@ public class ChatPromptsStorage {
 
         // Insert logic for new or moved items
         int insertIndex = 0;
-        while (! chatPrompt.isPinned() && insertIndex < chatPrompts.size() && chatPrompts.get(insertIndex).isPinned())
+        while (!chatPrompt.isPinned() && insertIndex < chatPrompts.size() && chatPrompts.get(insertIndex).isPinned())
             insertIndex++;
 
         chatPrompts.add(insertIndex, chatPrompt);
@@ -95,23 +136,55 @@ public class ChatPromptsStorage {
         if (chatPrompts.size() > MAX_COUNT) {
             chatPrompts.remove(chatPrompts.size() - 1);
         }
-        store();
+
+        setDirty(true);
+        maybeStore();
+    }
+
+    private void maybeStore() {
+        if (isAutocommit())
+            store();
     }
 
     /**
      * Removes a specific chat prompt from the storage.
+     *
      * @param chatPrompt the prompt to remove
      */
     public synchronized void removeChatPrompt(ChatPrompt chatPrompt) {
         chatPrompts.remove(chatPrompt);
 
-        store();
+        setDirty(true);
+        maybeStore();
+    }
+
+    /**
+     * Returns the name of the agent class associated with this storage.
+     *
+     * @return the agent class name
+     */
+    public String getAgentClassName() {
+        return agentClassName;
+    }
+
+    /**
+     * Replaces the entire list of stored chat prompts with a new list.
+     *
+     * @param chatPrompts the new list of {@link ChatPrompt} objects
+     */
+    public synchronized void replaceChatPrompts(List<ChatPrompt> chatPrompts) {
+        this.chatPrompts.clear();
+        this.chatPrompts.addAll(chatPrompts);
+
+        setDirty(true);
+        maybeStore();
     }
 
     /**
      * Sets the pinned status of a chat prompt and reorders the list accordingly.
+     *
      * @param chatPrompt the prompt to update
-     * @param pinned true to pin the prompt, false to unpin
+     * @param pinned     true to pin the prompt, false to unpin
      */
     public synchronized void setPinned(ChatPrompt chatPrompt, boolean pinned) {
         if (chatPrompt.isPinned() == pinned)
@@ -126,15 +199,17 @@ public class ChatPromptsStorage {
 
         // insert it to the top if pinned; or right after the last pinned prompt
         int insertIndex = 0;
-        while (! chatPrompt.isPinned() && insertIndex < chatPrompts.size() && chatPrompts.get(insertIndex).isPinned())
+        while (!chatPrompt.isPinned() && insertIndex < chatPrompts.size() && chatPrompts.get(insertIndex).isPinned())
             insertIndex++;
         chatPrompts.add(insertIndex, chatPrompt);
 
-        store();
+        setDirty(true);
+        maybeStore();
     }
-    
+
     /**
      * Checks if a prompt can be moved up in the list.
+     *
      * @param chatPrompt the prompt to check
      * @return true if the prompt can be moved up
      */
@@ -147,17 +222,21 @@ public class ChatPromptsStorage {
 
     /**
      * Moves a prompt up in the list if possible.
+     *
      * @param chatPrompt the prompt to move
      */
     public synchronized void moveUp(ChatPrompt chatPrompt) {
         if (!canMoveUp(chatPrompt)) return;
         int index = chatPrompts.indexOf(chatPrompt);
         Collections.swap(chatPrompts, index, index - 1);
-        store();
+
+        setDirty(true);
+        maybeStore();
     }
 
     /**
      * Checks if a prompt can be moved down in the list.
+     *
      * @param chatPrompt the prompt to check
      * @return true if the prompt can be moved down
      */
@@ -170,13 +249,16 @@ public class ChatPromptsStorage {
 
     /**
      * Moves a prompt down in the list if possible.
+     *
      * @param chatPrompt the prompt to move
      */
     public synchronized void moveDown(ChatPrompt chatPrompt) {
         if (!canMoveDown(chatPrompt)) return;
         int index = chatPrompts.indexOf(chatPrompt);
         Collections.swap(chatPrompts, index, index + 1);
-        store();
+
+        setDirty(true);
+        maybeStore();
     }
 
     /**
@@ -202,6 +284,7 @@ public class ChatPromptsStorage {
             try {
                 Files.writeString(Paths.get(file.getAbsolutePath()),
                         OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(chatPrompts));
+                setDirty(false);
             } catch (Exception ex) {
                 logger.error("Failed to store prompts for agent {}", agentClassName, ex);
             }
@@ -225,6 +308,7 @@ public class ChatPromptsStorage {
             String json = Files.readString(Paths.get(agentFile.getAbsolutePath()));
             chatPrompts = Collections.synchronizedList(OBJECT_MAPPER.readValue(json,
                     OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, ChatPrompt.class)));
+            setDirty(false);
         } catch (IOException ex) {
             logger.error("Failed to load prompts for agent {}", agentClassName, ex);
         }
@@ -244,19 +328,20 @@ public class ChatPromptsStorage {
     /**
      * Represents a single chat prompt entry with metadata.
      */
-    public static class ChatPrompt {
+    public static class ChatPrompt implements Cloneable {
         /**
          * Maximum length of the string representation in HTML.
          */
         public static final int MAX_HTML_STRING_LENGTH = 100;
-        private volatile boolean pinned;
         private final ChatPromptType type;
         private final long timestamp;
         private final Object prompt;
+        private volatile boolean pinned;
 
         /**
          * Creates a new ChatPrompt.
-         * @param type the type of the prompt
+         *
+         * @param type   the type of the prompt
          * @param prompt the prompt content
          */
         public ChatPrompt(ChatPromptType type, Object prompt) {
@@ -270,7 +355,7 @@ public class ChatPromptsStorage {
         public ChatPrompt(@JsonProperty("type") ChatPromptType type,
                           @JsonProperty("timestamp") long timestamp,
                           @JsonProperty("prompt") Object prompt,
-                          @JsonProperty("pinned")boolean pinned) {
+                          @JsonProperty("pinned") boolean pinned) {
             Objects.requireNonNull(prompt);
 
             this.type = type;
@@ -288,6 +373,7 @@ public class ChatPromptsStorage {
 
         /**
          * Returns the type of the prompt.
+         *
          * @return the {@link ChatPromptType}
          */
         public ChatPromptType getType() {
@@ -296,6 +382,7 @@ public class ChatPromptsStorage {
 
         /**
          * Returns the creation timestamp of the prompt.
+         *
          * @return timestamp in milliseconds
          */
         public long getTimestamp() {
@@ -316,6 +403,7 @@ public class ChatPromptsStorage {
 
         /**
          * Returns the raw prompt object.
+         *
          * @return the prompt content
          */
         public Object getPrompt() {
@@ -324,6 +412,7 @@ public class ChatPromptsStorage {
 
         /**
          * Checks if the prompt is pinned.
+         *
          * @return true if pinned
          */
         public boolean isPinned() {
@@ -336,6 +425,7 @@ public class ChatPromptsStorage {
 
         /**
          * Returns an HTML representation of the prompt for display in the UI.
+         *
          * @return HTML formatted string
          */
         public String toHtmlString() {
@@ -370,6 +460,11 @@ public class ChatPromptsStorage {
         @Override
         public String toString() {
             return prompt.toString();
+        }
+
+        @Override
+        public ChatPrompt clone() {
+            return new ChatPrompt(this.type, this.timestamp, deepClone(prompt), this.pinned);
         }
     }
 }
