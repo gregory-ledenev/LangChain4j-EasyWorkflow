@@ -22,30 +22,45 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.gui.platform;
+package com.gl.langchain4j.easyworkflow.gui.platform.form;
+
+import javax.swing.*;
 
 /**
- * Defines the types of editors available for form elements.
+ * Interface for form element editors.
  */
-public enum FormEditorType {
+public interface FormEditor<T> {
+
     /**
-     * Default editor type.
+     * Sets the value of the editor.
+     *
+     * @param value The value to set.
      */
-    Default,
+    void setValue(T value);
+
     /**
-     * Text field
+     * Returns the current value of the editor.
+     *
+     * @return The current value.
      */
-    Text,
+    T getValue();
+
     /**
-     * Text area
+     * Returns the component used for the editor.
+     *
+     * @return The editor's component.
      */
-    Note,
+    JComponent getComponent();
+
     /**
-     * Dropdown
+     * Checks the validity of the editor's current value.
+     *
+     * @return An error message if the value is invalid, or {@code null} if valid.
      */
-    Dropdown,
+    String checkValidity(boolean strictCheck);
+
     /**
-     * Editable dropdown
+     * Requests focus for the editor's component.
      */
-    EditableDropdown
+    void requestFocus();
 }

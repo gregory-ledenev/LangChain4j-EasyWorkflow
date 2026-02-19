@@ -6,7 +6,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.gui.platform.FormEditorType;
+import com.gl.langchain4j.easyworkflow.gui.platform.form.FormEditorType;
 import dev.langchain4j.agentic.internal.AgentExecutor;
 import dev.langchain4j.agentic.planner.AgentInstance;
 import dev.langchain4j.agentic.planner.AgenticSystemTopology;

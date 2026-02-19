@@ -45,7 +45,7 @@ import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.deepClone;
  * Manages the persistence and retrieval of chat prompts for a specific agent.
  * Supports pinning, ordering, and limiting the number of stored prompts.
  */
-public class ChatPromptsStorage {
+public class ChatPromptsStorage implements Cloneable {
     /**
      * Maximum number of prompts to store.
      */
@@ -316,6 +316,22 @@ public class ChatPromptsStorage {
 
     private String getFileName() {
         return "prompts-" + agentClassName + ".json";
+    }
+
+    /**
+     * Creates a deep copy of this storage instance.
+     *
+     * @return a cloned {@link ChatPromptsStorage} instance with autocommit disabled
+     */
+    @Override
+    public ChatPromptsStorage clone() {
+        ChatPromptsStorage result = new ChatPromptsStorage(agentClassName);
+        result.setAutocommit(false);
+        result.replaceChatPrompts(getChatPrompts()
+                .stream()
+                .map(ChatPromptsStorage.ChatPrompt::clone)
+                .toList());
+        return result;
     }
 
     /**

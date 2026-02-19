@@ -77,12 +77,11 @@ public class ActionTooltipRenderer extends JPanel {
         lblDetails.setAlignmentX(Component.LEFT_ALIGNMENT);
         this.add(lblDetails);
 
-        lblNoteDivider.setBorder(BorderFactory.createEmptyBorder(4, 0, 0, 0));
+        lblNoteDivider.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
         lblNoteDivider.setAlignmentX(Component.LEFT_ALIGNMENT);
         lblNoteDivider.setMaximumSize(new Dimension(Integer.MAX_VALUE, 2));
         this.add(lblNoteDivider);
 
-        lblNote.setBorder(BorderFactory.createEmptyBorder(2, 0, 0, 0));
         lblNote.setAlignmentX(Component.LEFT_ALIGNMENT);
         this.add(lblNote);
 

@@ -169,23 +169,15 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
     private void delete(ActionEvent e) {
         ChatPromptsStorage.ChatPrompt selected = list.getSelectedValue();
         if (selected != null) {
-            if (question("Delete Prompt", "Are you sure you want to delete this prompt?") == JOptionPane.YES_OPTION) {
-                chatPromptsStorage.removeChatPrompt(selected);
-                refreshList();
-            }
+            chatPromptsStorage.removeChatPrompt(selected);
+            refreshList();
         }
     }
 
     @Override
     protected void toForm(ChatPromptsStorage chatPromptsStorage) {
         this.originalChatPromptsStorage = chatPromptsStorage;
-
-        this.chatPromptsStorage = new ChatPromptsStorage(chatPromptsStorage.getAgentClassName());
-        this.chatPromptsStorage.setAutocommit(false);
-        this.chatPromptsStorage.replaceChatPrompts(chatPromptsStorage.getChatPrompts()
-                .stream()
-                .map(ChatPromptsStorage.ChatPrompt::clone)
-                .toList());
+        this.chatPromptsStorage = chatPromptsStorage.clone();
 
         refreshList();
     }

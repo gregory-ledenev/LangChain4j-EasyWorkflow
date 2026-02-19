@@ -22,45 +22,29 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.playground;
-
-import com.gl.langchain4j.easyworkflow.gui.platform.form.FormEditorType;
+package com.gl.langchain4j.easyworkflow.gui.platform.form;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
-/**
- * Annotation to mark a parameter in a method as a playground parameter.
- * This is used for generating UI forms for testing and demonstration purposes.
- */
 @Retention(RUNTIME)
-@Target({PARAMETER})
-public @interface PlaygroundParam {
-    /**
-     * The label for the parameter in the UI form.
-     * If not specified, the parameter name will be used.
-     * @return The label for the parameter.
-     */
-    String label() default "";
+@Target({METHOD})
+public @interface ListFormProperty {
+    Class<?> elementClass() default String.class;
 
-    /**
-     * The description for the parameter in the UI form that can be rendered as a tooltip.
-     * @return The description for the parameter.
-     */
-    String description() default "";
+    String elementDisplayName();
 
-    /**
-     * The type of editor to use for this parameter in the UI form.
-     * @return The editor type.
-     */
-    FormEditorType editorType() default FormEditorType.Default;
+    ListCapability[] capabilities() default {
+            ListCapability.ADD,
+            ListCapability.EDIT,
+            ListCapability.DELETE,
+            ListCapability.REORDER
+    };
 
-    /**
-     * An array of choices for editor types that support predefined options (e.g., dropdowns).
-     * @return An array of editor choices.
-     */
-    String[] editorChoices() default {};
+    enum ListCapability {
+        ADD, EDIT, DELETE, REORDER
+    }
 }

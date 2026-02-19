@@ -29,6 +29,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.ChatPromptsDialog;
 import com.gl.langchain4j.easyworkflow.gui.ChatPromptsStorage;
+import com.gl.langchain4j.easyworkflow.gui.platform.form.FormEditorType;
+import com.gl.langchain4j.easyworkflow.gui.platform.form.FormElement;
+import com.gl.langchain4j.easyworkflow.gui.platform.form.FormPanel;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import com.gl.langchain4j.easyworkflow.gui.platform.*;
@@ -356,9 +359,11 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
         toolsActionGroup = new ActionGroup(
                 new ActionGroup(
-                        promptsAction,
-                        resendAction,
                         resetExecutionAction
+                ),
+                new ActionGroup(
+                        promptsAction,
+                        resendAction
                 )
         );
 
@@ -385,7 +390,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         JPopupMenu popupMenu = new JPopupMenu();
         UISupport.setupPopupMenu(popupMenu, new ActionGroup(
                 group,
-                new ActionGroup(new BasicAction("Edit Chat Prompts...", null, actionEvent -> editChatPromts()))
+                new ActionGroup(new BasicAction("Edit Prompts...", null, actionEvent -> editChatPromts()))
         ));
         popupMenu.pack();
         popupMenu.show(source, 0, -popupMenu.getPreferredSize().height);
@@ -435,7 +440,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     }
 
     private void updateSendButton() {
-        btnSend.setEnabled(!waitingForResponse && edtMessage.hasRequiredContent());
+        btnSend.setEnabled(!waitingForResponse && edtMessage.isFormValid());
     }
 
     /**
@@ -447,8 +452,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     public Map<String, Object> getUserMessage() {
         Map<String, Object> result = null;
 
-        if (edtMessage.checkValidity() == null)
-            result = edtMessage.getFormValues();
+        if (edtMessage.checkFormValidity() == null)
+            result = edtMessage.fromForm();
 
         return result;
     }
@@ -460,7 +465,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
      *                    correspond to the names of the form elements.
      */
     public void setUserMessage(Map<String, Object> userMessage) {
-        boolean result = edtMessage.setFormValues(userMessage);
+        boolean result = edtMessage.toForm(userMessage);
         if (!result && userMessage != null && !userMessage.isEmpty())
             setUserMessage(userMessage.toString());
     }
@@ -479,9 +484,9 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
      * @param userMessage The string value to set in the message editor.
      */
     public void setUserMessage(String userMessage) {
-        for (FormPanel.FormElement formElement : edtMessage.getFormElements()) {
-            if (formElement.type() == String.class) {
-                edtMessage.setFormValues(Map.of(formElement.name(), userMessage));
+        for (FormElement formElement : edtMessage.getFormElements()) {
+            if (formElement.getType() == String.class) {
+                edtMessage.toForm(Map.of(formElement.getName(), userMessage));
                 break;
             }
         }
@@ -503,7 +508,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             lastUserMessage = chatMessageForMap(uid, message, true);
             addChatMessage(lastUserMessage);
             if (UISupport.getOptions().isClearAfterSending())
-                edtMessage.clearContent();
+                edtMessage.clearForm();
 
             setWaitingForResponse(true);
             chatMessagesHostPane.addTypingIndicator();
@@ -653,7 +658,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private void setupMessageEditor(ChatEngine chatEngine) {
         Objects.requireNonNull(chatEngine);
 
-        List<FormPanel.FormElement> formElements = new ArrayList<>();
+        List<FormElement<?>> formElements = new ArrayList<>();
         for (PlaygroundMetadata.Argument parameter : chatEngine.getMessageParameters()) {
             String parameterName = parameter.name();
             String label = parameter.label();
@@ -664,7 +669,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             String[] editorChoices = parameter.editorChoices();
 
             try {
-                formElements.add(new FormPanel.FormElement(parameterName,
+                formElements.add(new FormElement(parameterName,
                         label,
                         description,
                         Class.forName(parameter.type().name()),

@@ -779,11 +779,12 @@ public class UISupport {
 
             // Add separator only if it's not the last item and the previous item was not a separator
             if (addSeparators && action instanceof ActionGroup && i < actionGroup.getActions().size() - 1 &&
+                    toolbar.getComponentCount() > 0 &&
                     !(toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
                 toolbar.addSeparator();
             }
         }
-        if (toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)
+        if (toolbar.getComponentCount() > 0 && toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)
             toolbar.remove(toolbar.getComponentCount() - 1);
     }
 
