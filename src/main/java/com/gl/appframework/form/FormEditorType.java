@@ -22,45 +22,30 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.playground;
-
-import com.gl.appframework.form.FormEditorType;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+package com.gl.appframework.form;
 
 /**
- * Annotation to mark a parameter in a method as a playground parameter.
- * This is used for generating UI forms for testing and demonstration purposes.
+ * Defines the types of editors available for form elements.
  */
-@Retention(RUNTIME)
-@Target({PARAMETER})
-public @interface PlaygroundParam {
+public enum FormEditorType {
     /**
-     * The label for the parameter in the UI form.
-     * If not specified, the parameter name will be used.
-     * @return The label for the parameter.
+     * Default editor type.
      */
-    String label() default "";
-
+    Default,
     /**
-     * The description for the parameter in the UI form that can be rendered as a tooltip.
-     * @return The description for the parameter.
+     * Text field
      */
-    String description() default "";
-
+    Text,
     /**
-     * The type of editor to use for this parameter in the UI form.
-     * @return The editor type.
+     * Text area
      */
-    FormEditorType editorType() default FormEditorType.Default;
-
+    Note,
     /**
-     * An array of choices for editor types that support predefined options (e.g., dropdowns).
-     * @return An array of editor choices.
+     * Dropdown
      */
-    String[] editorChoices() default {};
+    Dropdown,
+    /**
+     * Editable dropdown
+     */
+    EditableDropdown
 }

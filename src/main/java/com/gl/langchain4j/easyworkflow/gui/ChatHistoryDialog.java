@@ -1,10 +1,10 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.gl.appframework.actions.BasicAction;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
-import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
-import com.gl.langchain4j.easyworkflow.gui.platform.AppDialog;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.AppDialog;
+import com.gl.appframework.UISupport;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -32,7 +32,7 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
 
     private JList<ChatHistoryStorage.ChatHistoryItem> list;
     private DefaultListModel<ChatHistoryStorage.ChatHistoryItem> model;
-    private Actions.BasicAction deleteAction;
+    private BasicAction deleteAction;
     private boolean deletionInProgress = false;
 
     /**
@@ -94,14 +94,14 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
         };
         list.setCellRenderer(new ChatHistoryItemRenderer());
         list.getSelectionModel().addListSelectionListener(e -> updateButtons());
-        UISupport.bindDoubleClickAction(list, new Actions.BasicAction(null, null, aActionEvent -> close(ACTION_COMMAND_OK)));
+        UISupport.bindDoubleClickAction(list, new BasicAction(null, null, aActionEvent -> close(ACTION_COMMAND_OK)));
         JScrollPane content = new JScrollPane(list);
         content.setPreferredSize(new Dimension(450, 300));
         this.setMinimumSize(new Dimension(450, 300));
         this.setMaximumSize(new Dimension(800, 600));
         setContent(content);
 
-        deleteAction = new Actions.BasicAction("Delete Chat", null,
+        deleteAction = new BasicAction("Delete Chat", null,
                 e -> deleteSelectedChat(),
                 a -> a.setEnabled(list.getSelectedValue() != null && !deletionInProgress));
         UISupport.bindAction(list, "delete", KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), deleteAction);

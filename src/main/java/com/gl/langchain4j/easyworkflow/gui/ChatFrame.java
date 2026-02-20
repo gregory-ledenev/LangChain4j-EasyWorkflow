@@ -28,12 +28,19 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.gl.appframework.*;
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.actions.ComponentAction;
+import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.comp.AppSplitPane;
+import com.gl.appframework.comp.HeaderPane;
+import com.gl.appframework.comp.PreviewTextPane;
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane;
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
-import com.gl.langchain4j.easyworkflow.gui.platform.*;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import org.slf4j.Logger;
@@ -54,6 +61,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import static com.gl.appframework.UISupport.*;
+import static com.gl.appframework.UISupport.applyAppearance;
+import static com.gl.appframework.UISupport.getOptions;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.AgentInvocationTraceEntryArchive;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
@@ -61,9 +71,6 @@ import static com.gl.langchain4j.easyworkflow.gui.Icons.LOGO_ICON;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane.PROP_SELECTED_VARIABLE;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
 /**
  * A frame that provides a chat interface. It can be used to display a chat conversation and interact with a chat
@@ -184,7 +191,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             pnlWorkflowInspectorExecution.setPlaceHolderVisible(true);
 
             pnlWorkflowSummaryView = new PreviewTextPane();
-            pnlWorkflowSummary = UISupport.createScrollPane(pnlWorkflowSummaryView, false, false, false, false, false);
+            pnlWorkflowSummary = createScrollPane(pnlWorkflowSummaryView, false, false, false, false, false);
             pnlWorkflowSummary.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
             JPanel pnlWorkflowContentsHost = new JPanel(new BorderLayout());
@@ -621,8 +628,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 if (getOptions().isOpenFileAfterSharing() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
                     openFile(file);
                 } else {
-                    NotificationCenter.getInstance().postNotification(new Notification(
-                            NotificationType.SUCCESS,
+                    NotificationCenter.getInstance().postNotification(new NotificationCenter.Notification(
+                            NotificationCenter.NotificationType.SUCCESS,
                             "Sharing Finished",
                             "%s saved to %s".formatted(contentType, file.getPath()),
                             e -> openFile(file)));
@@ -661,16 +668,16 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 a -> a.setEnabled(canEditUserMessage()));
         editUserMessageAction.putValue(BasicAction.MENU_BAR_ITEM_NAME, "User Message...");
         editUserMessageAction.setShortDescription("Edit user message");
-        UISupport.bindAction(pnlWorkflowInspectorStructure.getListView(),
+        bindAction(pnlWorkflowInspectorStructure.getListView(),
                 "editUserMessage",
                 KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
                 editUserMessageAction);
-        UISupport.bindAction(pnlWorkflowInspectorExecution.getListView(),
+        bindAction(pnlWorkflowInspectorExecution.getListView(),
                 "editUserMessage",
                 KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
                 editUserMessageAction);
-        UISupport.bindDoubleClickAction(pnlWorkflowInspectorStructure.getListView(), editUserMessageAction);
-        UISupport.bindDoubleClickAction(pnlWorkflowInspectorExecution.getListView(), editUserMessageAction);
+        bindDoubleClickAction(pnlWorkflowInspectorStructure.getListView(), editUserMessageAction);
+        bindDoubleClickAction(pnlWorkflowInspectorExecution.getListView(), editUserMessageAction);
 
         this.copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY),
                 e -> copy(),
@@ -946,7 +953,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                     thenAccept(summary -> {
                         summaryGenerated = true;
                         SwingUtilities.invokeLater(() -> {
-                            pnlWorkflowSummaryView.setText("<html><body style=\"padding: 5px 10px;\">%s</body></html>".formatted(UISupport.convertMarkdownToHtml(summary)));
+                            pnlWorkflowSummaryView.setText("<html><body style=\"padding: 5px 10px;\">%s</body></html>".formatted(convertMarkdownToHtml(summary)));
                             pnlWorkflowSummaryView.setCaretPosition(0);
                             pnlWorkflowSummaryView.setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
                             summaryGenerating = false;
@@ -1068,7 +1075,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     @Override
     public void saveState() {
         super.saveState();
-        UISupport.getOptions().setFrameBounds(getBounds());
+        getOptions().setFrameBounds(getBounds());
     }
 
     @Override

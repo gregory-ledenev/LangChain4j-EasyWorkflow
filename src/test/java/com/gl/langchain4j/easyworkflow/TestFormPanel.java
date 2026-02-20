@@ -1,11 +1,11 @@
 package com.gl.langchain4j.easyworkflow;
 
+import com.gl.appframework.form.*;
 import com.gl.langchain4j.easyworkflow.gui.Icons;
 import com.gl.langchain4j.easyworkflow.gui.ToolbarIcons;
-import com.gl.langchain4j.easyworkflow.gui.platform.AppDialog;
-import com.gl.langchain4j.easyworkflow.gui.platform.form.*;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.*;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
@@ -69,7 +69,7 @@ public class TestFormPanel {
             return lastName;
         }
 
-        @DateFormProperty(datePattern = "yyyy-MM-dd")
+//        @DateFormProperty(datePattern = "yyyy-MM-dd")
         @FormProperty(elementClass = DateFormElement.class, sortOrder = 2)
         public Date getBirthday() {
             return birthday;
@@ -136,7 +136,7 @@ public class TestFormPanel {
                         ListFormProperty.ListCapability.DELETE,
                         ListFormProperty.ListCapability.REORDER
                 })
-        @FormProperty(elementClass = ListFormElement.class)
+        @FormProperty(elementClass = ListFormElement.class, icon = "agent")
         public List<Person> getPersons() {
             return persons;
         }
@@ -151,35 +151,16 @@ public class TestFormPanel {
         ToolbarIcons.loadIcons();
         Person person = new Person("John", "Doe", new Date(1996 - 1900, Calendar.DECEMBER, 2), 30, true);
         Person person1 = new Person("Jane", "Smith", new Date(1990 - 1900, Calendar.MAY, 15), 34, false);
+        Person person2 = new Person("Bob", "Johnson", new Date(1985 - 1900, Calendar.JULY, 10), 38, true);
 
         Persons persons = new Persons();
         persons.setPersons(List.of(person, person1));
 
         FormPanel formPanel = new FormPanel();
 
-        AppDialog<Persons, Persons> dialog = new AppDialog<>(null, "Edit Persons") {
-            @Override
-            protected void toForm(Persons data) {
-                formPanel.setFormElements(FormElement.getFormElements(Persons.class));
-                formPanel.toForm(data);
-            }
-
-            @Override
-            protected Persons fromForm() {
-                Persons result = new Persons();
-                formPanel.fromForm(result);
-                return result;
-            }
-
-            @Override
-            public boolean canClose(String modalResult) {
-                return !modalResult.equals(ACTION_COMMAND_OK) || formPanel.checkFormValidity() == null;
-            }
-        };
-        dialog.setContent(formPanel);
+        FormDialog<Persons> dialog = new FormDialog<>((JFrame) null, "Edit Persons", Persons.class);
         Persons personCopy = dialog.executeModal(persons);
 
-        System.out.println(personCopy);
         System.exit(0);
     }
 }

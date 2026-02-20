@@ -26,9 +26,10 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
-import com.gl.langchain4j.easyworkflow.gui.platform.AppDialog;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.AppDialog;
+import com.gl.appframework.UISupport;
+import com.gl.appframework.actions.BasicAction;
 
 import javax.swing.*;
 import java.awt.*;
@@ -157,9 +158,9 @@ public class EditUserMessageDialog extends AppDialog<String, String> {
     public static Result editUserMessage(JFrame owner, String userMessage, List<String> variables, boolean canReset) {
         EditUserMessageDialog dialog = new EditUserMessageDialog(owner);
 
-        Actions.ActionGroup insertActionGroup = null;
+        ActionGroup insertActionGroup = null;
         if (variables != null && ! variables.isEmpty()) {
-            insertActionGroup = new Actions.ActionGroup("Insert Variable", null, true);
+            insertActionGroup = new ActionGroup("Insert Variable", null, true);
             for (String variable : variables) {
                 insertActionGroup.addAction(new InsertVariableAction(dialog, variable));
             }
@@ -176,7 +177,7 @@ public class EditUserMessageDialog extends AppDialog<String, String> {
     /**
      * An action to insert a variable into the user message editor.
      */
-    static class InsertVariableAction extends Actions.BasicAction {
+    static class InsertVariableAction extends BasicAction {
         /**
          * Constructs a new {@code InsertVariableAction}.
          * @param dialog The parent dialog.

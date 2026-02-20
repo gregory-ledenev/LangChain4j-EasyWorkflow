@@ -1,8 +1,10 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
-import com.gl.langchain4j.easyworkflow.gui.platform.AppDialog;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.AppDialog;
+import com.gl.appframework.UISupport;
+import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.actions.StateAction;
 
 import javax.swing.*;
 import java.awt.*;
@@ -15,7 +17,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
     private ChatPromptsStorage chatPromptsStorage;
     private JList<ChatPromptsStorage.ChatPrompt> list;
     private DefaultListModel<ChatPromptsStorage.ChatPrompt> listModel;
-    private Actions.ActionGroup toolbarActionGroup;
+    private ActionGroup toolbarActionGroup;
     private ChatPromptsStorage originalChatPromptsStorage;
 
     /**
@@ -57,7 +59,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
         JToolBar toolbar = new JToolBar();
         toolbar.setFloatable(false);
 
-        Actions.BasicAction actionPin = new Actions.StateAction("Pin", new UISupport.AutoIcon(ICON_PIN), null,
+        BasicAction actionPin = new StateAction("Pin", new UISupport.AutoIcon(ICON_PIN), null,
                 this::togglePinned,
                 a -> {
                     ChatPromptsStorage.ChatPrompt selectedValue = list.getSelectedValue();
@@ -72,7 +74,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
         actionPin.setAccelerator(keyStroke);
         UISupport.bindAction(list, "pin", keyStroke, actionPin);
 
-        Actions.BasicAction actionMoveUp = new Actions.BasicAction("Move Up", new UISupport.AutoIcon(ICON_UP),
+        BasicAction actionMoveUp = new BasicAction("Move Up", new UISupport.AutoIcon(ICON_UP),
                 this::moveUp,
                 a -> a.setEnabled(list.getSelectedValue() != null && chatPromptsStorage.canMoveUp(list.getSelectedValue())));
         actionMoveUp.setCopyName(true);
@@ -82,7 +84,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
         actionMoveUp.setAccelerator(keyStroke);
         UISupport.bindAction(list, "moveUp", keyStroke, actionMoveUp);
 
-        Actions.BasicAction actionMoveDown = new Actions.BasicAction("Move Down", new UISupport.AutoIcon(ICON_DOWN),
+        BasicAction actionMoveDown = new BasicAction("Move Down", new UISupport.AutoIcon(ICON_DOWN),
                 this::moveDown,
                 a -> a.setEnabled(list.getSelectedValue() != null && chatPromptsStorage.canMoveDown(list.getSelectedValue())));
         actionMoveDown.setCopyName(true);
@@ -92,7 +94,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
         actionMoveDown.setAccelerator(keyStroke);
         UISupport.bindAction(list, "moveDown", keyStroke, actionMoveDown);
 
-        Actions.BasicAction actionDelete = new Actions.BasicAction("Delete", new UISupport.AutoIcon(ICON_DELETE),
+        BasicAction actionDelete = new BasicAction("Delete", new UISupport.AutoIcon(ICON_DELETE),
                 this::delete,
                 a -> a.setEnabled(list.getSelectedValue() != null));
         actionDelete.setCopyName(true);
@@ -102,10 +104,10 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
         actionDelete.setAccelerator(keyStroke);
         UISupport.bindAction(list, "delete", keyStroke, actionDelete);
 
-        toolbarActionGroup = new Actions.ActionGroup(
-                new Actions.ActionGroup(actionPin),
-                new Actions.ActionGroup(actionMoveUp, actionMoveDown),
-                new Actions.ActionGroup(actionDelete)
+        toolbarActionGroup = new ActionGroup(
+                new ActionGroup(actionPin),
+                new ActionGroup(actionMoveUp, actionMoveDown),
+                new ActionGroup(actionDelete)
         );
         UISupport.setupToolbar(toolbar, toolbarActionGroup);
         content.add(toolbar, BorderLayout.NORTH);

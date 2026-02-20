@@ -25,7 +25,7 @@
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.UISupport;
 
 import javax.swing.*;
 import java.awt.*;

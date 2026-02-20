@@ -28,7 +28,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
-import com.gl.langchain4j.easyworkflow.gui.platform.form.FormEditorType;
+import com.gl.appframework.form.FormEditorType;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundParam;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.agentic.internal.AgenticScopeOwner;

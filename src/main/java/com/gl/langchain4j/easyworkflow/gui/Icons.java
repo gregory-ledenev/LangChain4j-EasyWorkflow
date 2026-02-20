@@ -1,16 +1,12 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.UISupport;
 
 import javax.swing.*;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 
 @SuppressWarnings("ALL")
 public class Icons {
-    private static final Map<String, ImageIcon> icons = new HashMap<>();
-
     public static final String ICON_AGENT = "agent";
     public static final String ICON_SIGNPOST = "signpost";
     public static final String ICON_REFRESH = "refresh";
@@ -24,12 +20,6 @@ public class Icons {
     public static final String ICON_SEND = "send";
     public static final String ICON_WRENCH = "wrench";
     public static final String ICON_QUESTION = "question";
-//    public static final String ICON_PIN = "pin";
-//    public static final String ICON_UNPIN = "unpin";
-//    public static final String ICON_UP = "up";
-//    public static final String ICON_DOWN = "down";
-//    public static final String ICON_DELETE = "delete";
-
 
     public static void loadIcons() {
         loadIcon(ICON_AGENT, "icons/agent");
@@ -45,11 +35,6 @@ public class Icons {
         loadIcon(ICON_SEND, "icons/send");
         loadIcon(ICON_WRENCH, "icons/wrench");
         loadIcon(ICON_QUESTION, "icons/question");
-//        loadIcon(ICON_PIN, "icons/pin");
-//        loadIcon(ICON_UNPIN, "icons/unpin");
-//        loadIcon(ICON_UP, "icons/up");
-//        loadIcon(ICON_DOWN, "icons/down");
-//        loadIcon(ICON_DELETE, "icons/delete");
     }
 
     public static void loadIcon(String iconKey, String fileName) {

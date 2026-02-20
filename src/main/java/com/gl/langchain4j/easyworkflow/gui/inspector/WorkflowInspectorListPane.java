@@ -26,12 +26,12 @@ package com.gl.langchain4j.easyworkflow.gui.inspector;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
+import com.gl.appframework.actions.BasicAction;
 import com.gl.langchain4j.easyworkflow.SetStateAgents;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
-import com.gl.langchain4j.easyworkflow.gui.platform.Actions;
-import com.gl.langchain4j.easyworkflow.gui.platform.AppPane;
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.comp.AppPane;
+import com.gl.appframework.UISupport;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import dev.langchain4j.data.message.UserMessage;
@@ -143,7 +143,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         setContent(scrollPane);
 
         list.getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_C, Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()), "copy");
-        list.getActionMap().put("copy", new Actions.BasicAction("Copy", null, e -> copy()));
+        list.getActionMap().put("copy", new BasicAction("Copy", null, e -> copy()));
     }
 
     private static String mapToSubTitle(Map<?, ?> map, boolean simplify) {

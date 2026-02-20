@@ -24,7 +24,11 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.UISupport;
+import com.gl.appframework.UISupport.AutoIcon;
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.actions.StateAction;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -37,9 +41,9 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.Map;
 
-import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
+import static com.gl.appframework.UISupport.getOptions;
+import static com.gl.appframework.UISupport.isDarkAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
 
 /**

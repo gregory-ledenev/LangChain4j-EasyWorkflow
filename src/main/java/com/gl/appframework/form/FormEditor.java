@@ -22,45 +22,54 @@
  * SOFTWARE.
  */
 
-package com.gl.langchain4j.easyworkflow.playground;
+package com.gl.appframework.form;
 
-import com.gl.appframework.form.FormEditorType;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import javax.swing.*;
 
 /**
- * Annotation to mark a parameter in a method as a playground parameter.
- * This is used for generating UI forms for testing and demonstration purposes.
+ * Interface for form element editors.
  */
-@Retention(RUNTIME)
-@Target({PARAMETER})
-public @interface PlaygroundParam {
-    /**
-     * The label for the parameter in the UI form.
-     * If not specified, the parameter name will be used.
-     * @return The label for the parameter.
-     */
-    String label() default "";
+public interface FormEditor<T> {
 
     /**
-     * The description for the parameter in the UI form that can be rendered as a tooltip.
-     * @return The description for the parameter.
+     * Sets the value of the editor.
+     *
+     * @param value The value to set.
      */
-    String description() default "";
+    void setValue(T value);
 
     /**
-     * The type of editor to use for this parameter in the UI form.
-     * @return The editor type.
+     * Returns the current value of the editor.
+     *
+     * @return The current value.
      */
-    FormEditorType editorType() default FormEditorType.Default;
+    T getValue();
 
     /**
-     * An array of choices for editor types that support predefined options (e.g., dropdowns).
-     * @return An array of editor choices.
+     * Returns the component used for the editor.
+     *
+     * @return The editor's component.
      */
-    String[] editorChoices() default {};
+    JComponent getComponent();
+
+    /**
+     * Checks the validity of the editor's current value.
+     *
+     * @return An error message if the value is invalid, or {@code null} if valid.
+     */
+    String checkValidity(boolean strictCheck);
+
+    /**
+     * Requests focus for the editor's component.
+     */
+    void requestFocus();
+
+    /**
+     * Indicates whether this editor requires a separate label to be displayed.
+     *
+     * @return {@code true} if a label is needed, {@code false} otherwise.
+     */
+    default boolean needLabel() {
+        return true;
+    }
 }

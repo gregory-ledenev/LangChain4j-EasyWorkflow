@@ -26,8 +26,8 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
-import com.gl.langchain4j.easyworkflow.gui.platform.Application;
-import com.gl.langchain4j.easyworkflow.gui.platform.NotificationCenter;
+import com.gl.appframework.Application;
+import com.gl.appframework.NotificationCenter;
 import com.gl.langchain4j.easyworkflow.playground.LocalPlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;

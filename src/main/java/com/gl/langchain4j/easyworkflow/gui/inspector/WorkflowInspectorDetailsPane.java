@@ -24,7 +24,15 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.*;
+import com.gl.appframework.*;
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.UISupport.*;
+import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.comp.AppPane;
+import com.gl.appframework.comp.AppSplitPane;
+import com.gl.appframework.comp.HeaderPane;
+import com.gl.appframework.comp.PreviewTextPane;
 
 import javax.swing.*;
 import javax.swing.event.TreeSelectionEvent;
@@ -43,8 +51,6 @@ import java.util.prefs.Preferences;
 
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
 /**
  * A panel that displays details of a workflow's execution results. It consists of two main parts: a tree view
@@ -218,7 +224,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                 e -> expandAllValues(true),
                 a -> a.setEnabled(getSelectedValue() != null));
         private final Action actionCollapseAll = new BasicAction("Collapse All",
-                new AutoIcon(ICON_COLLAPSE),
+                new UISupport.AutoIcon(ICON_COLLAPSE),
                 e -> collapseAllValues(),
                 a -> a.setEnabled(getSelectedValue() != null));
         private DefaultMutableTreeNode agentMetadataNode;
@@ -231,7 +237,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
         private ActionGroup toolbarActionGroup;
         private DefaultMutableTreeNode agenticScopeNode;
         private final Action actionShowAgenticScope = new BasicAction("Show Agentic Scope",
-                new AutoIcon(ICON_FILING_CABINET),
+                new UISupport.AutoIcon(ICON_FILING_CABINET),
                 e -> showAgenticScope(),
                 a -> a.setEnabled(canShowAgenticScope()));
         private DefaultMutableTreeNode progressionNode;

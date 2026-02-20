@@ -26,7 +26,7 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
-import com.gl.langchain4j.easyworkflow.gui.platform.Application;
+import com.gl.appframework.Application;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

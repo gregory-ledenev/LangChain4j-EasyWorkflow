@@ -1,6 +1,6 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.langchain4j.easyworkflow.gui.platform.UISupport;
+import com.gl.appframework.UISupport;
 
 public class ToolbarIcons {
     public static final String ICON_COPY = "copy";

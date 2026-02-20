@@ -26,15 +26,19 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.comp.HeaderPane;
+import com.gl.appframework.UISupport;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.ChatPromptsDialog;
 import com.gl.langchain4j.easyworkflow.gui.ChatPromptsStorage;
-import com.gl.langchain4j.easyworkflow.gui.platform.form.FormEditorType;
-import com.gl.langchain4j.easyworkflow.gui.platform.form.FormElement;
-import com.gl.langchain4j.easyworkflow.gui.platform.form.FormPanel;
+import com.gl.appframework.form.FormEditorType;
+import com.gl.appframework.form.FormElement;
+import com.gl.appframework.form.FormPanel;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
-import com.gl.langchain4j.easyworkflow.gui.platform.*;
 import dev.langchain4j.service.Result;
 import org.slf4j.Logger;
 
@@ -58,11 +62,10 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import static com.gl.appframework.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SEND;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.Actions.*;
-import static com.gl.langchain4j.easyworkflow.gui.platform.UISupport.*;
 
 /**
  * A panel that provides a chat interface, including message input, display, and settings.
@@ -76,7 +79,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
     private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton(new AutoIcon(ICON_SEND));
     private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
-        if (UISupport.getOptions().getAppearance() == Appearance.Auto)
+        if (getOptions().getAppearance() == Appearance.Auto)
             SwingUtilities.invokeLater(() -> applyAppearance(Appearance.Auto, this));
     };
     private final Box pnlButtons;
@@ -273,7 +276,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
     public void setupToolActions(Action... actions) {
         toolsActionGroup.addAction(new ActionGroup(actions));
-        UISupport.setupToolbar(toolsToolbar, toolsActionGroup);
+        setupToolbar(toolsToolbar, toolsActionGroup);
     }
 
     public void scheduledUpdate() {
@@ -367,7 +370,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 )
         );
 
-        UISupport.setupToolbar(toolsToolbar, toolsActionGroup);
+        setupToolbar(toolsToolbar, toolsActionGroup);
     }
 
     private boolean canShowChatPrompts() {
@@ -388,7 +391,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             group.addAction(new BasicAction(prompt.toHtmlString(), null, e -> setUserMessage(prompt)));
         }
         JPopupMenu popupMenu = new JPopupMenu();
-        UISupport.setupPopupMenu(popupMenu, new ActionGroup(
+        setupPopupMenu(popupMenu, new ActionGroup(
                 group,
                 new ActionGroup(new BasicAction("Edit Prompts...", null, actionEvent -> editChatPromts()))
         ));
@@ -507,7 +510,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
             lastUserMessage = chatMessageForMap(uid, message, true);
             addChatMessage(lastUserMessage);
-            if (UISupport.getOptions().isClearAfterSending())
+            if (getOptions().isClearAfterSending())
                 edtMessage.clearForm();
 
             setWaitingForResponse(true);
@@ -699,14 +702,14 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         super.addNotify();
 
         edtMessage.requestFocus();
-        UISupport.getDetector().registerListener(appearanceChangeHandler);
+        getDetector().registerListener(appearanceChangeHandler);
     }
 
     @Override
     public void removeNotify() {
         super.removeNotify();
 
-        UISupport.getDetector().removeListener(appearanceChangeHandler);
+        getDetector().removeListener(appearanceChangeHandler);
         if (waitStateTimer != null) {
             waitStateTimer.stop();
             waitStateTimer = null;
