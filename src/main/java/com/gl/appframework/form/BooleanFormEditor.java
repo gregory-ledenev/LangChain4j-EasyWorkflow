@@ -30,8 +30,7 @@ import javax.swing.*;
 /**
  * A form editor implementation for boolean values using a {@link JCheckBox}.
  */
-class BooleanFormEditor implements FormEditor {
-    private final FormPanel formPanel;
+class BooleanFormEditor implements FormEditor<Boolean> {
     private final JCheckBox checkBox;
 
     /**
@@ -41,7 +40,6 @@ class BooleanFormEditor implements FormEditor {
      * @param formElement the metadata defining the form element
      */
     public BooleanFormEditor(FormPanel formPanel, FormElement<Boolean> formElement) {
-        this.formPanel = formPanel;
         this.checkBox = new JCheckBox();
         checkBox.setToolTipText(FormPanel.getTooltipText(formElement));
         checkBox.addActionListener(e -> formPanel.firePropertyChange(FormPanel.PROPERTY_VALUE_CHANGED, null, null));
@@ -49,12 +47,12 @@ class BooleanFormEditor implements FormEditor {
     }
 
     @Override
-    public void setValue(Object value) {
+    public void setValue(Boolean value) {
         checkBox.setSelected(value != null && (Boolean) value);
     }
 
     @Override
-    public Object getValue() {
+    public Boolean getValue() {
         return checkBox.isSelected();
     }
 

@@ -74,7 +74,6 @@ import java.util.stream.Collectors;
 import static com.gl.langchain4j.easyworkflow.BreakpointActions.log;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.LineBreakpoint;
-import static dev.langchain4j.agentic.internal.AgentUtil.validateAgentClass;
 
 /**
  * EasyWorkflow provides a fluent API for building complex agentic workflows using LangChain4j's Agentic framework. It

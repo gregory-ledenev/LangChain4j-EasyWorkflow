@@ -47,7 +47,7 @@ public class DateFormElement extends FormElement<Date> {
 
     @SuppressWarnings("unchecked")
     @Override
-    protected FormEditor createFormEditor(FormPanel formPanel, FormElement<?> element) {
+    protected FormEditor<?> createFormEditor(FormPanel formPanel, FormElement<?> element) {
         return new DateFormEditor(formPanel, (FormElement<Date>) element);
     }
 

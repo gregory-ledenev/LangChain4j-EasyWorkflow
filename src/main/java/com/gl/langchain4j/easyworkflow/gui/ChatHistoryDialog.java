@@ -15,9 +15,9 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.gl.appframework.ToolbarIcons.ICON_CHAT;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.isToday;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_CHAT;
 import static java.text.DateFormat.SHORT;
 
 /**

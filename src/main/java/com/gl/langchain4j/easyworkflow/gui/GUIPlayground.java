@@ -154,6 +154,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
         Icons.loadIcons();
         ToolbarIcons.loadIcons();
+        com.gl.appframework.ToolbarIcons.loadIcons();
 
         WorkflowDebugger debugger = getWorkflowDebugger();
         LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,
@@ -210,7 +211,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
         });
     }
 
-    @SuppressWarnings("unchecked")
     private List<PlaygroundChatModel> getChatModels() {
         if (!(arguments != null && arguments.get(ARG_CHAT_MODELS) instanceof List<?> chatModels))
             return null;
@@ -233,6 +233,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
         Icons.loadIcons();
         ToolbarIcons.loadIcons();
+        com.gl.appframework.ToolbarIcons.loadIcons();
 
         WorkflowDebugger debugger = getWorkflowDebugger();
         LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,

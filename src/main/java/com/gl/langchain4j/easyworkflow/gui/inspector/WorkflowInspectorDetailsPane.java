@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.prefs.Preferences;
 
+import static com.gl.appframework.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
 

@@ -338,7 +338,7 @@ public class FormElement<T> {
                 return new DropdownFormEditor(formPanel, element);
             } else if ((element.getEditorType() == FormEditorType.Text ||
                     element.getEditorType() == FormEditorType.Default)) {
-                return new CompactStringFormEditor(formPanel, element);
+                return new CompactStringFormEditor(formPanel, (FormElement<String>) element);
             } else {
                 return new StringFormEditor(formPanel, (FormElement<String>) element);
             }
@@ -351,11 +351,11 @@ public class FormElement<T> {
                 } else if (element.getEditorType() == FormEditorType.Dropdown && formSize > 1) {
                     return new DropdownFormEditor(formPanel, element);
                 } else {
-                    return new NumberFormEditor(formPanel, element);
+                    return new NumberFormEditor(formPanel, (FormElement<Number>) element);
                 }
             }
         } else if (Map.class.isAssignableFrom(type)) {
-            return new MapFormEditor(formPanel, element);
+            return new MapFormEditor(formPanel, (FormElement<Map<?, ?>>) element);
         }
 
         // Fallback for unsupported types

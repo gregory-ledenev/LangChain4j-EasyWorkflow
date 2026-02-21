@@ -51,7 +51,8 @@ public interface PlaygroundMetadata {
         }
     }
 
-    public static Agent createAgent(AgentInstance agentInstance, Agent parent) {
+    @SuppressWarnings("SwitchStatementWithTooFewBranches")
+    static Agent createAgent(AgentInstance agentInstance, Agent parent) {
         return switch (agentInstance.topology()) {
             case LOOP -> new LoopAgent(agentInstance.as(LoopAgentInstance.class), parent);
             default -> new Agent(agentInstance, parent);
@@ -288,7 +289,7 @@ public interface PlaygroundMetadata {
         }
     }
 
-    public record Argument(Type type,
+    record Argument(Type type,
                            String name,
                            Object defaultValue,
                            String label,

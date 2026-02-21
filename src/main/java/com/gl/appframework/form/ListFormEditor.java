@@ -3,7 +3,6 @@ package com.gl.appframework.form;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.BasicAction;
-import org.jspecify.annotations.NonNull;
 
 import javax.swing.*;
 import java.awt.*;
@@ -12,11 +11,9 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_DELETE;
+import static com.gl.appframework.ToolbarIcons.*;
 
 public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
-    private final FormPanel formPanel;
     private final ListFormElement formElement;
     private JList<Object> list = new JList<>();
     private DefaultListModel<Object> listModel;
@@ -25,7 +22,6 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
 
     public ListFormEditor(FormPanel formPanel, ListFormElement formElement) {
         super(new BorderLayout(5, 2));
-        this.formPanel = formPanel;
         this.formElement = formElement;
         init();
     }
@@ -146,7 +142,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
         }
     }
 
-    private @NonNull FormDialog<Object> createFormDialog(String title) {
+    private FormDialog<Object> createFormDialog(String title) {
         JDialog dialog = (JDialog) SwingUtilities.getWindowAncestor(this);
         return dialog != null ?
                 new FormDialog<>(dialog, title, formElement.getElementClass()) :

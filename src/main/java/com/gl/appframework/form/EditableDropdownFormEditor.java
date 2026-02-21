@@ -36,13 +36,11 @@ import static com.gl.appframework.UISupport.setupUndomanager;
  * It supports both selection from a list and manual text entry, with undo/redo capabilities.
  */
 class EditableDropdownFormEditor implements FormEditor {
-    private final FormPanel formPanel;
     private final JComboBox<Object> comboBox;
-    private final FormElement formElement;
+    private final FormElement<?> formElement;
     private final UISupport.DefaultUndoableEditListener undoableEditListener;
 
-    public EditableDropdownFormEditor(FormPanel formPanel, FormElement formElement) {
-        this.formPanel = formPanel;
+    public EditableDropdownFormEditor(FormPanel formPanel, FormElement<?> formElement) {
         this.formElement = formElement;
         this.comboBox = new JComboBox<>(formElement.getEditorChoices() != null ? formElement.getEditorChoices() : new Object[0]);
         FormPanel.setupFont(this.comboBox);
@@ -77,7 +75,7 @@ class EditableDropdownFormEditor implements FormEditor {
             if (item instanceof Number) {
                 return item;
             }
-            return formPanel.parseNumber(item.toString(), type);
+            return FormPanel.parseNumber(item.toString(), type);
         }
 
         return item;

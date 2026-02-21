@@ -66,8 +66,8 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
+import static com.gl.appframework.ToolbarIcons.*;
 import static com.gl.appframework.actions.BasicAction.COPY_NAME;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 
 /**
  * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
@@ -1048,6 +1048,9 @@ public class UISupport {
 
         public AutoIcon(String aKey) {
             key = aKey;
+
+            if (getIcon() == null)
+                throw new IllegalArgumentException("No icon for key: " + key);
         }
 
         public String getKey() {

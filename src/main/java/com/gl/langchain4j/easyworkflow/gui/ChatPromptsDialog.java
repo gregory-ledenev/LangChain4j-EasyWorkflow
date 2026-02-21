@@ -11,7 +11,7 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
+import static com.gl.appframework.ToolbarIcons.*;
 
 public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPromptsStorage.ChatPrompt> {
     private ChatPromptsStorage chatPromptsStorage;

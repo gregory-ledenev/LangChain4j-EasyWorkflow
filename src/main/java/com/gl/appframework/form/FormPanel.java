@@ -25,6 +25,7 @@
 package com.gl.appframework.form;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.appframework.ToolbarIcons;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.BasicAction;
 import com.jgoodies.forms.builder.DefaultFormBuilder;
@@ -41,7 +42,6 @@ import java.awt.event.ActionEvent;
 import java.util.List;
 import java.util.*;
 
-import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
 import static com.gl.appframework.UISupport.*;
 
 /**
@@ -52,7 +52,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
     public static final String PROPERTY_VALUE_CHANGED = "valueChanged";
     public static final String PROPERTY_ENTER_PRESSED = "enterPressed";
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private final Map<String, FormEditor> editors = new HashMap<>();
+    private final Map<String, FormEditor<?>> editors = new HashMap<>();
     private List<FormElement<?>> formElements;
 
     /**
@@ -75,7 +75,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
      * Clears the content of all text-based input components in the form.
      */
     public void clearForm() {
-        for (FormEditor editor : editors.values()) {
+        for (FormEditor<?> editor : editors.values()) {
             editor.setValue(null);
         }
     }
@@ -208,7 +208,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             JPopupMenu popupMenu = textComponent.getComponentPopupMenu();
             popupMenu.add(new JSeparator());
             popupMenu.add(createMenuItem(
-                    new BasicAction("Clear All", new AutoIcon(ICON_SPACER), e -> clearForm())));
+                    new BasicAction("Clear All", new AutoIcon(ToolbarIcons.ICON_SPACER), e -> clearForm())));
         }
     }
 
@@ -287,6 +287,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
      * @param formValues A map where keys are form element names and values are the corresponding data.
      * @return {@code true} if any value was set, {@code false} otherwise.
      */
+    @SuppressWarnings({"unchecked", "rawtypes"})
     public boolean toForm(Map<String, Object> formValues) {
         if (formValues == null)
             return false;

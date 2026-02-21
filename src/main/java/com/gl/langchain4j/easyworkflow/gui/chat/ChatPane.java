@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import static com.gl.appframework.ToolbarIcons.*;
 import static com.gl.appframework.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SEND;

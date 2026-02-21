@@ -29,6 +29,7 @@ import com.gl.appframework.UISupport;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 /**
@@ -40,6 +41,8 @@ public class BasicAction extends AbstractAction {
     private final Consumer<? extends BasicAction> actionUpdater;
 
     public static final String MENU_BAR_ITEM_NAME = "menuBarItemName";
+    public static final String ID = "id";
+    public static final String PARENT_ACTION_GROUP = "parentActionGroup";
 
     /**
      * Constructs a new BasicAction.
@@ -82,12 +85,10 @@ public class BasicAction extends AbstractAction {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (actionListener != null) {
-            if (isMenuBarSource(e) && UISupport.isMac())
-                macMenuBarActionPerformed(e);
-            else
-                defaultActionPerformed(e);
-        }
+        if (isMenuBarSource(e) && UISupport.isMac())
+            macMenuBarActionPerformed(e);
+        else
+            defaultActionPerformed(e);
     }
 
     private long when;
@@ -99,7 +100,10 @@ public class BasicAction extends AbstractAction {
         when = e.getWhen();
     }
 
-    private void defaultActionPerformed(ActionEvent e) {
+    protected void defaultActionPerformed(ActionEvent e) {
+        if (actionListener == null)
+            return;
+
         update();
         if (isEnabled()) {
             actionListener.accept(e);
@@ -113,6 +117,24 @@ public class BasicAction extends AbstractAction {
         if (actionUpdater != null)
             //noinspection unchecked
             ((Consumer<BasicAction>) actionUpdater).accept(this);
+    }
+
+    /**
+     * Returns the name of the action.
+     *
+     * @return The name of the action.
+     */
+    public String getName() {
+        return (String) getValue(Action.NAME);
+    }
+
+    /**
+     * Sets the name of the action.
+     *
+     * @param name The name of the action.
+     */
+    public void setName(String name) {
+        putValue(Action.NAME, name);
     }
 
     /**
@@ -215,5 +237,62 @@ public class BasicAction extends AbstractAction {
      */
     public void setDisableReason(String disableReason) {
         putValue(DISABLE_REASON, disableReason);
+    }
+
+    /**
+     * Returns the ID of the action.
+     *
+     * @return The ID of the action.
+     */
+    public String getId() {
+        String result = (String) getValue(ID);
+        return result != null ? result : getName();
+    }
+
+    /**
+     * Sets the ID of the action.
+     *
+     * @param id The ID of the action.
+     */
+    public void setId(String id) {
+        putValue(ID, id);
+    }
+
+    /**
+     * Returns the parent action group of this action.
+     *
+     * @return The {@link ActionGroup} that contains this action.
+     */
+    public ActionGroup getParentActionGroup() {
+        return (ActionGroup) getValue(PARENT_ACTION_GROUP);
+    }
+
+    /**
+     * Sets the parent action group for this action.
+     *
+     * @param parent The {@link ActionGroup} that contains this action.
+     */
+    public void setParentActionGroup(ActionGroup parent) {
+        putValue(PARENT_ACTION_GROUP, parent);
+    }
+
+    /**
+     * Returns the parent action group of the specified action.
+     *
+     * @param action The action to query.
+     * @return The {@link ActionGroup} associated with the action.
+     */
+    public static ActionGroup getParentActionGroup(Action action) {
+        return (ActionGroup) Objects.requireNonNull(action).getValue(PARENT_ACTION_GROUP);
+    }
+
+    /**
+     * Sets the parent action group for the specified action.
+     *
+     * @param action The action to update.
+     * @param parent The {@link ActionGroup} to associate with the action.
+     */
+    public static void setParentActionGroup(Action action, ActionGroup parent) {
+        Objects.requireNonNull(action).putValue(PARENT_ACTION_GROUP, Objects.requireNonNull(parent));
     }
 }

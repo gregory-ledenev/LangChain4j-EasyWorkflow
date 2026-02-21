@@ -29,10 +29,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.appframework.*;
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.actions.BasicAction;
-import com.gl.appframework.actions.ComponentAction;
-import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.actions.*;
 import com.gl.appframework.comp.AppSplitPane;
 import com.gl.appframework.comp.HeaderPane;
 import com.gl.appframework.comp.PreviewTextPane;
@@ -61,12 +58,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import static com.gl.appframework.ToolbarIcons.*;
 import static com.gl.appframework.UISupport.*;
-import static com.gl.appframework.UISupport.applyAppearance;
-import static com.gl.appframework.UISupport.getOptions;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.AgentInvocationTraceEntryArchive;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
-import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SPACER;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.LOGO_ICON;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane.PROP_SELECTED_VARIABLE;
@@ -98,7 +93,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     private WorkflowInspectorDetailsPane pnlWorkflowInspectorDetails;
     private WorkflowInspectorListPane pnlWorkflowInspectorStructure;
     private WorkflowInspectorListPane pnlWorkflowInspectorExecution;
-    private BasicAction copyAction;
     private FileChooserUtils fileChooserUtils;
     private boolean summaryGenerated = false;
     private boolean summaryGenerating = false;
@@ -416,29 +410,12 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void setupMenuBarEditActionGroup() {
-        BasicAction cutAction = new BasicAction("Cut", new AutoIcon(ICON_CUT), aActionEvent -> cut());
-        cutAction.setMnemonic('x');
-        int menuShortcutKeyMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
-        cutAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X, menuShortcutKeyMask));
-
-        BasicAction copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY), aActionEvent -> copy());
-        copyAction.setMnemonic('c');
-        copyAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, menuShortcutKeyMask));
-
-        BasicAction pasteAction = new BasicAction("Paste", new AutoIcon(ICON_PASTE), aActionEvent -> paste());
-        pasteAction.setMnemonic('v');
-        pasteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, menuShortcutKeyMask));
-
-        BasicAction deleteAction = new BasicAction("Delete", new AutoIcon(ICON_SPACER), aActionEvent -> delete());
-        deleteAction.setMnemonic('d');
-        deleteAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0));
-
         menuBarEditActionGroup = new ActionGroup("Edit", null, true,
                 new ActionGroup(
-                        cutAction,
-                        copyAction,
-                        pasteAction,
-                        deleteAction
+                        StandardActions.createCutAction(),
+                        StandardActions.createCopyAction(),
+                        StandardActions.createPasteAction(),
+                        StandardActions.createDeleteAction()
                 ),
                 new ActionGroup(
                         editUserMessageAction
@@ -489,47 +466,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
 
             menuBarFileActionGroup.addAction(new ActionGroup());
             menuBarFileActionGroup.addAction(new ActionGroup(exitAction));
-        }
-    }
-
-    private void paste() {
-        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
-        if (focusOwner instanceof JComponent c) {
-            Action action = c.getActionMap().get("paste");
-            if (action != null)
-                action.actionPerformed(new ActionEvent(c, 0, null));
-        }
-    }
-
-    private void delete() {
-        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
-        if (focusOwner instanceof JComponent c) {
-            Action action = c.getActionMap().get("delete");
-            if (action != null)
-                action.actionPerformed(new ActionEvent(c, 0, null));
-        }
-    }
-
-    private void cut() {
-        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
-        if (focusOwner instanceof JComponent c) {
-            Action action = c.getActionMap().get("cut");
-            if (action != null)
-                action.actionPerformed(new ActionEvent(c, 0, null));
-        }
-    }
-
-    /**
-     * Copies the currently selected content to the clipboard.
-     */
-    public void copy() {
-        Component focusOwner = KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner();
-        if (focusOwner != null && SwingUtilities.getAncestorOfClass(ChatPane.class, focusOwner) != null) {
-            pnlChat.copy();
-        } else if (focusOwner instanceof JComponent c) {
-            Action action = c.getActionMap().get("copy");
-            if (action != null)
-                action.actionPerformed(new ActionEvent(c, 0, null));
         }
     }
 
@@ -678,16 +614,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 editUserMessageAction);
         bindDoubleClickAction(pnlWorkflowInspectorStructure.getListView(), editUserMessageAction);
         bindDoubleClickAction(pnlWorkflowInspectorExecution.getListView(), editUserMessageAction);
-
-        this.copyAction = new BasicAction("Copy", new AutoIcon(ICON_COPY),
-                e -> copy(),
-                aBasicAction -> {
-                    boolean e = true;
-                    if (pnlWorkflowSummaryView.isVisible())
-                        e = !summaryGenerating;
-                    setEnabled(e);
-                });
-        copyAction.setShortDescription("Copy");
 
         shareAction = new BasicAction("Share", new AutoIcon(ICON_SHARE), e -> shareFlowChart());
         shareAction.setShortDescription("Share");
@@ -897,7 +823,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         showSummaryAction
                 ),
                 new ActionGroup(
-                        copyAction
+                        StandardActions.createCopyAction()
                 ),
                 new ActionGroup(
                         editUserMessageAction
@@ -915,7 +841,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         showSummaryAction
                 ),
                 new ActionGroup(
-                        copyAction
+                        StandardActions.createCopyAction()
                 ),
                 new ActionGroup(
                         new BasicAction("Refresh", new AutoIcon(ICON_TOOLBAR_REFRESH),

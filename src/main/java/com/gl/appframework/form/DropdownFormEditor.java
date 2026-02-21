@@ -29,10 +29,9 @@ import javax.swing.*;
 /**
  * A {@link FormEditor} implementation that provides a dropdown selection using a {@link JComboBox}.
  */
-class DropdownFormEditor implements FormEditor {
-    private final FormPanel formPanel;
+class DropdownFormEditor implements FormEditor<Object> {
     private final JComboBox<Object> comboBox;
-    private final FormElement formElement;
+    private final FormElement<?> formElement;
 
     /**
      * Constructs a new {@code DropdownFormEditor}.
@@ -40,8 +39,7 @@ class DropdownFormEditor implements FormEditor {
      * @param formPanel   The parent form panel.
      * @param formElement The metadata defining the field properties and choices.
      */
-    public DropdownFormEditor(FormPanel formPanel, FormElement formElement) {
-        this.formPanel = formPanel;
+    public DropdownFormEditor(FormPanel formPanel, FormElement<?> formElement) {
         this.formElement = formElement;
         this.comboBox = new JComboBox<>(formElement.getEditorChoices() != null ? formElement.getEditorChoices() : new Object[0]);
         FormPanel.setupFont(this.comboBox);
@@ -67,7 +65,7 @@ class DropdownFormEditor implements FormEditor {
             if (item instanceof Number) {
                 return item;
             }
-            return formPanel.parseNumber(item.toString(), type);
+            return FormPanel.parseNumber(item.toString(), type);
         }
 
         return item;

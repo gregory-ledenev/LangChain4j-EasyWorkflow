@@ -12,9 +12,8 @@ import java.util.Date;
  * A form editor component for {@link Date} values, providing a text field
  * that parses and formats dates using the Locale default format or a date pattern like "yyyy-MM-dd".
  */
-public class DateFormEditor extends JTextFieldEx implements FormEditor {
+public class DateFormEditor extends JTextFieldEx implements FormEditor<Date> {
     private final DateFormat dateFormat;
-    private final FormPanel formPanel;
     private final FormElement<Date> formElement;
 
     /**
@@ -24,7 +23,6 @@ public class DateFormEditor extends JTextFieldEx implements FormEditor {
      * @param formElement the metadata defining the form element
      */
     public DateFormEditor(FormPanel formPanel, FormElement<Date> formElement) {
-        this.formPanel = formPanel;
         this.formElement = formElement;
         this.dateFormat = formElement instanceof DateFormElement dateFormElement && dateFormElement.getDateFormatPattern() != null ?
                 new SimpleDateFormat(dateFormElement.getDateFormatPattern()) :
@@ -41,16 +39,16 @@ public class DateFormEditor extends JTextFieldEx implements FormEditor {
     }
 
     @Override
-    public void setValue(Object value) {
-        if (value instanceof Date) {
+    public void setValue(Date value) {
+        if (value != null) {
             setText(dateFormat.format((Date) value));
-        } else if (value == null) {
+        } else {
             setText("");
         }
     }
 
     @Override
-    public Object getValue() {
+    public Date getValue() {
         String text = getText();
         if (text == null || text.trim().isEmpty()) {
             return null;
@@ -81,10 +79,5 @@ public class DateFormEditor extends JTextFieldEx implements FormEditor {
             }
         }
         return null;
-    }
-
-    @Override
-    public void requestFocus() {
-        super.requestFocus();
     }
 }

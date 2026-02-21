@@ -5,7 +5,6 @@ import com.gl.langchain4j.easyworkflow.HumanInTheLoopAgents;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import dev.langchain4j.agentic.workflow.HumanInTheLoop;
-import dev.langchain4j.agentic.workflow.impl.SequentialPlanner;
 import dev.langchain4j.model.openai.OpenAiChatModel;
 
 import java.io.IOException;

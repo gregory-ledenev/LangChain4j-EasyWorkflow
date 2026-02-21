@@ -324,6 +324,7 @@ public class ChatPromptsStorage implements Cloneable {
      * @return a cloned {@link ChatPromptsStorage} instance with autocommit disabled
      */
     @Override
+    @SuppressWarnings("CloneDoesntCallSuperClone")
     public ChatPromptsStorage clone() {
         ChatPromptsStorage result = new ChatPromptsStorage(agentClassName);
         result.setAutocommit(false);
@@ -479,6 +480,7 @@ public class ChatPromptsStorage implements Cloneable {
         }
 
         @Override
+        @SuppressWarnings("CloneDoesntCallSuperClone")
         public ChatPrompt clone() {
             return new ChatPrompt(this.type, this.timestamp, deepClone(prompt), this.pinned);
         }

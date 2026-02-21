@@ -35,10 +35,9 @@ import static com.gl.appframework.UISupport.setupUndomanager;
 /**
  * A {@link FormEditor} implementation for editing {@link Map} objects as JSON text.
  */
-class MapFormEditor implements FormEditor {
-    private final FormPanel formPanel;
+class MapFormEditor implements FormEditor<Map<?, ?>> {
     private final FormPanel.FormTextEditor textArea;
-    private final FormElement formElement;
+    private final FormElement<Map<?, ?>> formElement;
     private final UISupport.DefaultUndoableEditListener undoableEditListener;
 
     /**
@@ -47,8 +46,7 @@ class MapFormEditor implements FormEditor {
      * @param formPanel   the parent form panel
      * @param formElement the metadata for the form element being edited
      */
-    public MapFormEditor(FormPanel formPanel, FormElement formElement) {
-        this.formPanel = formPanel;
+    public MapFormEditor(FormPanel formPanel, FormElement<Map<?, ?>> formElement) {
         this.formElement = formElement;
         this.textArea = new FormPanel.FormTextEditor(5, 20);
         textArea.getDocument().addDocumentListener(formPanel);
@@ -60,7 +58,7 @@ class MapFormEditor implements FormEditor {
     }
 
     @Override
-    public void setValue(Object value) {
+    public void setValue(Map<?, ?> value) {
         if (value == null) {
             textArea.setText("{\n  \n}");
             return;
@@ -74,11 +72,11 @@ class MapFormEditor implements FormEditor {
     }
 
     @Override
-    public Object getValue() {
+    public Map<?, ?> getValue() {
         try {
             return FormPanel.OBJECT_MAPPER.readValue(textArea.getText(), Map.class);
         } catch (JsonProcessingException e) {
-            return textArea.getText(); // Return raw text if parsing fails, validation will catch it
+            return Map.of();
         }
     }
 

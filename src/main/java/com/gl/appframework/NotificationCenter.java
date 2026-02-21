@@ -307,22 +307,27 @@ public class NotificationCenter {
         if (getActiveWindow() != null) {
             notificationWindow.setVisible(true);
 
-            Timer fadeInTimer = new Timer(50, null);
-            fadeInTimer.addActionListener(e -> {
-                float opacity = notificationWindow.getOpacity();
-                opacity += 0.1f;
-                if (opacity >= 1.0f) {
-                    opacity = 1.0f;
-                    fadeInTimer.stop();
-                    Timer autoCloseTimer = notificationTimers.get(notificationWindow);
-                    if (autoCloseTimer != null && !autoCloseTimer.isRunning()) {
-                        autoCloseTimer.start();
-                    }
-                }
-                notificationWindow.setOpacity(opacity);
-            });
+            Timer fadeInTimer = getTimer(notificationWindow);
             fadeInTimer.start();
         }
+    }
+
+    private Timer getTimer(JWindow notificationWindow) {
+        Timer fadeInTimer = new Timer(50, null);
+        fadeInTimer.addActionListener(e -> {
+            float opacity = notificationWindow.getOpacity();
+            opacity += 0.1f;
+            if (opacity >= 1.0f) {
+                opacity = 1.0f;
+                fadeInTimer.stop();
+                Timer autoCloseTimer = notificationTimers.get(notificationWindow);
+                if (autoCloseTimer != null && !autoCloseTimer.isRunning()) {
+                    autoCloseTimer.start();
+                }
+            }
+            notificationWindow.setOpacity(opacity);
+        });
+        return fadeInTimer;
     }
 
     private boolean checkAlreadyShown(Notification notification) {

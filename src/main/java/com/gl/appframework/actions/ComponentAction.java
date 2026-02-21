@@ -66,16 +66,16 @@ public class ComponentAction extends BasicAction {
         component.getDocument().addDocumentListener(createDocumentListener(component, actionListener));
     }
 
-    public ComponentAction(String name, JComboBox component, Consumer<ActionEvent> actionListener) {
+    public ComponentAction(String name, JComboBox<?> component, Consumer<ActionEvent> actionListener) {
         this(name, component, actionListener, null);
     }
 
-    public ComponentAction(String name, JComboBox component, Consumer<ActionEvent> actionListener, Consumer<? extends BasicAction> actionUpdater) {
+    public ComponentAction(String name, JComboBox<?> component, Consumer<ActionEvent> actionListener, Consumer<? extends BasicAction> actionUpdater) {
         super(name, null, actionListener, actionUpdater);
         this.component = component;
         if (component.isEditable() && component.getEditor().getEditorComponent() instanceof JTextComponent textComponent)
             textComponent.getDocument().addDocumentListener(createDocumentListener(textComponent, actionListener));
-        component.addActionListener(e -> actionListener.accept(e));
+        component.addActionListener(actionListener::accept);
     }
 
     private static DocumentListener createDocumentListener(JTextComponent component, Consumer<ActionEvent> actionListener) {

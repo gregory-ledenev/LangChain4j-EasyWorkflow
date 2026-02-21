@@ -34,10 +34,9 @@ import static com.gl.appframework.UISupport.setupUndomanager;
  * A compact implementation of {@link FormEditor} for single-line string input.
  * Uses a {@link JTextField} as the underlying UI component.
  */
-class CompactStringFormEditor implements FormEditor {
-    private final FormPanel formPanel;
+class CompactStringFormEditor implements FormEditor<String> {
     private final JTextField textField;
-    private final FormElement formElement;
+    private final FormElement<String> formElement;
     private final UISupport.DefaultUndoableEditListener undoableEditListener;
 
     /**
@@ -45,8 +44,7 @@ class CompactStringFormEditor implements FormEditor {
      * @param formPanel the parent form panel
      * @param formElement the metadata describing this form element
      */
-    public CompactStringFormEditor(FormPanel formPanel, FormElement formElement) {
-        this.formPanel = formPanel;
+    public CompactStringFormEditor(FormPanel formPanel, FormElement<String> formElement) {
         this.formElement = formElement;
         this.textField = new JTextField(20);
         textField.getDocument().addDocumentListener(formPanel);
@@ -58,13 +56,13 @@ class CompactStringFormEditor implements FormEditor {
     }
 
     @Override
-    public void setValue(Object value) {
-        textField.setText(value != null ? value.toString() : null);
+    public void setValue(String value) {
+        textField.setText(value);
         undoableEditListener.getUndoManager().discardAllEdits();
     }
 
     @Override
-    public Object getValue() {
+    public String getValue() {
         return textField.getText();
     }
 

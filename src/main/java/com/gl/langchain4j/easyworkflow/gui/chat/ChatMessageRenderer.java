@@ -41,9 +41,9 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.Map;
 
+import static com.gl.appframework.ToolbarIcons.*;
 import static com.gl.appframework.UISupport.getOptions;
 import static com.gl.appframework.UISupport.isDarkAppearance;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
 
 /**

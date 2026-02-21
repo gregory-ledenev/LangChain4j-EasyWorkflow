@@ -32,16 +32,26 @@ import javax.swing.text.View;
 import java.awt.*;
 import java.util.Objects;
 
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.ICON_INFO;
+import static com.gl.appframework.ToolbarIcons.ICON_INFO;
 
 public class ActionTooltipRenderer extends JPanel {
+    public static final Color DEFAULT_BACKGROUND = new Color(255, 255, 224);
+    private final JLabel lblToolTip = new JLabel();
+    private final JLabel lblAcceleratorKey = new JLabel();
+    private final JLabel lblDetails = new FixedWidthLabel();
+    private final Divider lblNoteDivider = new Divider();
+    private final JLabel lblNote = new FixedWidthLabel();
+
     public ActionTooltipRenderer() {
-        try {
-            jbInit();
-            updateUI();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
+        jbInit();
+        updateUI();
+    }
+
+    public static Color getDarker(Color aColor, double aFactor) {
+        return new Color(Math.max((int) (aColor.getRed() * aFactor), 0),
+                Math.max((int) (aColor.getGreen() * aFactor), 0),
+                Math.max((int) (aColor.getBlue() * aFactor), 0),
+                aColor.getAlpha());
     }
 
     public void updateUI() {
@@ -53,7 +63,7 @@ public class ActionTooltipRenderer extends JPanel {
             lblAcceleratorKey.setFont(lblAcceleratorKey.getFont().deriveFont(Font.PLAIN));
     }
 
-    private void jbInit() throws Exception {
+    private void jbInit() {
         this.setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBorder(new EmptyBorder(2, 5, 2, 5));
         lblDetails.setVisible(false);
@@ -109,7 +119,7 @@ public class ActionTooltipRenderer extends JPanel {
             if (!Objects.equals(shortDescription, longDescription))
                 setNote(longDescription);
         } else {
-            setDisableReason(! aForceUseDetailedDescription ? null : c.getDisableReason());
+            setDisableReason(!aForceUseDetailedDescription ? null : c.getDisableReason());
         }
 
         boolean enabled = isEnabled();
@@ -136,8 +146,6 @@ public class ActionTooltipRenderer extends JPanel {
         return true;
     }
 
-    public static final Color DEFAULT_BACKGROUND = new Color(255, 255, 224);
-
     protected Color getDefaultBackground() {
         return DEFAULT_BACKGROUND;
     }
@@ -150,6 +158,10 @@ public class ActionTooltipRenderer extends JPanel {
         return lblToolTip.getText();
     }
 
+    public void setTipText(String aTipText) {
+        lblToolTip.setText(aTipText);
+    }
+
     protected String toHTML(String aText) {
         String result = aText;
 
@@ -157,10 +169,6 @@ public class ActionTooltipRenderer extends JPanel {
             result = "<html>" + result + "</html>";
 
         return result;
-    }
-
-    public void setTipText(String aTipText) {
-        lblToolTip.setText(aTipText);
     }
 
     public String getDetails() {
@@ -194,12 +202,6 @@ public class ActionTooltipRenderer extends JPanel {
         lblNote.setVisible(vis);
         lblNoteDivider.setVisible(vis);
     }
-
-    JLabel lblToolTip = new JLabel();
-    JLabel lblAcceleratorKey = new JLabel();
-    JLabel lblDetails = new FixedWidthLabel();
-    Divider lblNoteDivider = new Divider();
-    JLabel lblNote = new FixedWidthLabel();
 
     static class Divider extends JComponent {
         protected void paintComponent(Graphics g) {
@@ -236,23 +238,10 @@ public class ActionTooltipRenderer extends JPanel {
             return result;
         }
 
-        @Override
-        public void reshape(int x, int y, int w, int h) {
-            super.reshape(x, y, w, h);
-        }
-
         public void updateUI() {
             super.updateUI();
 
             setFont(getFont().deriveFont(Font.PLAIN));
         }
-    }
-
-
-    public static Color getDarker(Color aColor, double aFactor) {
-        return new Color(Math.max((int) (aColor.getRed() * aFactor), 0),
-                Math.max((int) (aColor.getGreen() * aFactor), 0),
-                Math.max((int) (aColor.getBlue() * aFactor), 0),
-                aColor.getAlpha());
     }
 }

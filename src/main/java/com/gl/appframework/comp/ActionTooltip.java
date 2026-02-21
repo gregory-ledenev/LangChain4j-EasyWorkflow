@@ -34,9 +34,9 @@ import java.awt.event.KeyEvent;
 
 public class ActionTooltip extends JToolTip implements ActionListener {
 
-    public static int MAX_WIDTH = 300;
+    public static final int MAX_WIDTH = 300;
     public static boolean SHOW_LATER_DETAILED_DESCRIPTION = true;
-    public static Factory FACTORY = new Factory();
+    public static final Factory FACTORY = new Factory();
 
     public static class Factory {
         public JToolTip createToolTip(JComponent aTarget) {
@@ -46,7 +46,7 @@ public class ActionTooltip extends JToolTip implements ActionListener {
         }
     }
 
-    protected ActionTooltipRenderer actionTooltipRenderer = new ActionTooltipRenderer();
+    protected final ActionTooltipRenderer actionTooltipRenderer = new ActionTooltipRenderer();
 
     public ActionTooltip() {
         setLayout(new BorderLayout());
@@ -61,7 +61,7 @@ public class ActionTooltip extends JToolTip implements ActionListener {
         return result;
     }
 
-    public static int PREFERRED_WIDTH_FIX = 0;
+    public static final int PREFERRED_WIDTH_FIX = 0;
 
     protected String getAcceleratorKey() {
         String result = null;
@@ -144,7 +144,7 @@ public class ActionTooltip extends JToolTip implements ActionListener {
         actionTooltipRenderer.update(this, ! isShowLaterDetailedDescription());
     }
 
-    protected Timer timer = new Timer(2000, this);
+    protected final Timer timer = new Timer(2000, this);
 
     public void addNotify() {
         super.addNotify();

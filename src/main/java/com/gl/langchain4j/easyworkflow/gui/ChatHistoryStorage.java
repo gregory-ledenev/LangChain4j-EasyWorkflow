@@ -47,7 +47,7 @@ public class ChatHistoryStorage {
     private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
     private final String agentClassName;
     protected List<ChatHistoryItem> chatHistoryItems = Collections.synchronizedList(new ArrayList<>());
-    protected Map<String, ChatHistoryItem> chatHistoryItemsByUid = Collections.synchronizedMap(new HashMap<>());
+    protected final Map<String, ChatHistoryItem> chatHistoryItemsByUid = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Constructs a new ChatHistoryStorage for a given agent class.

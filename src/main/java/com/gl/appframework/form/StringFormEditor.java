@@ -35,14 +35,12 @@ import static com.gl.appframework.UISupport.setupUndomanager;
  * It supports multi-line input, undo/redo functionality, and placeholder text when used as a single element.
  */
 class StringFormEditor implements FormEditor<String> {
-    private final FormPanel formPanel;
     private final FormPanel.FormTextEditor textArea;
     private final JScrollPane scrollPane;
     private final FormElement<String> formElement;
     private final UISupport.DefaultUndoableEditListener undoableEditListener;
 
     public StringFormEditor(FormPanel formPanel, FormElement<String> formElement) {
-        this.formPanel = formPanel;
         this.formElement = formElement;
         this.textArea = new FormPanel.FormTextEditor(formPanel.getFormElements().size() > 1 ? 3 : 5, 20);
         textArea.getDocument().addDocumentListener(formPanel);

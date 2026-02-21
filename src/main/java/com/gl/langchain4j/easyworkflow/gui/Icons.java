@@ -16,7 +16,6 @@ public class Icons {
     public static final String ICON_BREAKPOINT = "breakpoint";
     public static final String ICON_PLAY = "play";
     public static final String ICON_STOP = "stop";
-    public static final String ICON_SPACER = "spacer";
     public static final String ICON_SEND = "send";
     public static final String ICON_WRENCH = "wrench";
     public static final String ICON_QUESTION = "question";
@@ -31,7 +30,6 @@ public class Icons {
         loadIcon(ICON_BREAKPOINT, "icons/breakpoint");
         loadIcon(ICON_PLAY, "icons/play");
         loadIcon(ICON_STOP, "icons/stop");
-        loadIcon(ICON_SPACER, "icons/spacer");
         loadIcon(ICON_SEND, "icons/send");
         loadIcon(ICON_WRENCH, "icons/wrench");
         loadIcon(ICON_QUESTION, "icons/question");

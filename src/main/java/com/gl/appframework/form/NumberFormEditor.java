@@ -34,10 +34,9 @@ import static com.gl.appframework.UISupport.setupUndomanager;
  * A {@link FormEditor} implementation for numeric input fields.
  * Handles parsing, validation, and UI setup for numbers within a {@link FormPanel}.
  */
-class NumberFormEditor implements FormEditor {
-    private final FormPanel formPanel;
+class NumberFormEditor implements FormEditor<Number> {
     private final JTextField textField;
-    private final FormElement formElement;
+    private final FormElement<Number> formElement;
     private final UISupport.DefaultUndoableEditListener undoableEditListener;
 
     /**
@@ -45,8 +44,7 @@ class NumberFormEditor implements FormEditor {
      * @param formPanel the parent form panel
      * @param formElement the metadata defining this form field
      */
-    public NumberFormEditor(FormPanel formPanel, FormElement formElement) {
-        this.formPanel = formPanel;
+    public NumberFormEditor(FormPanel formPanel, FormElement<Number> formElement) {
         this.formElement = formElement;
         this.textField = new JTextField(20);
         FormPanel.setupFont(this.textField);
@@ -59,14 +57,14 @@ class NumberFormEditor implements FormEditor {
     }
 
     @Override
-    public void setValue(Object value) {
+    public void setValue(Number value) {
         textField.setText(value != null ? value.toString() : null);
         undoableEditListener.getUndoManager().discardAllEdits();
     }
 
     @Override
-    public Object getValue() {
-        return formPanel.parseNumber(textField.getText(), formElement.getType());
+    public Number getValue() {
+        return FormPanel.parseNumber(textField.getText(), formElement.getType());
     }
 
     @Override
