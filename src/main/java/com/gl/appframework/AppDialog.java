@@ -44,7 +44,7 @@ import java.util.Map;
  *
  * @param <T> The type of data that the dialog can return.
  */
-public class AppDialog<T, R> extends JDialog {
+public class AppDialog<T, R> extends JDialog implements Updatable {
     /**
      * Action command for the "OK" button.
      */
@@ -290,5 +290,9 @@ public class AppDialog<T, R> extends JDialog {
     public int question(String title, String message, int optionType) {
         //noinspection MagicConstant
         return JOptionPane.showConfirmDialog(this, message, title != null ? title : getTitle(), optionType);
+    }
+
+    @Override
+    public void update() {
     }
 }

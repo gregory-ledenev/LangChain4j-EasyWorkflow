@@ -28,6 +28,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.appframework.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow.AgentWorkflowBuilder.HtmlConfiguration;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agentic.Agent;
@@ -110,7 +111,7 @@ public class WorkflowDebugger implements WorkflowContext.StateChangeHandler,
      * Key for accessing the tool execution response ({@code String}) in the agentic scope.
      */
     public static final String KEY_TOOL_RESPONSE = "$toolResponse";
-    private static final Logger logger = EasyWorkflow.getLogger(WorkflowDebugger.class);
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowDebugger.class);
     private static final ObjectMapper OBJECT_MAPPER = createObjectMapper();
     private final WorkflowContext workflowContext;
     private final List<Breakpoint> breakpoints = Collections.synchronizedList(new ArrayList<>());

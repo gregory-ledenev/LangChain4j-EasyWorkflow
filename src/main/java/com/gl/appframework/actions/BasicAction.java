@@ -25,6 +25,7 @@
 package com.gl.appframework.actions;
 
 import com.gl.appframework.UISupport;
+import com.gl.appframework.Updatable;
 
 import javax.swing.*;
 import java.awt.*;
@@ -36,13 +37,16 @@ import java.util.function.Consumer;
  * An abstract base class for actions that perform a specific task.
  */
 @SuppressWarnings("unused")
-public class BasicAction extends AbstractAction {
-    private final Consumer<ActionEvent> actionListener;
-    private final Consumer<? extends BasicAction> actionUpdater;
-
+public class BasicAction extends AbstractAction implements Updatable {
     public static final String MENU_BAR_ITEM_NAME = "menuBarItemName";
     public static final String ID = "id";
     public static final String PARENT_ACTION_GROUP = "parentActionGroup";
+    public static final String COPY_NAME = "copyName";
+    public static final String DISABLE_REASON = "disableReason";
+    public static final String VISIBLE_KEY = "visible";
+    private final Consumer<ActionEvent> actionListener;
+    private final Consumer<? extends BasicAction> actionUpdater;
+    private long when;
 
     /**
      * Constructs a new BasicAction.
@@ -90,8 +94,6 @@ public class BasicAction extends AbstractAction {
         else
             defaultActionPerformed(e);
     }
-
-    private long when;
 
     private void macMenuBarActionPerformed(ActionEvent e) {
         if (e.getWhen() > when) {
@@ -172,9 +174,6 @@ public class BasicAction extends AbstractAction {
     public void setLongDescription(String text) {
         putValue(Action.LONG_DESCRIPTION, text);
     }
-
-    public static final String COPY_NAME = "copyName";
-    public static final String DISABLE_REASON = "disableReason";
 
     public boolean isCopyName() {
         return Boolean.TRUE.equals(getValue(COPY_NAME));
@@ -294,5 +293,45 @@ public class BasicAction extends AbstractAction {
      */
     public static void setParentActionGroup(Action action, ActionGroup parent) {
         Objects.requireNonNull(action).putValue(PARENT_ACTION_GROUP, Objects.requireNonNull(parent));
+    }
+
+    /**
+     * Returns whether the action is visible.
+     *
+     * @return {@code true} if the action is visible, {@code false} otherwise.
+     */
+    public boolean isVisible() {
+        return isVisible(this);
+    }
+
+    /**
+     * Sets the visibility of the action.
+     *
+     * @param visible {@code true} to make the action visible, {@code false} to hide it.
+     */
+    public void setVisible(boolean visible) {
+        setVisible(this, visible);
+    }
+
+    /**
+     * Returns whether the specified action is visible.
+     *
+     * @param anAction The action to query.
+     * @return {@code true} if the action is visible, {@code false} otherwise.
+     */
+    public static boolean isVisible(javax.swing.Action anAction) {
+        Object value = anAction.getValue(VISIBLE_KEY);
+        return value == null || Boolean.TRUE.equals(value);
+    }
+
+    /**
+     * Sets the visibility of the specified action.
+     *
+     * @param anAction The action to update.
+     * @param visible  {@code true} to make the action visible, {@code false} to hide it.
+     */
+    public static void setVisible(javax.swing.Action anAction, boolean visible) {
+        if (isVisible(anAction) != visible)
+            anAction.putValue(VISIBLE_KEY, visible ? null : Boolean.FALSE);
     }
 }

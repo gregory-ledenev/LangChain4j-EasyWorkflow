@@ -36,7 +36,7 @@ import static com.gl.appframework.Application.getSharedApplication;
  * Provides basic window management, including closing behavior and state management.
  */
 @SuppressWarnings("ALL")
-public class AppFrame extends JFrame implements Application.ScheduledUpdatable {
+public class AppFrame extends JFrame implements Updatable {
     private final String uid;
 
     /**
@@ -111,6 +111,6 @@ public class AppFrame extends JFrame implements Application.ScheduledUpdatable {
      * quickly as possible. Subclasses can override this method
      * to refresh displayed data, update state, or perform other updates as needed.
      */
-    public void scheduledUpdate() {
+    public void update() {
     }
 }

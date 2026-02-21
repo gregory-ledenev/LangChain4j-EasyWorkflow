@@ -30,9 +30,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.appframework.*;
 import com.gl.appframework.actions.*;
-import com.gl.appframework.comp.AppSplitPane;
-import com.gl.appframework.comp.HeaderPane;
-import com.gl.appframework.comp.PreviewTextPane;
+import com.gl.appframework.comp.*;
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
@@ -81,7 +79,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     public static final String PROP_USER_MESSAGES_FILE = "user-messages-file";
     public static final String PROP_CHAT_FILE = "chat-file";
 
-    private static final Logger logger = EasyWorkflow.getLogger(ChatFrame.class);
+    private static final Logger logger = LoggerFactory.getLogger(ChatFrame.class);
     private final ChatPane pnlChat = new ChatPane();
     private final PlaygroundContext playgroundContext;
     private final UserMessagesStorage userMessagesStorage;
@@ -320,7 +318,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     private void setupMenuBar() {
-        JMenuBar menuBar = new JMenuBar();
+        ActionMenuBar menuBar = new ActionMenuBar();
 
         setupMenuBarFileActionGroup();
         setupMenuBarEditActionGroup();
@@ -335,7 +333,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 menuBarOptionsActionGroup,
                 menuBarHelpActionGroup
         );
-        UISupport.setupMenuBar(menuBar, menuBarActionGroup);
+        menuBar.setActionGroup(menuBarActionGroup);
         setJMenuBar(menuBar);
     }
 
@@ -787,7 +785,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
         }
     }
 
-    private void setupToolbar(JToolBar toolbar) {
+    private void setupToolbar(ActionToolBar toolbar) {
         inspectorToolbarActionGroup = new ActionGroup(
                 new ActionGroup(
                         showStructureAction,
@@ -797,10 +795,10 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         editUserMessageAction
                 )
         );
-        UISupport.setupToolbar(toolbar, inspectorToolbarActionGroup);
+        toolbar.setActionGroup(inspectorToolbarActionGroup);
     }
 
-    private void setupChatToolbar(JToolBar toolbar) {
+    private void setupChatToolbar(ActionToolBar toolbar) {
         ActionGroup chatModelsActionGroup = chatModelsAction != null ? new ActionGroup(chatModelsAction) : null;
         chatToolbarActionGroup = new ActionGroup(
                 chatModelsActionGroup,
@@ -812,7 +810,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         workflowExpertAction
                 )
         );
-        UISupport.setupToolbar(toolbar, chatToolbarActionGroup);
+        toolbar.setActionGroup(chatToolbarActionGroup);
     }
 
     private void setupPopupMenu() {
@@ -829,8 +827,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         editUserMessageAction
                 )
         );
-        JPopupMenu popupMenu = new JPopupMenu();
-        UISupport.setupPopupMenu(popupMenu, actionGroup);
+        ActionPopupMenu popupMenu = new ActionPopupMenu();
+        popupMenu.setActionGroup(actionGroup);
         pnlWorkflowInspectorStructure.setComponentPopupMenu(popupMenu);
         pnlWorkflowInspectorExecution.setComponentPopupMenu(popupMenu);
 
@@ -849,8 +847,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                                 a -> a.setEnabled(!summaryGenerating))
                 )
         );
-        popupMenu = new JPopupMenu();
-        UISupport.setupPopupMenu(popupMenu, actionGroup);
+        popupMenu = new ActionPopupMenu();
+        popupMenu.setActionGroup(actionGroup);
         pnlWorkflowSummaryView.setComponentPopupMenu(popupMenu);
     }
 
@@ -1005,8 +1003,8 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
     }
 
     @Override
-    public void scheduledUpdate() {
-        super.scheduledUpdate();
+    public void update() {
+        super.update();
 
         if (workflowDebugger != null) {
             menuBarActionGroup.update();
@@ -1014,7 +1012,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
             chatToolbarActionGroup.update();
             pnlWorkflowInspectorDetails.scheduledUpdate();
         }
-        pnlChat.scheduledUpdate();
+        pnlChat.update();
     }
 
     @Override

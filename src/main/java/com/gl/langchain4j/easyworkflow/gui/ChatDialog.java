@@ -25,8 +25,8 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.gl.appframework.Updatable;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
-import com.gl.appframework.Application;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -36,7 +36,7 @@ import java.awt.*;
  * A dialog that provides a chat interface. It can be used to display a chat conversation and interact with a chat
  * engine.
  */
-public class ChatDialog extends JDialog implements Application.ScheduledUpdatable {
+public class ChatDialog extends JDialog implements Updatable {
 
     private final ChatPane chatPane = new ChatPane();
 
@@ -99,7 +99,7 @@ public class ChatDialog extends JDialog implements Application.ScheduledUpdatabl
     }
 
     @Override
-    public void scheduledUpdate() {
-        chatPane.scheduledUpdate();
+    public void update() {
+        chatPane.update();
     }
 }

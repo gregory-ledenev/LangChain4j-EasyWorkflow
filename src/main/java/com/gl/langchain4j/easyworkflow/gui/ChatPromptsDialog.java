@@ -5,6 +5,7 @@ import com.gl.appframework.AppDialog;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.comp.ActionToolBar;
 
 import javax.swing.*;
 import java.awt.*;
@@ -51,12 +52,10 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
             }
         });
 
-        list.addListSelectionListener(e -> updateActions());
-
         JScrollPane scrollPane = new JScrollPane(list);
         content.add(scrollPane, BorderLayout.CENTER);
 
-        JToolBar toolbar = new JToolBar();
+        ActionToolBar toolbar = new ActionToolBar();
         toolbar.setFloatable(false);
 
         BasicAction actionPin = new StateAction("Pin", new UISupport.AutoIcon(ICON_PIN), null,
@@ -109,7 +108,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
                 new ActionGroup(actionMoveUp, actionMoveDown),
                 new ActionGroup(actionDelete)
         );
-        UISupport.setupToolbar(toolbar, toolbarActionGroup);
+        toolbar.setActionGroup(toolbarActionGroup);
         content.add(toolbar, BorderLayout.NORTH);
 
         setContent(content);
@@ -134,11 +133,11 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
                 list.setSelectedIndex(selectedIndex);
             }
         }
-
-        updateActions();
     }
 
-    private void updateActions() {
+    @Override
+    public void update() {
+        super.update();
         toolbarActionGroup.update();
     }
 

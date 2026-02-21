@@ -29,6 +29,7 @@ import com.gl.appframework.UISupport.AutoIcon;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.comp.ActionPopupMenu;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -184,7 +185,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
     }
 
     private void setupPopupMenu() {
-        JPopupMenu popupMenu = new JPopupMenu();
+        ActionPopupMenu popupMenu = new ActionPopupMenu();
 
         ActionGroup actionGroup = new ActionGroup(
                 new ActionGroup(
@@ -203,7 +204,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
                                 a -> a.setSelected(getOptions().isRenderMarkdown()))
                 )
         );
-        UISupport.setupPopupMenu(popupMenu, actionGroup);
+        popupMenu.setActionGroup(actionGroup);
         setComponentPopupMenu(popupMenu);
         textPane.setComponentPopupMenu(popupMenu);
     }

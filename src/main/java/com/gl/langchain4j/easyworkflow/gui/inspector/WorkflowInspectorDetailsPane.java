@@ -29,10 +29,7 @@ import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.UISupport.*;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
-import com.gl.appframework.comp.AppPane;
-import com.gl.appframework.comp.AppSplitPane;
-import com.gl.appframework.comp.HeaderPane;
-import com.gl.appframework.comp.PreviewTextPane;
+import com.gl.appframework.comp.*;
 
 import javax.swing.*;
 import javax.swing.event.TreeSelectionEvent;
@@ -371,8 +368,8 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                     )
             );
 
-            JPopupMenu popupMenu = new JPopupMenu();
-            UISupport.setupPopupMenu(popupMenu, menuActionGroup);
+            ActionPopupMenu popupMenu = new ActionPopupMenu();
+            popupMenu.setActionGroup(menuActionGroup);
             treeValues.setComponentPopupMenu(popupMenu);
 
             toolbarActionGroup = new ActionGroup(
@@ -389,7 +386,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                             actionAlwaysExpand
                     )
             );
-            UISupport.setupToolbar(headerPane.getToolbar(), toolbarActionGroup);
+            headerPane.getToolbar().setActionGroup(toolbarActionGroup);
         }
 
         public boolean isAlwaysExpandValues() {

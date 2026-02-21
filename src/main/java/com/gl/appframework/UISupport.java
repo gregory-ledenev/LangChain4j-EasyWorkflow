@@ -32,6 +32,7 @@ import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.ComponentAction;
 import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.comp.ActionPopupMenu;
 import com.gl.appframework.comp.ActionTooltip;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
@@ -76,7 +77,7 @@ import static com.gl.appframework.actions.BasicAction.COPY_NAME;
 @SuppressWarnings("ALL")
 public class UISupport {
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
-    private static final Logger logger = EasyWorkflow.getLogger(UISupport.class);
+    private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
     private static final Map<String, ImageIcon> icons = new HashMap<>();
     private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
     private static Boolean darkAppearance;
@@ -142,7 +143,7 @@ public class UISupport {
      *                          Can be {@code null}.
      */
     public static void setupPopupMenu(JTextComponent textComponent, ActionGroup additionalActions) {
-        JPopupMenu popupMenu = new JPopupMenu();
+        ActionPopupMenu popupMenu = new ActionPopupMenu();
 
         Action action = textComponent.getActionMap().get("delete");
         if (action == null)
@@ -187,7 +188,7 @@ public class UISupport {
                 ),
                 additionalActions
         );
-        setupPopupMenu(popupMenu, actionGroup);
+        popupMenu.setActionGroup(actionGroup);
         textComponent.setComponentPopupMenu(popupMenu);
     }
 
@@ -487,327 +488,6 @@ public class UISupport {
     public static Border createCustomLineBorder(Color lineColor, boolean paintTop, boolean paintLeft, boolean paintBottom, boolean paintRight) {
         return new CustomLineBorder(lineColor, new Insets(paintTop ? 1 : 0, paintLeft ? 1 : 0, paintBottom ? 1 : 0, paintRight ? 1 : 0),
                 paintTop, paintLeft, paintBottom, paintRight);
-    }
-
-    /**
-     * Creates a rounded rectangle border with the specified line color.
-     *
-     * @param lineColor The color of the border.
-     * @return A new {@link Border} instance with a rounded rectangle shape.
-     */
-    public static Border createRoundRectBorder(Color lineColor) {
-        return new RoundRectBorder(lineColor);
-    }
-
-    /**
-     * Creates a {@link JButton} for use in a toolbar, optionally preserving its text.
-     *
-     * @param action The {@link Action} to associate with the button.
-     * @return A new {@link JButton} instance configured for toolbar use.
-     */
-    public static JButton createToolbarButton(Action action) {
-        JButton result = new JButton(action) {
-            @Override
-            public JToolTip createToolTip() {
-                return ActionTooltip.FACTORY.createToolTip(this);
-            }
-        };
-        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
-            result.setText(null);
-
-        boolean hasText = result.getText() != null;
-        result.setMargin(new Insets(5, hasText ? 6 : 5, 5, hasText ? 6 : 5));
-
-        if (action instanceof ActionGroup)
-            result.setText(hasText ? result.getText() + " ▾" : "▾");
-
-        return result;
-    }
-
-    /**
-     * Creates a {@link JToggleButton} for use in a toolbar, optionally preserving its text.
-     *
-     * @param action       The {@link Action} to associate with the toggle button.
-     * @param preserveText If {@code true}, the toggle button's text will be kept; otherwise, it will be set to
-     *                     {@code null}.
-     * @return A new {@link JToggleButton} instance configured for toolbar use.
-     */
-    public static JToggleButton createToolbarToggleButton(Action action, boolean preserveText, Map<String, ButtonGroup> buttonGroupMap) {
-        ButtonGroup buttonGroup = null;
-        if (action instanceof StateAction stateAction) {
-            if (stateAction.getExclusiveGroup() != null)
-                buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
-        }
-
-        JToggleButton result = new JToggleButton(action) {
-            @Override
-            public JToolTip createToolTip() {
-                return ActionTooltip.FACTORY.createToolTip(this);
-            }
-        };
-        if (buttonGroup != null)
-            buttonGroup.add(result);
-        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {
-            result.setText(null);
-        }
-        boolean hasText = result.getText() != null;
-        result.setMargin(new Insets(5, hasText ? 6 : 5, 5, hasText ? 6 : 5));
-        return result;
-    }
-
-    /**
-     * Creates a {@link JMenuItem} from an {@link Action}
-     *
-     * @param action The {@link Action} to associate with the menu item.
-     * @return A new {@link JMenuItem} instance.
-     */
-    public static JMenuItem createMenuItem(Action action) {
-        JMenuItem result = new JMenuItem(action);
-        result.setToolTipText(null);
-        setupSelectedIcon(action, result);
-        return result;
-    }
-
-    private static void setupSelectedIcon(Action action, JMenuItem result) {
-        if (isMac()) {
-            AutoIcon icon = action.getValue(Action.SMALL_ICON) instanceof AutoIcon ? (AutoIcon) action.getValue(Action.SMALL_ICON) : null;
-            if (icon != null)
-                result.setSelectedIcon(UISupport.getIcon(icon.key, true));
-        }
-    }
-
-    /**
-     * Creates a {@link JCheckBoxMenuItem} from an {@link Action}.
-     *
-     * @param action The {@link Action} to associate with the checkbox menu item.
-     * @return A new {@link JCheckBoxMenuItem} instance.
-     */
-    public static JCheckBoxMenuItem createMenuCheckBoxItem(Action action) {
-        JCheckBoxMenuItem result = new JCheckBoxMenuItem(action);
-        result.setToolTipText(null);
-        setupSelectedIcon(action, result);
-        return result;
-    }
-
-    /**
-     * Creates a {@link JRadioButtonMenuItem} from an {@link Action}.
-     *
-     * @param action The {@link Action} to associate with the radio button menu item.
-     * @return A new {@link JRadioButtonMenuItem} instance.
-     */
-    public static JRadioButtonMenuItem createRadioButtonMenuItem(Action action) {
-        JRadioButtonMenuItem result = new JRadioButtonMenuItem(action);
-        result.setToolTipText(null);
-        setupSelectedIcon(action, result);
-        return result;
-    }
-
-    /**
-     * Sets up a {@link JPopupMenu} with actions from an {@link ActionGroup}.
-     *
-     * @param popupMenu   The {@link JPopupMenu} to set up.
-     * @param actionGroup The {@link ActionGroup} containing the actions to add to the popup menu.
-     */
-    public static void setupPopupMenu(JPopupMenu popupMenu, ActionGroup actionGroup) {
-        setupPopupMenu(popupMenu, actionGroup, new HashMap<>());
-    }
-
-    private static void setupPopupMenu(JPopupMenu popupMenu, ActionGroup actionGroup, Map<String, ButtonGroup> buttonGroupMap) {
-        popupMenu.addPopupMenuListener(new PopupMenuListener() {
-            @Override
-            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
-                for (Action action : actionGroup.getActions()) {
-                    if (action instanceof BasicAction basicAction)
-                        basicAction.update();
-                }
-            }
-
-            @Override
-            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
-            }
-
-            @Override
-            public void popupMenuCanceled(PopupMenuEvent e) {
-            }
-        });
-        int i = 0;
-        for (Action action : actionGroup.getActions()) {
-            if (action == null)
-                continue;
-
-            if (action instanceof ActionGroup subGroup) {
-                if (subGroup.isPopup()) {
-                    JMenu subMenu = new JMenu(subGroup.getValue(Action.NAME).toString());
-                    popupMenu.add(subMenu);
-                    subMenu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null); // Cast to Icon
-                    setupSelectedIcon(subGroup, subMenu);
-                    setupPopupMenu(subMenu.getPopupMenu(), subGroup, buttonGroupMap); // Pass buttonGroupMap for nested groups
-                } else {
-                    // If it's an ActionGroup but not a popup, treat its actions as direct menu items
-                    for (Action subAction : subGroup.getActions()) {
-                        addMenuItem(popupMenu, subAction, buttonGroupMap);
-                    }
-                    if (i < actionGroup.getActions().size() - 1)
-                        popupMenu.addSeparator(); // Separator after a non-popup action group's items
-                }
-            } else {
-                addMenuItem(popupMenu, action, buttonGroupMap);
-            }
-            i++;
-        }
-        if (popupMenu.getComponent(popupMenu.getComponentCount() - 1) instanceof JSeparator)
-            popupMenu.remove(popupMenu.getComponentCount() - 1);
-    }
-
-    private static void addMenuItem(JPopupMenu popupMenu, Action action, Map<String, ButtonGroup> buttonGroupMap) {
-        JMenuItem menuItem = null;
-        if (action instanceof StateAction stateAction) {
-            if (stateAction.getExclusiveGroup() != null) {
-                ButtonGroup buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
-                JRadioButtonMenuItem rbMenuItem = createRadioButtonMenuItem(stateAction);
-                buttonGroup.add(rbMenuItem);
-                popupMenu.add(rbMenuItem);
-            } else {
-                menuItem = createMenuCheckBoxItem(stateAction);
-                popupMenu.add(menuItem);
-            }
-        } else if (action instanceof ActionGroup subGroup && !subGroup.isPopup()) {
-            // This case handles non-popup ActionGroups that are not nested within another ActionGroup
-            // Their actions are added directly to the current popupMenu
-            for (Action subAction : subGroup.getActions()) {
-                addMenuItem(popupMenu, subAction, buttonGroupMap);
-            }
-            popupMenu.addSeparator();
-        } else {
-            menuItem = createMenuItem(action);
-            popupMenu.add(menuItem);
-        }
-
-        if (menuItem != null && belongsToMenuBar(popupMenu)) {
-            String name = (String) action.getValue(BasicAction.MENU_BAR_ITEM_NAME);
-            if (name != null && !name.isEmpty())
-                menuItem.setText(name);
-        }
-    }
-
-    /**
-     * Sets up a {@link JMenuBar} with actions from an {@link ActionGroup}.
-     *
-     * @param menuBar     The {@link JMenuBar} to set up.
-     * @param actionGroup The {@link ActionGroup} containing the actions to add to the menu bar.
-     */
-    public static void setupMenuBar(JMenuBar menuBar, ActionGroup actionGroup) {
-        setupMenuBar(menuBar, actionGroup, new HashMap<>());
-    }
-
-    private static void setupMenuBar(JMenuBar menuBar, ActionGroup actionGroup, Map<String, ButtonGroup> buttonGroupMap) {
-        for (Action action : actionGroup.getActions()) {
-            if (action == null)
-                continue;
-
-            if (action instanceof ActionGroup subGroup) {
-                JMenu menu = new JMenu(subGroup.getValue(Action.NAME).toString());
-                menuBar.add(menu);
-                menu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null);
-                setupPopupMenu(menu.getPopupMenu(), subGroup, buttonGroupMap);
-            } else {
-                // Top-level actions in a menu bar are typically JMenus, not direct JMenuItems.
-                // If a direct action is encountered here, it's usually an error in the ActionGroup structure
-                // for a menu bar, or it implies a single menu item at the top level, which is uncommon.
-                // For now, we'll add it as a JMenu with a single item, or you might choose to log an error.
-                logger.warn("Direct action '{}' found at top level of JMenuBar setup. Consider wrapping it in an ActionGroup for a JMenu.", action.getValue(Action.NAME));
-                JMenu menu = new JMenu(action.getValue(Action.NAME).toString());
-                menuBar.add(menu);
-                menu.setIcon(action.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) action.getValue(Action.SMALL_ICON) : null);
-                addMenuItem(menu.getPopupMenu(), action, buttonGroupMap);
-            }
-        }
-    }
-
-    private static boolean belongsToMenuBar(JPopupMenu popup) {
-        JMenu top = findTopMenu(popup);
-        return top != null && top.getParent() instanceof JMenuBar;
-    }
-
-    private static JMenu findTopMenu(JPopupMenu popup) {
-        if (popup == null)
-            return null;
-
-        Component c = popup.getInvoker();
-
-        while (c instanceof JMenuItem) {
-            JMenuItem item = (JMenuItem) c;
-            Container parent = item.getParent();
-
-            if (!(parent instanceof JPopupMenu))
-                return (item instanceof JMenu) ? (JMenu) item : null;
-
-            JPopupMenu parentPopup = (JPopupMenu) parent;
-            c = parentPopup.getInvoker();
-        }
-
-        return null;
-    }
-
-    /**
-     * Sets up a {@link JToolBar} with actions from an {@link ActionGroup}.
-     *
-     * @param toolbar     The {@link JToolBar} to set up.
-     * @param actionGroup The {@link ActionGroup} containing the actions to add to the toolbar.
-     */
-    public static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup) {
-        toolbar.removeAll();
-        setupToolbar(toolbar, actionGroup, true, new HashMap<>());
-    }
-
-    private static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup, boolean addSeparators,
-                                     Map<String, ButtonGroup> buttonGroupMap) {
-        for (int i = 0; i < actionGroup.getActions().size(); ++i) {
-            Action action = actionGroup.getActions().get(i);
-            if (action == null)
-                continue;
-
-            if (action instanceof ActionGroup subGroup) {
-                if (subGroup.isPopup()) {
-                    JButton popupButton = createToolbarButton(subGroup);
-                    JPopupMenu subPopupMenu = new JPopupMenu();
-                    setupPopupMenu(subPopupMenu, subGroup, buttonGroupMap);
-                    popupButton.addActionListener(e -> subPopupMenu.show(popupButton, 0, popupButton.getHeight()));
-                    toolbar.add(popupButton); // Add the popup button to the toolbar
-                } else { // Not a popup, so add its actions directly to the current toolbar
-                    setupToolbar(toolbar, subGroup, false, buttonGroupMap); // Recursively add actions of the subgroup without separators
-                }
-            } else {
-                addToolbarItem(toolbar, action, buttonGroupMap);
-            }
-
-            // Add separator only if it's not the last item and the previous item was not a separator
-            if (addSeparators && action instanceof ActionGroup && i < actionGroup.getActions().size() - 1 &&
-                    toolbar.getComponentCount() > 0 &&
-                    !(toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
-                toolbar.addSeparator();
-            }
-        }
-        if (toolbar.getComponentCount() > 0 && toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)
-            toolbar.remove(toolbar.getComponentCount() - 1);
-    }
-
-    private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
-        if (action instanceof ComponentAction componentAction) {
-            if (componentAction.getValue(Action.NAME) != null) {
-                final JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
-                label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
-                toolbar.add(label);
-                componentAction.getComponent().addPropertyChangeListener("enabled",
-                        evt -> label.setEnabled(componentAction.getComponent().isEnabled()));
-            }
-            toolbar.add(componentAction.getComponent());
-        } else if (action instanceof StateAction) {
-            toolbar.add(createToolbarToggleButton(action, false, buttonGroupMap));
-        } else {
-            toolbar.add(createToolbarButton(action));
-        }
-
     }
 
     /**
@@ -1332,5 +1012,15 @@ public class UISupport {
             insets.bottom = this.insets.bottom;
             return insets;
         }
+    }
+
+    /**
+     * Creates a rounded rectangle border with the specified line color.
+     *
+     * @param lineColor The color of the border.
+     * @return A new {@link Border} instance with a rounded rectangle shape.
+     */
+    public static Border createRoundRectBorder(Color lineColor) {
+        return new UISupport.RoundRectBorder(lineColor);
     }
 }

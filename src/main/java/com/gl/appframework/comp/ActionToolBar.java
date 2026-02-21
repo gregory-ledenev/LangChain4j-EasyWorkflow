@@ -1,0 +1,205 @@
+/*
+ * Copyright 2025 Gregory Ledenev (gregory.ledenev37@gmail.com)
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the “Software”), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+package com.gl.appframework.comp;
+
+import com.gl.appframework.UISupport;
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.actions.ComponentAction;
+import com.gl.appframework.actions.StateAction;
+
+import javax.swing.*;
+import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.gl.appframework.actions.BasicAction.COPY_NAME;
+
+/**
+ * A specialized {@link JToolBar} that populates itself based on an {@link ActionGroup}.
+ */
+public class ActionToolBar extends JToolBar {
+    private ActionGroup actionGroup;
+
+    /**
+     * Creates a new ActionToolBar and initializes it with the provided {@link ActionGroup}.
+     *
+     * @param actionGroup the group of actions to display in the toolbar
+     */
+    public ActionToolBar(ActionGroup actionGroup) {
+        setActionGroup(actionGroup);
+    }
+
+    /**
+     * Creates a new ActionToolBar with default horizontal orientation.
+     */
+    public ActionToolBar() {
+    }
+
+    /**
+     * Creates a new ActionToolBar with the specified orientation.
+     *
+     * @param orientation the orientation of the toolbar (either {@link SwingConstants#HORIZONTAL}
+     *                    or {@link SwingConstants#VERTICAL})
+     */
+    public ActionToolBar(int orientation) {
+        super(orientation);
+    }
+
+    /**
+     * Returns the {@link ActionGroup} associated with this toolbar.
+     *
+     * @return the current action group
+     */
+    public ActionGroup getActionGroup() {
+        return actionGroup;
+    }
+
+    /**
+     * Sets the {@link ActionGroup} for this toolbar and refreshes the UI components.
+     *
+     * @param actionGroup the new action group to display
+     */
+    public void setActionGroup(ActionGroup actionGroup) {
+        this.actionGroup = actionGroup;
+
+        setupToolbar(this, actionGroup);
+    }
+
+    /**
+     * Sets up a {@link JToolBar} with actions from an {@link ActionGroup}.
+     *
+     * @param toolbar     The {@link JToolBar} to set up.
+     * @param actionGroup The {@link ActionGroup} containing the actions to add to the toolbar.
+     */
+    public static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup) {
+        toolbar.removeAll();
+        setupToolbar(toolbar, actionGroup, true, new HashMap<>());
+    }
+
+    private static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup, boolean addSeparators,
+                                     Map<String, ButtonGroup> buttonGroupMap) {
+        for (int i = 0; i < actionGroup.getActions().size(); ++i) {
+            Action action = actionGroup.getActions().get(i);
+            if (action == null)
+                continue;
+
+            if (action instanceof ActionGroup subGroup) {
+                if (subGroup.isPopup()) {
+                    JButton popupButton = createToolbarButton(subGroup);
+                    ActionPopupMenu subPopupMenu = new ActionPopupMenu();
+                    subPopupMenu.setActionGroup(subGroup);
+                    popupButton.addActionListener(e -> subPopupMenu.show(popupButton, 0, popupButton.getHeight()));
+                    toolbar.add(popupButton); // Add the popup button to the toolbar
+                } else { // Not a popup, so add its actions directly to the current toolbar
+                    setupToolbar(toolbar, subGroup, false, buttonGroupMap); // Recursively add actions of the subgroup without separators
+                }
+            } else {
+                addToolbarItem(toolbar, action, buttonGroupMap);
+            }
+
+            // Add separator only if it's not the last item and the previous item was not a separator
+            if (addSeparators && action instanceof ActionGroup && i < actionGroup.getActions().size() - 1 &&
+                    toolbar.getComponentCount() > 0 &&
+                    !(toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
+                toolbar.addSeparator();
+            }
+        }
+        if (toolbar.getComponentCount() > 0 && toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)
+            toolbar.remove(toolbar.getComponentCount() - 1);
+    }
+
+    private static void addToolbarItem(JToolBar toolbar, Action action, Map<String, ButtonGroup> buttonGroupMap) {
+        if (action instanceof ComponentAction componentAction) {
+            if (componentAction.getValue(Action.NAME) != null) {
+                final JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
+                label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
+                toolbar.add(label);
+                componentAction.getComponent().addPropertyChangeListener("enabled",
+                        evt -> label.setEnabled(componentAction.getComponent().isEnabled()));
+            }
+            toolbar.add(componentAction.getComponent());
+        } else if (action instanceof StateAction) {
+            toolbar.add(createToolbarToggleButton(action, false, buttonGroupMap));
+        } else {
+            toolbar.add(createToolbarButton(action));
+        }
+    }
+
+    /**
+     * Creates a {@link JButton} for use in a toolbar, optionally preserving its text.
+     *
+     * @param action The {@link Action} to associate with the button.
+     * @return A new {@link JButton} instance configured for toolbar use.
+     */
+    public static JButton createToolbarButton(Action action) {
+        JButton result = new JButton(action) {
+            @Override
+            public JToolTip createToolTip() {
+                return ActionTooltip.FACTORY.createToolTip(this);
+            }
+        };
+        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
+            result.setText(null);
+
+        boolean hasText = result.getText() != null;
+        result.setMargin(new Insets(5, hasText ? 6 : 5, 5, hasText ? 6 : 5));
+
+        if (action instanceof ActionGroup)
+            result.setText(hasText ? result.getText() + " ▾" : "▾");
+
+        return result;
+    }
+
+    /**
+     * Creates a {@link JToggleButton} for use in a toolbar, optionally preserving its text.
+     *
+     * @param action       The {@link Action} to associate with the toggle button.
+     * @param preserveText If {@code true}, the toggle button's text will be kept; otherwise, it will be set to
+     *                     {@code null}.
+     * @return A new {@link JToggleButton} instance configured for toolbar use.
+     */
+    public static JToggleButton createToolbarToggleButton(Action action, boolean preserveText, Map<String, ButtonGroup> buttonGroupMap) {
+        ButtonGroup buttonGroup = null;
+        if (action instanceof StateAction stateAction) {
+            if (stateAction.getExclusiveGroup() != null)
+                buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
+        }
+
+        JToggleButton result = new JToggleButton(action) {
+            @Override
+            public JToolTip createToolTip() {
+                return ActionTooltip.FACTORY.createToolTip(this);
+            }
+        };
+        if (buttonGroup != null)
+            buttonGroup.add(result);
+        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {
+            result.setText(null);
+        }
+        boolean hasText = result.getText() != null;
+        result.setMargin(new Insets(5, hasText ? 6 : 5, 5, hasText ? 6 : 5));
+        return result;
+    }
+}

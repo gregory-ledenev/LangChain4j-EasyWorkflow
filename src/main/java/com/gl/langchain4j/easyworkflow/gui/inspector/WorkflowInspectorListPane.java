@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow.gui.inspector;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
+import com.gl.appframework.LoggerFactory;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.langchain4j.easyworkflow.SetStateAgents;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
@@ -86,7 +87,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
     static final String TYPE_START = "start";
     static final String TYPE_END = "end";
     static final String TYPE_TOOL = "toolCall";
-    private static final Logger logger = getLogger(WorkflowInspectorListPane.class);
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowInspectorListPane.class);
     protected final JList<WorkflowItem> list;
     protected final DefaultListModel<WorkflowItem> model;
     protected final List<WorkflowItem> listModel = new ArrayList<>();

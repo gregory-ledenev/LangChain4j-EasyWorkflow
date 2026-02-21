@@ -28,6 +28,7 @@ import javax.swing.*;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.*;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * A class that represents a group of actions.
@@ -45,8 +46,8 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
 
     private final List<Action> actions;
     private final boolean popup;
-    private transient List<ActionGroupListener> actionGroupListeners;
-    private transient List<PropertyChangeListener> actionGroupPropertyChangeListeners;
+    private transient volatile CopyOnWriteArrayList<ActionGroupListener> actionGroupListeners;
+    private transient volatile CopyOnWriteArrayList<PropertyChangeListener> actionGroupPropertyChangeListeners;
     private final transient PropertyChangeListener actionGroupPropertyChangeListener = this::fireActionGroupPropertyChange;
 
     /**
@@ -267,11 +268,8 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
      * @param l the listener to be removed
      */
     public synchronized void removeActionGroupListener(ActionGroupListener l) {
-        if (actionGroupListeners != null && actionGroupListeners.contains(l)) {
-            List<ActionGroupListener> v = new ArrayList<>(actionGroupListeners);
-            v.remove(l);
-            actionGroupListeners = v;
-        }
+        if (actionGroupListeners != null)
+            actionGroupListeners.remove(l);
     }
 
     /**
@@ -280,11 +278,9 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
      * @param l the listener to be added
      */
     public synchronized void addActionGroupListener(ActionGroupListener l) {
-        List<ActionGroupListener> v = actionGroupListeners == null ? new ArrayList<>(2) : new ArrayList<>(actionGroupListeners);
-        if (!v.contains(l)) {
-            v.add(l);
-            actionGroupListeners = v;
-        }
+        if (actionGroupListeners == null)
+            actionGroupListeners = new CopyOnWriteArrayList<>();
+        actionGroupListeners.addIfAbsent(l);
     }
 
     protected void fireActionAdded(Action anAction, ActionGroup aSource) {
@@ -355,10 +351,8 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
      * @param l the listener to be removed
      */
     public synchronized void removeActionGroupPropertyChangeListener(PropertyChangeListener l) {
-        if (actionGroupPropertyChangeListeners != null && actionGroupPropertyChangeListeners.contains(l)) {
-            List<PropertyChangeListener> v = new ArrayList<>(actionGroupPropertyChangeListeners);
-            v.remove(l);
-            actionGroupPropertyChangeListeners = v;
+        if (actionGroupPropertyChangeListeners != null) {
+            actionGroupPropertyChangeListeners.remove(l);
         }
     }
 
@@ -368,11 +362,9 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
      * @param l the listener to be added
      */
     public synchronized void addActionGroupPropertyChangeListener(PropertyChangeListener l) {
-        List<PropertyChangeListener> v = actionGroupPropertyChangeListeners == null ? new ArrayList<>(2) : new ArrayList<>(actionGroupPropertyChangeListeners);
-        if (!v.contains(l)) {
-            v.add(l);
-            actionGroupPropertyChangeListeners = v;
-        }
+        if (actionGroupPropertyChangeListeners == null)
+            actionGroupPropertyChangeListeners = new CopyOnWriteArrayList<>();
+        actionGroupPropertyChangeListeners.addIfAbsent(l);
     }
 
     /**
@@ -385,145 +377,5 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
         Objects.requireNonNull(action);
 
         return actions.indexOf(action);
-    }
-
-    /**
-     * An iterator that allows traversing actions within an ActionGroup, including nested groups.
-     */
-    public static class ActionGroupIterator implements java.util.Iterator<Action>, Iterable<Action> {
-        protected final ActionGroup actionGroup;
-        protected final Stack<ActionGroup> actionGroupStack = new Stack<>();
-        protected final Stack<Integer> indexStack = new Stack<>();
-        protected Stack<ActionGroup> rootPath;
-        protected int currentIndex = 0;
-        protected final boolean includeActionGroups;
-        protected ActionGroup groupToEnter;
-
-        protected Action fNext;
-
-        /**
-         * Creates an iterator for the specified ActionGroup.
-         *
-         * @param anActionGroup The group to iterate over.
-         */
-        public ActionGroupIterator(ActionGroup anActionGroup) {
-            this(anActionGroup, true);
-        }
-
-        /**
-         * Creates an iterator for the specified ActionGroup.
-         *
-         * @param anActionGroup        The group to iterate over.
-         * @param anIncludeActionGroups Whether to include ActionGroup objects themselves in the iteration.
-         */
-        public ActionGroupIterator(ActionGroup anActionGroup, boolean anIncludeActionGroups) {
-            this.actionGroup = anActionGroup;
-            includeActionGroups = anIncludeActionGroups;
-            actionGroupStack.push(this.actionGroup);
-            findNext();
-        }
-
-        /**
-         * Returns the current ActionGroup being traversed.
-         *
-         * @return The current {@link ActionGroup}.
-         */
-        public ActionGroup getCurrentActionGroup() {
-            return getRootPath().peek();
-        }
-
-        /**
-         * Returns the current nesting depth of the iteration.
-         *
-         * @return The indentation level.
-         */
-        public int getIndent() {
-            return getRootPath().size() - 1;
-        }
-
-        @Override
-        public ActionGroupIterator iterator() {
-            return this;
-        }
-
-        @Override
-        public boolean hasNext() {
-            return fNext != null;
-        }
-
-        /**
-         * Returns the stack representing the path from the root group to the current action.
-         *
-         * @return A stack of {@link ActionGroup} objects.
-         */
-        public Stack<ActionGroup> getRootPath() {
-            return rootPath;
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public Action next() {
-            Action result = fNext;
-            rootPath = (Stack<ActionGroup>) actionGroupStack.clone();
-            findNext();
-            return result;
-        }
-
-        protected Action findNext() {
-            fNext = null;
-
-            if (groupToEnter != null) {
-                indexStack.push(currentIndex);
-                currentIndex = 0;
-                actionGroupStack.push(groupToEnter);
-                groupToEnter = null;
-            }
-
-            while (fNext == null) {
-                if (actionGroupStack.isEmpty()) {
-                    return null;
-                }
-
-                ActionGroup parent = actionGroupStack.peek();
-                List<Action> actions = parent.getActions();
-
-                if (currentIndex >= actions.size()) {
-                    actionGroupStack.pop();
-                    if (actionGroupStack.isEmpty()) {
-                        return null;
-                    }
-                    currentIndex = indexStack.pop();
-                    continue;
-                }
-
-                Action current = actions.get(currentIndex);
-
-                if (current instanceof ActionGroup) {
-                    if (includeActionGroups) {
-                        groupToEnter = (ActionGroup) current;
-                        currentIndex++;
-                        fNext = current;
-                        return fNext;
-                    } else {
-                        currentIndex++;
-                        indexStack.push(currentIndex);
-                        currentIndex = 0;
-                        actionGroupStack.push((ActionGroup) current);
-                        continue;
-                    }
-                }
-
-                currentIndex++;
-                fNext = current;
-                return fNext;
-            }
-
-            return fNext;
-        }
-
-        @Override
-        public void remove() {
-            throw new UnsupportedOperationException("remove is not supported");
-        }
     }
 }

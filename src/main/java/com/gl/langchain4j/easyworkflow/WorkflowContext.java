@@ -24,6 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow;
 
+import com.gl.appframework.LoggerFactory;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -43,7 +44,7 @@ import org.slf4j.Logger;
  * </ul>
  */
 public class WorkflowContext {
-    private static final Logger logger = EasyWorkflow.getLogger(WorkflowContext.class);
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowContext.class);
     private final ServiceOutputParser serviceOutputParser = new ServiceOutputParser();
     private StateChangeHandler stateChangeHandler;
     private InputHandler inputHandler;

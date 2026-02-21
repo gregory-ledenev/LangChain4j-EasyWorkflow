@@ -38,7 +38,7 @@ import static com.gl.appframework.UISupport.*;
 public class HeaderPane extends JPanel{
     private final JLabel lblTitle = new JLabel();
     private final JLabel lblSubtitle = new JLabel();
-    private final JToolBar toolbar = new JToolBar();
+    private final ActionToolBar toolbar = new ActionToolBar();
 
     /**
      * Constructs a new HeaderPane.
@@ -78,7 +78,7 @@ public class HeaderPane extends JPanel{
         updateUI();
     }
 
-    public JToolBar getToolbar() {
+    public ActionToolBar getToolbar() {
         return toolbar;
     }
 

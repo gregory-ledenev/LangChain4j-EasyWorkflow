@@ -26,9 +26,13 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.appframework.LoggerFactory;
+import com.gl.appframework.Updatable;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.comp.ActionPopupMenu;
+import com.gl.appframework.comp.ActionToolBar;
 import com.gl.appframework.comp.HeaderPane;
 import com.gl.appframework.UISupport;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
@@ -72,10 +76,10 @@ import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
  * A panel that provides a chat interface, including message input, display, and settings.
  */
 @SuppressWarnings("ALL")
-public class ChatPane extends JPanel implements PropertyChangeListener {
+public class ChatPane extends JPanel implements PropertyChangeListener, Updatable {
 
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final Logger logger = EasyWorkflow.getLogger(ChatPane.class);
+    private static final Logger logger = LoggerFactory.getLogger(ChatPane.class);
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
     private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton(new AutoIcon(ICON_SEND));
@@ -98,7 +102,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         }
     };
     private final JLabel lblWaiting;
-    private final JToolBar toolsToolbar;
+    private final ActionToolBar toolsToolbar;
     private final HeaderPane pnlHeader;
     private ChatEngine chatEngine;
     private boolean waitingForResponse;
@@ -187,7 +191,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
         };
         inputPanel.add(messageScrollPane, BorderLayout.CENTER);
 
-        toolsToolbar = new JToolBar(JToolBar.VERTICAL) {
+        toolsToolbar = new ActionToolBar(JToolBar.VERTICAL) {
             @Override
             public Dimension getMaximumSize() {
                 return super.getPreferredSize();
@@ -277,10 +281,10 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
 
     public void setupToolActions(Action... actions) {
         toolsActionGroup.addAction(new ActionGroup(actions));
-        setupToolbar(toolsToolbar, toolsActionGroup);
+        toolsToolbar.setActionGroup(toolsActionGroup);
     }
 
-    public void scheduledUpdate() {
+    public void update() {
         toolsActionGroup.update();
     }
 
@@ -371,7 +375,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
                 )
         );
 
-        setupToolbar(toolsToolbar, toolsActionGroup);
+        toolsToolbar.setActionGroup(toolsActionGroup);
     }
 
     private boolean canShowChatPrompts() {
@@ -391,8 +395,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener {
             ChatPromptsStorage.ChatPrompt prompt = prompts.get(i);
             group.addAction(new BasicAction(prompt.toHtmlString(), null, e -> setUserMessage(prompt)));
         }
-        JPopupMenu popupMenu = new JPopupMenu();
-        setupPopupMenu(popupMenu, new ActionGroup(
+        ActionPopupMenu popupMenu = new ActionPopupMenu();
+        popupMenu.setActionGroup(new ActionGroup(
                 group,
                 new ActionGroup(new BasicAction("Edit Prompts...", null, actionEvent -> editChatPromts()))
         ));

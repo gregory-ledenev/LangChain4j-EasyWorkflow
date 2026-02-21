@@ -3,6 +3,7 @@ package com.gl.appframework.form;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.comp.ActionToolBar;
 
 import javax.swing.*;
 import java.awt.*;
@@ -38,7 +39,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
         JScrollPane scrollPane = new JScrollPane(list);
         this.add(scrollPane, BorderLayout.CENTER);
 
-        JToolBar toolbar = new JToolBar();
+        ActionToolBar toolbar = new ActionToolBar();
         toolbar.setFloatable(false);
 
         String elementDisplayName = formElement.getElementDisplayName().isEmpty() ? "item" : formElement.getElementDisplayName();
@@ -103,7 +104,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
                 editActionGroup,
                 moveActionGroup
         );
-        UISupport.setupToolbar(toolbar, toolbarActionGroup);
+        toolbar.setActionGroup(toolbarActionGroup);
 
         JPanel headerPanel = new JPanel(new BorderLayout(5, 0));
         JLabel titleLabel = new JLabel(formElement.getLabel(), formElement.getIcon(), JLabel.LEFT);

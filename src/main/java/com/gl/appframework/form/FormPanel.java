@@ -27,7 +27,9 @@ package com.gl.appframework.form;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.appframework.ToolbarIcons;
 import com.gl.appframework.UISupport;
+import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.comp.ActionPopupMenu;
 import com.jgoodies.forms.builder.DefaultFormBuilder;
 import com.jgoodies.forms.layout.CellConstraints;
 import com.jgoodies.forms.layout.FormLayout;
@@ -43,6 +45,7 @@ import java.util.List;
 import java.util.*;
 
 import static com.gl.appframework.UISupport.*;
+import static com.gl.appframework.comp.ActionMenuSupport.createMenuItem;
 
 /**
  * A panel that dynamically generates a form based on a list of {@link FormElement} objects. It supports various input
@@ -205,10 +208,11 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         UISupport.setupPopupMenu(textComponent);
 
         if (formElements.size() > 1) {
-            JPopupMenu popupMenu = textComponent.getComponentPopupMenu();
-            popupMenu.add(new JSeparator());
-            popupMenu.add(createMenuItem(
-                    new BasicAction("Clear All", new AutoIcon(ToolbarIcons.ICON_SPACER), e -> clearForm())));
+            ActionPopupMenu popupMenu = (ActionPopupMenu) textComponent.getComponentPopupMenu();
+            popupMenu.getActionGroup().addAction(new ActionGroup(
+                    new BasicAction("Clear All", new AutoIcon(ToolbarIcons.ICON_SPACER), e -> clearForm())
+            ));
+            popupMenu.setActionGroup(popupMenu.getActionGroup()); //todo: remove me when changes will be picked up automatically
         }
     }
 

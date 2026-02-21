@@ -27,6 +27,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.appframework.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import org.slf4j.Logger;
@@ -50,7 +51,7 @@ public class ChatPromptsStorage implements Cloneable {
      * Maximum number of prompts to store.
      */
     static final int MAX_COUNT = 50;
-    private static final Logger logger = EasyWorkflow.getLogger(ChatPromptsStorage.class);
+    private static final Logger logger = LoggerFactory.getLogger(ChatPromptsStorage.class);
     private static final ObjectMapper OBJECT_MAPPER = WorkflowDebugger.createObjectMapper();
     private final String agentClassName;
     private List<ChatPrompt> chatPrompts = new ArrayList<>();

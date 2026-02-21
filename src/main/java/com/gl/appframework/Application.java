@@ -36,9 +36,6 @@ import static com.gl.appframework.UISupport.isMac;
  */
 @SuppressWarnings("ALL")
 public class Application {
-    public interface ScheduledUpdatable {
-        void scheduledUpdate();
-    }
 
     private static Application sharedApplication;
 
@@ -168,47 +165,6 @@ public class Application {
         if (fUpdateThread != null) {
             fUpdateThread.interrupt();
             fUpdateThread = null;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private static class UpdateThread extends Thread {
-        public static final long SLEEP_TIME = 300;
-
-        protected long sleepTime = SLEEP_TIME;
-
-        public UpdateThread() {
-        }
-
-        public UpdateThread(long aSleepTime) {
-            sleepTime = aSleepTime;
-        }
-
-        public void run() {
-            while (!isInterrupted()) {
-                try {
-                    sleep(SLEEP_TIME);
-                    EventQueue.invokeAndWait(this::update);
-
-                } catch (Exception e) {
-                    // do nothing
-                }
-            }
-        }
-
-        protected void update() {
-            try {
-                Window activeWindow = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
-                ScheduledUpdatable scheduledUpdatable = activeWindow instanceof ScheduledUpdatable ? (ScheduledUpdatable) activeWindow : null;
-                if (scheduledUpdatable != null)
-                    scheduledUpdatable.scheduledUpdate();
-
-                for (Window w : Window.getWindows())
-                    if (scheduledUpdatable != w && w.isShowing() && (w instanceof ScheduledUpdatable scheduledUpdatable1))
-                        scheduledUpdatable1.scheduledUpdate();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
         }
     }
 }

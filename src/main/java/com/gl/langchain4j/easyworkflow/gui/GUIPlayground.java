@@ -24,6 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.gl.appframework.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 import com.gl.appframework.Application;
@@ -50,7 +51,7 @@ import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
  * A GUI-based playground for interacting with an agent.
  */
 public class GUIPlayground extends Playground.BasicPlayground {
-    private static final Logger logger = EasyWorkflow.getLogger(GUIPlayground.class);
+    private static final Logger logger = LoggerFactory.getLogger(GUIPlayground.class);
 
     static {
         System.setProperty("apple.awt.application.appearance", "system");
@@ -69,32 +70,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
      */
     public GUIPlayground(Class<?> agentClass) {
         super(agentClass);
-    }
-
-    /**
-     * Creates and returns a {@link EasyWorkflow.LoggerAspect} that intercepts log messages.
-     * Specifically, it captures error messages and displays them as notifications.
-     *
-     * @return A new {@link EasyWorkflow.LoggerAspect} instance.
-     */
-    public static EasyWorkflow.LoggerAspect createLoggerAspect() {
-        return (logger, method, args) -> {
-            if (method.getName().equals("error")) {
-                String text = args[0] != null ? args[0].toString() : "";
-
-                if (args.length > 1 && args[1] instanceof Throwable ex) {
-                    java.io.StringWriter sw = new java.io.StringWriter();
-                    java.io.PrintWriter pw = new java.io.PrintWriter(sw);
-                    ex.printStackTrace(pw);
-                    text += "\n" + sw;
-                }
-
-                String finalText = text;
-                SwingUtilities.invokeLater(() -> NotificationCenter.getInstance().postNotification(
-                        new NotificationCenter.Notification(NotificationCenter.NotificationType.ERROR, "Error", finalText, null)));
-            }
-            return method.invoke(logger, args);
-        };
     }
 
     @Override
@@ -203,7 +178,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 debugger);
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
-                EasyWorkflow.setLoggerAspect(createLoggerAspect());
+                LoggerFactory.setLoggerAspect(LoggerFactory.createNotificationLoggerAspect());
                 Application.getSharedApplication().launch(chatFrame);
                 ChatPane chatPane = chatFrame.getChatPane();
                 chatPane.setUserMessage(userMessage);
