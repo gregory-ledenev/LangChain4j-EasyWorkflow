@@ -40,6 +40,7 @@ public class ComponentAction extends BasicAction {
 
         Objects.requireNonNull(component);
         this.component = component;
+        this.component.putClientProperty(COMPONENT_ACTION, this);
     }
 
     public ComponentAction(String name, AbstractButton component, Consumer<ActionEvent> actionListener) {
@@ -51,7 +52,8 @@ public class ComponentAction extends BasicAction {
 
         Objects.requireNonNull(component);
         this.component = component;
-        component.addActionListener(e -> actionListener.accept(e));
+        this.component.putClientProperty(COMPONENT_ACTION, this);
+        component.addActionListener(actionListener::accept);
     }
 
     public ComponentAction(String name, JTextComponent component, Consumer<ActionEvent> actionListener) {
@@ -63,6 +65,7 @@ public class ComponentAction extends BasicAction {
 
         Objects.requireNonNull(component);
         this.component = component;
+        this.component.putClientProperty(COMPONENT_ACTION, this);
         component.getDocument().addDocumentListener(createDocumentListener(component, actionListener));
     }
 
@@ -73,6 +76,8 @@ public class ComponentAction extends BasicAction {
     public ComponentAction(String name, JComboBox<?> component, Consumer<ActionEvent> actionListener, Consumer<? extends BasicAction> actionUpdater) {
         super(name, null, actionListener, actionUpdater);
         this.component = component;
+        this.component.putClientProperty(COMPONENT_ACTION, this);
+
         if (component.isEditable() && component.getEditor().getEditorComponent() instanceof JTextComponent textComponent)
             textComponent.getDocument().addDocumentListener(createDocumentListener(textComponent, actionListener));
         component.addActionListener(actionListener::accept);

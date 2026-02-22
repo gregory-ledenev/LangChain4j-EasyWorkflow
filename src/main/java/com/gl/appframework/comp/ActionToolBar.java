@@ -24,23 +24,25 @@
 
 package com.gl.appframework.comp;
 
-import com.gl.appframework.UISupport;
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.actions.ComponentAction;
-import com.gl.appframework.actions.StateAction;
+import com.gl.appframework.actions.*;
 
 import javax.swing.*;
 import java.awt.*;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import static com.gl.appframework.actions.BasicAction.COMPONENT_ACTION;
 import static com.gl.appframework.actions.BasicAction.COPY_NAME;
 
 /**
  * A specialized {@link JToolBar} that populates itself based on an {@link ActionGroup}.
  */
-public class ActionToolBar extends JToolBar {
+public class ActionToolBar extends JToolBar implements ActionGroupListener {
     private ActionGroup actionGroup;
+    private final PropertyChangeListener actionGroupPropertyChangeListener = this::actionPropertyChanged;
 
     /**
      * Creates a new ActionToolBar and initializes it with the provided {@link ActionGroup}.
@@ -76,15 +78,59 @@ public class ActionToolBar extends JToolBar {
         return actionGroup;
     }
 
+    private void actionPropertyChanged(PropertyChangeEvent evt) {
+        if (evt.getPropertyName().equals(BasicAction.VISIBLE)) {
+            updateSeparatorsVisibility(this);
+        }
+    }
+
     /**
      * Sets the {@link ActionGroup} for this toolbar and refreshes the UI components.
      *
      * @param actionGroup the new action group to display
      */
     public void setActionGroup(ActionGroup actionGroup) {
+        if (this.actionGroup != null) {
+            this.actionGroup.removeActionGroupListener(this);
+            this.actionGroup.removeActionGroupPropertyChangeListener(actionGroupPropertyChangeListener);
+            removeAll();
+        }
+
         this.actionGroup = actionGroup;
 
+        if (actionGroup != null) {
+            actionGroup.addActionGroupListener(this);
+            actionGroup.addActionGroupPropertyChangeListener(actionGroupPropertyChangeListener);
+            setupToolbar(this, actionGroup);
+        }
+    }
+
+    private void rebuild() {
+        if (actionGroup == null) return;
+
         setupToolbar(this, actionGroup);
+        revalidate();
+        repaint();
+    }
+
+    @Override
+    public void actionAdded(Action action, ActionGroup actionGroup) {
+        rebuild();
+    }
+
+    @Override
+    public void actionRemoved(Action action, ActionGroup actionGroup) {
+        rebuild();
+    }
+
+    @Override
+    public void actionsAdded(Collection<Action> actions, ActionGroup actionGroup) {
+        rebuild();
+    }
+
+    @Override
+    public void actionsRemoved(Collection<Action> actions, ActionGroup actionGroup) {
+        rebuild();
     }
 
     /**
@@ -96,14 +142,47 @@ public class ActionToolBar extends JToolBar {
     public static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup) {
         toolbar.removeAll();
         setupToolbar(toolbar, actionGroup, true, new HashMap<>());
+        updateSeparatorsVisibility(toolbar);
+    }
+
+    private static void updateSeparatorsVisibility(JToolBar toolbar) {
+        boolean lastComponentWasVisible = false;
+        for (int i = 0; i < toolbar.getComponentCount(); i++) {
+            JComponent component = (JComponent) toolbar.getComponent(i);
+
+            if (component instanceof JSeparator separator) {
+                // A separator should be visible only if the previous visible component was not a separator
+                // and there is a visible component after it.
+                boolean currentSeparatorCanBeVisible = lastComponentWasVisible;
+
+                // Check if there's a visible component after this separator
+                boolean hasVisibleComponentAfter = false;
+                for (int j = i + 1; j < toolbar.getComponentCount(); j++) {
+                    if ( ! (toolbar.getComponent(j) instanceof JSeparator) &&
+                            BasicAction.isVisible(BasicAction.getActionForComponent((JComponent) toolbar.getComponent(j)))) {
+                        hasVisibleComponentAfter = true;
+                        break;
+                    }
+                }
+                separator.setVisible(currentSeparatorCanBeVisible && hasVisibleComponentAfter);
+                lastComponentWasVisible = false; // Reset for the next component
+            } else {
+                // For non-separator components, if they are visible, they enable the next separator.
+                if (BasicAction.isVisible(BasicAction.getActionForComponent(component))) {
+                    lastComponentWasVisible = true;
+                }
+            }
+        }
     }
 
     private static void setupToolbar(JToolBar toolbar, ActionGroup actionGroup, boolean addSeparators,
                                      Map<String, ButtonGroup> buttonGroupMap) {
         for (int i = 0; i < actionGroup.getActions().size(); ++i) {
             Action action = actionGroup.getActions().get(i);
-            if (action == null)
+            if (action == null || !BasicAction.isVisible(action))
                 continue;
+
+            int componentCountBefore = toolbar.getComponentCount();
 
             if (action instanceof ActionGroup subGroup) {
                 if (subGroup.isPopup()) {
@@ -119,8 +198,11 @@ public class ActionToolBar extends JToolBar {
                 addToolbarItem(toolbar, action, buttonGroupMap);
             }
 
+            int componentCountAfter = toolbar.getComponentCount();
+            boolean addedComponents = componentCountAfter > componentCountBefore;
+
             // Add separator only if it's not the last item and the previous item was not a separator
-            if (addSeparators && action instanceof ActionGroup && i < actionGroup.getActions().size() - 1 &&
+            if (addedComponents && addSeparators && action instanceof ActionGroup && i < actionGroup.getActions().size() - 1 &&
                     toolbar.getComponentCount() > 0 &&
                     !(toolbar.getComponent(toolbar.getComponentCount() - 1) instanceof JSeparator)) {
                 toolbar.addSeparator();
@@ -134,6 +216,7 @@ public class ActionToolBar extends JToolBar {
         if (action instanceof ComponentAction componentAction) {
             if (componentAction.getValue(Action.NAME) != null) {
                 final JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
+                label.putClientProperty(COMPONENT_ACTION, action);
                 label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
                 toolbar.add(label);
                 componentAction.getComponent().addPropertyChangeListener("enabled",
@@ -159,7 +242,15 @@ public class ActionToolBar extends JToolBar {
             public JToolTip createToolTip() {
                 return ActionTooltip.FACTORY.createToolTip(this);
             }
+
+            @Override
+            protected void actionPropertyChanged(Action action, String propertyName) {
+                super.actionPropertyChanged(action, propertyName);
+                if (propertyName.equals(BasicAction.VISIBLE))
+                    setVisible(BasicAction.isVisible(action));
+            }
         };
+        result.setVisible(BasicAction.isVisible(action));
         if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
             result.setText(null);
 
@@ -192,7 +283,15 @@ public class ActionToolBar extends JToolBar {
             public JToolTip createToolTip() {
                 return ActionTooltip.FACTORY.createToolTip(this);
             }
+
+            @Override
+            protected void actionPropertyChanged(Action action, String propertyName) {
+                super.actionPropertyChanged(action, propertyName);
+                if (propertyName.equals(BasicAction.VISIBLE))
+                    setVisible(BasicAction.isVisible(action));
+            }
         };
+        result.setVisible(BasicAction.isVisible(action));
         if (buttonGroup != null)
             buttonGroup.add(result);
         if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {

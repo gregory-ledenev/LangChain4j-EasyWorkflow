@@ -43,7 +43,8 @@ public class BasicAction extends AbstractAction implements Updatable {
     public static final String PARENT_ACTION_GROUP = "parentActionGroup";
     public static final String COPY_NAME = "copyName";
     public static final String DISABLE_REASON = "disableReason";
-    public static final String VISIBLE_KEY = "visible";
+    public static final String VISIBLE = "actionVisible";
+    public static final String COMPONENT_ACTION = "componentAction";
     private final Consumer<ActionEvent> actionListener;
     private final Consumer<? extends BasicAction> actionUpdater;
     private long when;
@@ -320,7 +321,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @return {@code true} if the action is visible, {@code false} otherwise.
      */
     public static boolean isVisible(javax.swing.Action anAction) {
-        Object value = anAction.getValue(VISIBLE_KEY);
+        Object value = anAction.getValue(VISIBLE);
         return value == null || Boolean.TRUE.equals(value);
     }
 
@@ -332,6 +333,19 @@ public class BasicAction extends AbstractAction implements Updatable {
      */
     public static void setVisible(javax.swing.Action anAction, boolean visible) {
         if (isVisible(anAction) != visible)
-            anAction.putValue(VISIBLE_KEY, visible ? null : Boolean.FALSE);
+            anAction.putValue(VISIBLE, visible ? null : Boolean.FALSE);
+    }
+
+    /**
+     * Retrieves the {@link Action} associated with a given {@link JComponent}.
+     *
+     * @param c The component to check.
+     * @return The associated action, or {@code null} if none is found.
+     */
+    public static Action getActionForComponent(JComponent c) {
+        if (c instanceof AbstractButton)
+            return ((AbstractButton) c).getAction();
+        else
+            return (Action) c.getClientProperty(COMPONENT_ACTION);
     }
 }

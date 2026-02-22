@@ -69,7 +69,8 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
      */
     public ActionGroup(String name, Icon icon, boolean popup, Action... actions) {
         super(name, icon, null);
-        this.actions = new ArrayList<>(Arrays.asList(actions));
+        this.actions = new ArrayList<>();
+        addActions(Arrays.asList(actions));
         this.popup = popup;
     }
 
@@ -195,10 +196,12 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
      *
      * @param actions The collection of actions to add.
      */
-    public void addAllActions(Collection<Action> actions) {
+    public void addActions(Collection<Action> actions) {
         Objects.requireNonNull(actions);
 
         for (Action action : actions) {
+            if (action == null)
+                continue;
             this.actions.add(action);
             setParent(action, this, null);
         }
@@ -209,7 +212,7 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
     /**
      * Removes all actions from this group.
      */
-    public void removeAllActions() {
+    public void removeActions() {
         List<Action> all = new ArrayList<>(actions);
         actions.clear();
         for (Action action : all)
