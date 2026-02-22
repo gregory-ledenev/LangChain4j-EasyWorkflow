@@ -28,9 +28,6 @@ import com.gl.appframework.actions.*;
 
 import javax.swing.*;
 import java.awt.*;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,10 +37,12 @@ import static com.gl.appframework.actions.BasicAction.COPY_NAME;
 /**
  * A specialized {@link JToolBar} that populates itself based on an {@link ActionGroup}.
  */
-public class ActionToolBar extends JToolBar implements ActionGroupListener {
-    private ActionGroup actionGroup;
-    private final PropertyChangeListener actionGroupPropertyChangeListener = this::actionPropertyChanged;
+public class ActionToolBar extends JToolBar {
 
+    private final ActionComponentSupport<ActionToolBar> actionComponentSupport =
+            new ActionComponentSupport<>(this,
+                    ActionToolBar::rebuild,
+                    ActionToolBar::updateSeparatorsVisibility);
     /**
      * Creates a new ActionToolBar and initializes it with the provided {@link ActionGroup}.
      *
@@ -70,18 +69,24 @@ public class ActionToolBar extends JToolBar implements ActionGroupListener {
     }
 
     /**
+     * Creates a new ActionToolBar with the specified orientation.
+     *
+     * @param orientation the orientation of the toolbar (either {@link SwingConstants#HORIZONTAL}
+     *                    or {@link SwingConstants#VERTICAL})
+     * @param actionGroup the group of actions to display in the toolbar
+     */
+    public ActionToolBar(int orientation, ActionGroup actionGroup) {
+        super(orientation);
+        setActionGroup(actionGroup);
+    }
+
+    /**
      * Returns the {@link ActionGroup} associated with this toolbar.
      *
      * @return the current action group
      */
     public ActionGroup getActionGroup() {
-        return actionGroup;
-    }
-
-    private void actionPropertyChanged(PropertyChangeEvent evt) {
-        if (evt.getPropertyName().equals(BasicAction.VISIBLE)) {
-            updateSeparatorsVisibility(this);
-        }
+        return actionComponentSupport.getActionGroup();
     }
 
     /**
@@ -90,47 +95,15 @@ public class ActionToolBar extends JToolBar implements ActionGroupListener {
      * @param actionGroup the new action group to display
      */
     public void setActionGroup(ActionGroup actionGroup) {
-        if (this.actionGroup != null) {
-            this.actionGroup.removeActionGroupListener(this);
-            this.actionGroup.removeActionGroupPropertyChangeListener(actionGroupPropertyChangeListener);
-            removeAll();
-        }
-
-        this.actionGroup = actionGroup;
-
-        if (actionGroup != null) {
-            actionGroup.addActionGroupListener(this);
-            actionGroup.addActionGroupPropertyChangeListener(actionGroupPropertyChangeListener);
-            setupToolbar(this, actionGroup);
-        }
+        actionComponentSupport.setActionGroup(actionGroup);
     }
 
-    private void rebuild() {
-        if (actionGroup == null) return;
+    private static void rebuild(ActionToolBar actionToolBar) {
+        if (actionToolBar.getActionGroup() == null) return;
 
-        setupToolbar(this, actionGroup);
-        revalidate();
-        repaint();
-    }
-
-    @Override
-    public void actionAdded(Action action, ActionGroup actionGroup) {
-        rebuild();
-    }
-
-    @Override
-    public void actionRemoved(Action action, ActionGroup actionGroup) {
-        rebuild();
-    }
-
-    @Override
-    public void actionsAdded(Collection<Action> actions, ActionGroup actionGroup) {
-        rebuild();
-    }
-
-    @Override
-    public void actionsRemoved(Collection<Action> actions, ActionGroup actionGroup) {
-        rebuild();
+        setupToolbar(actionToolBar, actionToolBar.getActionGroup());
+        actionToolBar.revalidate();
+        actionToolBar.repaint();
     }
 
     /**
@@ -159,7 +132,7 @@ public class ActionToolBar extends JToolBar implements ActionGroupListener {
                 boolean hasVisibleComponentAfter = false;
                 for (int j = i + 1; j < toolbar.getComponentCount(); j++) {
                     if ( ! (toolbar.getComponent(j) instanceof JSeparator) &&
-                            BasicAction.isVisible(BasicAction.getActionForComponent((JComponent) toolbar.getComponent(j)))) {
+                            toolbar.getComponent(j).isVisible()) {
                         hasVisibleComponentAfter = true;
                         break;
                     }
@@ -168,7 +141,7 @@ public class ActionToolBar extends JToolBar implements ActionGroupListener {
                 lastComponentWasVisible = false; // Reset for the next component
             } else {
                 // For non-separator components, if they are visible, they enable the next separator.
-                if (BasicAction.isVisible(BasicAction.getActionForComponent(component))) {
+                if (component.isVisible()) {
                     lastComponentWasVisible = true;
                 }
             }

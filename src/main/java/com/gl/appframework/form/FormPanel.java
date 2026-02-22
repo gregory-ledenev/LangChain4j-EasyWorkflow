@@ -212,7 +212,6 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
             popupMenu.getActionGroup().addAction(new ActionGroup(
                     new BasicAction("Clear All", new AutoIcon(ToolbarIcons.ICON_SPACER), e -> clearForm())
             ));
-            popupMenu.setActionGroup(popupMenu.getActionGroup()); //todo: remove me when changes will be picked up automatically
         }
     }
 

@@ -27,8 +27,9 @@ package com.gl.appframework;
 import javax.swing.*;
 import java.awt.*;
 import java.util.Objects;
+import java.util.function.Consumer;
 
-import static com.gl.appframework.UISupport.isMac;
+import static com.gl.appframework.UISupport.*;
 
 /**
  * The central application class responsible for managing the lifecycle of GUI frames,
@@ -67,6 +68,9 @@ public class Application {
      */
     public void launch(AppFrame frame) {
         Objects.requireNonNull(frame);
+
+        applyAppearance();
+        getDetector().registerListener(appearanceChangeHandler);
 
         startUpdates();
 
@@ -125,11 +129,17 @@ public class Application {
             }
         }
 
+        getDetector().removeListener(appearanceChangeHandler);
+
         stopUpdates();
 
         if (canExit)
             System.exit(0);
     }
+    private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
+        if (getOptions().getAppearance() == Appearance.Auto)
+            SwingUtilities.invokeLater(() -> applyAppearance());
+    };
 
     /**
      * Displays the "About" dialog provided by an {@link UISupport.AboutProvider} if available.

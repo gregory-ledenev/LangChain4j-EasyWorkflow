@@ -293,7 +293,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @param parent The {@link ActionGroup} to associate with the action.
      */
     public static void setParentActionGroup(Action action, ActionGroup parent) {
-        Objects.requireNonNull(action).putValue(PARENT_ACTION_GROUP, Objects.requireNonNull(parent));
+        Objects.requireNonNull(action).putValue(PARENT_ACTION_GROUP, parent);
     }
 
     /**

@@ -30,11 +30,7 @@ import com.formdev.flatlaf.themes.FlatMacDarkLaf;
 import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
-import com.gl.appframework.actions.ComponentAction;
-import com.gl.appframework.actions.StateAction;
 import com.gl.appframework.comp.ActionPopupMenu;
-import com.gl.appframework.comp.ActionTooltip;
-import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
 import com.jthemedetecor.OsThemeDetector;
 import org.commonmark.node.Node;
@@ -45,8 +41,6 @@ import org.slf4j.Logger;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
 import javax.swing.border.Border;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
 import javax.swing.event.UndoableEditEvent;
 import javax.swing.event.UndoableEditListener;
 import javax.swing.plaf.UIResource;
@@ -68,7 +62,6 @@ import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
 import static com.gl.appframework.ToolbarIcons.*;
-import static com.gl.appframework.actions.BasicAction.COPY_NAME;
 
 /**
  * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
@@ -323,6 +316,8 @@ public class UISupport {
             window.revalidate();
             window.repaint();
         }
+
+        firePropertyChange(Options.PROP_APPEARANCE_DARK, !darkAppearance, darkAppearance);
     }
 
     /**

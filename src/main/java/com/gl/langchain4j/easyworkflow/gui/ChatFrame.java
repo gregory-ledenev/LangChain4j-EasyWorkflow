@@ -260,8 +260,6 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                                             PlaygroundContext playgroundContext,
                                             Object agent,
                                             WorkflowDebugger workflowDebugger) {
-        applyAppearance();
-
         ChatFrame chatFrame = new ChatFrame(title,
                 icon,
                 chatEngine,

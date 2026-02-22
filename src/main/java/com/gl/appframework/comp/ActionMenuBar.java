@@ -32,7 +32,10 @@ import javax.swing.*;
  * A JMenuBar implementation that populates itself based on an {@link ActionGroup}.
  */
 public class ActionMenuBar extends JMenuBar {
-    private ActionGroup actionGroup;
+    private final ActionComponentSupport<ActionMenuBar> actionComponentSupport =
+            new ActionComponentSupport<>(this,
+                    ActionMenuBar::rebuild,
+                    ActionMenuBar::updateSeparatorsVisibility);
 
     /**
      * Constructs an empty ActionMenuBar.
@@ -55,16 +58,27 @@ public class ActionMenuBar extends JMenuBar {
      * @return the current action group
      */
     public ActionGroup getActionGroup() {
-        return actionGroup;
+        return actionComponentSupport.getActionGroup();
     }
 
     /**
-     * Sets the action group and rebuilds the menu bar structure.
+     * Sets the {@link ActionGroup} for this toolbar and refreshes the UI components.
      *
      * @param actionGroup the new action group to display
      */
     public void setActionGroup(ActionGroup actionGroup) {
-        this.actionGroup = actionGroup;
-        ActionMenuSupport.setupMenuBar(this, actionGroup);
+        actionComponentSupport.setActionGroup(actionGroup);
+    }
+
+    private static void rebuild(ActionMenuBar menuBar) {
+        if (menuBar.getActionGroup() == null) return;
+
+        ActionMenuSupport.setupMenuBar(menuBar, menuBar.getActionGroup());
+        menuBar.revalidate();
+        menuBar.repaint();
+    }
+
+    private static void updateSeparatorsVisibility(ActionMenuBar menuBar) {
+        ActionMenuSupport.updateSeparatorsVisibility(menuBar);
     }
 }

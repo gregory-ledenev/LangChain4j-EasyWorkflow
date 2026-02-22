@@ -28,6 +28,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.util.*;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.gl.appframework.Application.getSharedApplication;
 
@@ -38,6 +41,9 @@ import static com.gl.appframework.Application.getSharedApplication;
 @SuppressWarnings("ALL")
 public class AppFrame extends JFrame implements Updatable {
     private final String uid;
+    private final List<AppModuleListener> appModuleListeners = new CopyOnWriteArrayList<>();
+    private List<AppModule<AppFrame>> appModules = new CopyOnWriteArrayList<>();
+    private Map<String, AppModule> appModulesMap = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Constructs a new {@code AppFrame} with the specified unique identifier.
@@ -55,7 +61,17 @@ public class AppFrame extends JFrame implements Updatable {
                 close(false);
                 getSharedApplication().maybeExit();
             }
+
+            @Override
+            public void windowActivated(WindowEvent e) {
+                getAppScreenManager().ifPresent(asm -> {
+                    if (asm.getActiveAppScreen() == null && !asm.getAppScreens().isEmpty())
+                        asm.setActiveAppScreen(asm.getAppScreens().get(0));
+                });
+            }
         });
+
+        installAppModule(new BasicAppScreenManager());
     }
 
     /**
@@ -74,7 +90,13 @@ public class AppFrame extends JFrame implements Updatable {
      * @return {@code true} if the frame can be closed, {@code false} otherwise.
      */
     public boolean canClose() {
-        return true;
+        boolean result = true;
+        for (AppModule appModule : appModules) {
+            result &= appModule.canUninstall();
+            if (!result)
+                break;
+        }
+        return result;
     }
 
     /**
@@ -112,5 +134,93 @@ public class AppFrame extends JFrame implements Updatable {
      * to refresh displayed data, update state, or perform other updates as needed.
      */
     public void update() {
+        for (AppModule appModule : appModules)
+            appModule.update();
+    }
+
+    /**
+     * Returns an unmodifiable list of the application modules currently installed on this frame.
+     *
+     * @return A list of {@link AppModule} instances.
+     */
+    public List<AppModule<AppFrame>> getAppModules() {
+        return Collections.unmodifiableList(appModules);
+    }
+
+    /**
+     * Installs the specified application module into this frame.
+     *
+     * @param appModule The module to install.
+     * @throws IllegalArgumentException If the module cannot be installed on this frame.
+     */
+    public synchronized void installAppModule(AppModule appModule) {
+        if (!appModule.canInstall(this))
+            throw new IllegalArgumentException("Can't install app module %s on %s frame".formatted(appModule, this));
+
+        appModules.add(appModule);
+        appModulesMap.put(appModule.getId(), appModule);
+        appModule.install(this);
+        fireAppModuleInstalled(appModule);
+    }
+
+    /**
+     * Uninstalls the specified application module from this frame.
+     *
+     * @param appModule The module to uninstall.
+     * @throws IllegalArgumentException If the module cannot be uninstalled at this time.
+     */
+    public synchronized void uninstallAppModule(AppModule appModule) {
+        if (appModule.canUninstall())
+            throw new IllegalArgumentException("Can't uninstall app module %s from %s frame".formatted(appModule, this));
+        appModule.uninstall();
+        appModules.remove(appModule);
+        appModulesMap.remove(appModule.getId());
+
+        fireAppModuleUninstalled(appModule);
+    }
+
+    /**
+     * Retrieves an installed application module by its unique identifier.
+     *
+     * @param id The unique identifier of the module to retrieve.
+     * @return The {@link AppModule} instance, or {@code null} if no module with the given ID is installed.
+     */
+    public AppModule getAppModule(String id) {
+        return appModulesMap.get(id);
+    }
+
+    /**
+     * Adds a listener to be notified of application module events.
+     *
+     * @param listener The listener to add.
+     */
+    public void addAppModuleListener(AppModuleListener listener) {
+        appModuleListeners.add(listener);
+    }
+
+    /**
+     * Removes a previously added application module listener.
+     *
+     * @param listener The listener to remove.
+     */
+    public void removeAppModuleListener(AppModuleListener listener) {
+        appModuleListeners.remove(listener);
+    }
+
+    protected void fireAppModuleInstalled(AppModule appModule) {
+        appModuleListeners.forEach(listener -> listener.appModuleInstalled(this, appModule));
+    }
+
+    protected void fireAppModuleUninstalled(AppModule appModule) {
+        appModuleListeners.forEach(listener -> listener.appModuleUninstalled(this, appModule));
+    }
+
+    /**
+     * Returns the {@link AppScreenManager} module installed on this frame.
+     *
+     * @return The {@link AppScreenManager} instance.
+     */
+    public Optional<AppScreenManager> getAppScreenManager() {
+        return Optional.ofNullable((AppScreenManager) appModulesMap.get(AppScreenManager.ID));
     }
 }

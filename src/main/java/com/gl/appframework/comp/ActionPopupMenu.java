@@ -32,7 +32,10 @@ import javax.swing.*;
  * A JPopupMenu that populates itself based on an {@link ActionGroup}.
  */
 public class ActionPopupMenu extends JPopupMenu {
-    private ActionGroup actionGroup;
+    private final ActionComponentSupport<ActionPopupMenu> actionComponentSupport =
+            new ActionComponentSupport<>(this,
+                    ActionPopupMenu::rebuild,
+                    ActionPopupMenu::updateSeparatorsVisibility);
 
     /**
      * Creates an ActionPopupMenu with the specified ActionGroup.
@@ -50,21 +53,30 @@ public class ActionPopupMenu extends JPopupMenu {
     }
 
     /**
-     * Returns the ActionGroup associated with this menu.
+     * Returns the action group associated with this menu bar.
      *
-     * @return the current ActionGroup
+     * @return the current action group
      */
     public ActionGroup getActionGroup() {
-        return actionGroup;
+        return actionComponentSupport.getActionGroup();
     }
 
     /**
-     * Sets the ActionGroup and rebuilds the menu components.
+     * Sets the {@link ActionGroup} for this toolbar and refreshes the UI components.
      *
-     * @param actionGroup the ActionGroup to set
+     * @param actionGroup the new action group to display
      */
     public void setActionGroup(ActionGroup actionGroup) {
-        this.actionGroup = actionGroup;
-        ActionMenuSupport.setupPopupMenu(this, actionGroup);
+        actionComponentSupport.setActionGroup(actionGroup);
+    }
+
+    private static void rebuild(ActionPopupMenu popupMenu) {
+        if (popupMenu.getActionGroup() == null) return;
+
+        ActionMenuSupport.setupPopupMenu(popupMenu, popupMenu.getActionGroup());
+    }
+
+    private static void updateSeparatorsVisibility(ActionPopupMenu popupMenu) {
+        ActionMenuSupport.updateSeparatorsVisibility(popupMenu);
     }
 }

@@ -83,10 +83,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
     private final FormPanel edtMessage = new FormPanel();
     private final JButton btnSend = new JButton(new AutoIcon(ICON_SEND));
-    private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
-        if (getOptions().getAppearance() == Appearance.Auto)
-            SwingUtilities.invokeLater(() -> applyAppearance(Appearance.Auto, this));
-    };
     private final Box pnlButtons;
     private final JLayeredPane layeredPane = new JLayeredPane();
     private final JPanel contentPanel = new JPanel(new BorderLayout());
@@ -707,14 +703,12 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
         super.addNotify();
 
         edtMessage.requestFocus();
-        getDetector().registerListener(appearanceChangeHandler);
     }
 
     @Override
     public void removeNotify() {
         super.removeNotify();
 
-        getDetector().removeListener(appearanceChangeHandler);
         if (waitStateTimer != null) {
             waitStateTimer.stop();
             waitStateTimer = null;

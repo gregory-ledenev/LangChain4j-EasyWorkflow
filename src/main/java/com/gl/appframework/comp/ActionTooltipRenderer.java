@@ -103,7 +103,6 @@ public class ActionTooltipRenderer extends JPanel {
     @Override
     public Dimension getPreferredSize() {
         Dimension preferredSize = super.getPreferredSize();
-        System.out.println("ActionTooltipRenderer.getPreferredSize: " + preferredSize);
         return preferredSize;
     }
 
@@ -234,7 +233,6 @@ public class ActionTooltipRenderer extends JPanel {
                 }
             }
             result.width += 2;
-            System.out.println("FixedWidthLabel.getPreferredSize: " + result);
             return result;
         }
 
