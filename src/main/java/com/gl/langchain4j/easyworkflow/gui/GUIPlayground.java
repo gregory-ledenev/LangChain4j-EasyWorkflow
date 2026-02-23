@@ -124,6 +124,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title != null ? title : "Playground");
 
+        Application.getSharedApplication().setId(GUIPlayground.class.getName());
+
         if (title == null)
             title = "Playground - %s".formatted(agentClass.getSimpleName());
 
@@ -176,6 +178,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 playgroundContext,
                 agent,
                 debugger);
+
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
                 LoggerFactory.setLoggerAspect(LoggerFactory.createNotificationLoggerAspect());
@@ -202,6 +205,8 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title != null ? title : "Playground");
+
+        Application.getSharedApplication().setId(GUIPlayground.class.getName());
 
         if (title == null)
             title = "Playground - %s".formatted(agentClass.getSimpleName());
@@ -249,6 +254,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
                         return playgroundContext.getAgentMetadata().getArguments().toArray(PlaygroundMetadata.Argument[]::new);
                     }
                 });
+
         SwingUtilities.invokeLater(() -> {
             if (chatDialog != null) {
                 ChatPane chatPane = chatDialog.getChatPane();

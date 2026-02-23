@@ -24,13 +24,18 @@
 
 package com.gl.appframework.actions;
 
+import com.gl.appframework.AppFrame;
+import com.gl.appframework.Application;
 import com.gl.appframework.UISupport;
+import com.gl.appframework.UISupport.AboutProvider;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 
 import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.UISupport.applyAppearance;
+import static com.gl.appframework.UISupport.getOptions;
 
 /**
  * Provides factory methods for creating standard UI actions such as Cut, Copy, Paste, etc.
@@ -85,5 +90,65 @@ public class StandardActions {
         result.setMnemonic('d');
         result.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0));
         return result;
+    }
+
+    /**
+     * Creates a standard "Exit" action that terminates the application.
+     *
+     * @return an {@link Action} configured to exit the application.
+     */
+    public static Action createExitAction() {
+        BasicAction result = new BasicAction("Exit", null, e -> Application.getSharedApplication().exit(false));
+        result.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F4, KeyEvent.ALT_DOWN_MASK));
+        return result;
+    }
+
+    /**
+     * Creates a standard "About" action that displays application information.
+     *
+     * @return an {@link Action} configured to show the About dialog.
+     */
+    public static Action createAboutAction() {
+        return new BasicAction("About...", new UISupport.AutoIcon(ICON_HELP),
+                e -> {
+                    AppFrame activeAppFrame = AppFrame.getActiveAppFrame();
+                    if (activeAppFrame instanceof AboutProvider aboutProvider)
+                        aboutProvider.showAbout(activeAppFrame);
+                },
+                basicAction -> basicAction.setEnabled(AppFrame.getActiveAppFrame() instanceof AboutProvider));
+    }
+
+    /**
+     * Creates a standard "Visit Site" action that opens the application's website.
+     *
+     * @return an {@link Action} configured to visit the application's website.
+     */
+    public static Action createVisitSiteAction() {
+        return new BasicAction("Visit Site...", new UISupport.AutoIcon(ICON_HELP),
+                e -> {
+                    if (AppFrame.getActiveAppFrame() instanceof AboutProvider aboutProvider)
+                        aboutProvider.visitSite();
+                },
+                basicAction -> basicAction.setEnabled(AppFrame.getActiveAppFrame() instanceof AboutProvider));
+    }
+
+    /**
+     * Creates an action group for switching between Light, Dark, and Auto appearance modes.
+     *
+     * @return an {@link ActionGroup} containing appearance state actions.
+     */
+    public static ActionGroup createAppearanceActionGroup() {
+        String exclusiveGroup = "appearance";
+        return new ActionGroup("Appearance", new UISupport.AutoIcon(ICON_SPACER), true,
+                new StateAction("Light", null, exclusiveGroup,
+                        e -> applyAppearance(UISupport.Appearance.Light),
+                        a -> a.setSelected(getOptions().getAppearance() == UISupport.Appearance.Light)),
+                new StateAction("Dark", null, exclusiveGroup,
+                        e -> applyAppearance(UISupport.Appearance.Dark),
+                        a -> a.setSelected(getOptions().getAppearance() == UISupport.Appearance.Dark)),
+                new StateAction("Auto", null, exclusiveGroup,
+                        e -> applyAppearance(UISupport.Appearance.Auto),
+                        a -> a.setSelected(getOptions().getAppearance() == UISupport.Appearance.Auto))
+        );
     }
 }

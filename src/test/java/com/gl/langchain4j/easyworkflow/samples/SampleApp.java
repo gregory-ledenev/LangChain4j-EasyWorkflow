@@ -28,9 +28,6 @@ public class SampleApp {
 
     static class SampleFrame extends AppFrame {
 
-        private final ActionGroup viewActionGroup;
-        private final ActionGroup fileActionGroup;
-
         public SampleFrame() throws HeadlessException {
             super("SampleFrame");
 
@@ -41,25 +38,16 @@ public class SampleApp {
             installAppModule(new WorkflowScreen());
             installAppModule(new ExecutionScreen());
 
-            fileActionGroup = new ActionGroup("File", null, true,
-                    new BasicAction("Exit", null, e -> Application.getSharedApplication().exit(false))
-            );
-            viewActionGroup = new ActionGroup("View", null, true,
-                    getAppScreenManager().map(AppScreenManager::getAppScreenManagerActionGroup).orElse(null)
-            );
-            ActionMenuBar menuBar = new ActionMenuBar(new ActionGroup(
-                    fileActionGroup,
-                    viewActionGroup
-            ));
-            setJMenuBar(menuBar);
-        }
+            getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW).
+                    addAction(getAppScreenManager().map(AppScreenManager::getAppScreenManagerActionGroup).orElse(null));
 
-        public ActionGroup getViewActionGroup() {
-            return viewActionGroup;
-        }
-
-        public ActionGroup getFileActionGroup() {
-            return fileActionGroup;
+            installAppModule(new MenuBarModule<SampleFrame>(new ActionGroup(
+//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_FILE),
+//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_EDIT),
+//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW),
+                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_OPTIONS)
+//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_HELP)
+            )));
         }
     }
 
@@ -77,14 +65,14 @@ public class SampleApp {
         @Override
         public void passivate() {
             super.passivate();
-            getAppFrame().getViewActionGroup().removeAction(actionGroup);
+            getAppFrame().getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW).removeAction(actionGroup);
         }
 
         @Override
         public void activate() {
             super.activate();
 
-            getAppFrame().getViewActionGroup().addAction(actionGroup);
+            getAppFrame().getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW).addAction(actionGroup);
         }
     }
 
@@ -102,14 +90,14 @@ public class SampleApp {
         @Override
         public void passivate() {
             super.passivate();
-            getAppFrame().getViewActionGroup().removeAction(actionGroup);
+            getAppFrame().getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW).removeAction(actionGroup);
         }
 
         @Override
         public void activate() {
             super.activate();
 
-            getAppFrame().getViewActionGroup().addAction(actionGroup);
+            getAppFrame().getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW).addAction(actionGroup);
         }
     }
 }

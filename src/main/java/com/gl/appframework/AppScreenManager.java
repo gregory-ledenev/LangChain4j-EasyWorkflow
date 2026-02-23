@@ -48,6 +48,11 @@ public interface AppScreenManager extends AppModule<AppFrame> {
     void setActiveAppScreen(AppScreen<AppFrame> anAppScreen);
 
     /**
+     * Activates the first screen (that can be activated) in the list of managed screens.
+     */
+    void activateFirstAppScreen();
+
+    /**
      * Returns the currently active screen.
      * @return the active {@link AppScreen}.
      */

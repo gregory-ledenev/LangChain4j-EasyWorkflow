@@ -90,7 +90,7 @@ public class BasicAction extends AbstractAction implements Updatable {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        if (isMenuBarSource(e) && UISupport.isMac())
+        if (isMenuBarSource(e) && UISupport.isMacOS())
             macMenuBarActionPerformed(e);
         else
             defaultActionPerformed(e);
@@ -347,5 +347,10 @@ public class BasicAction extends AbstractAction implements Updatable {
             return ((AbstractButton) c).getAction();
         else
             return (Action) c.getClientProperty(COMPONENT_ACTION);
+    }
+
+    @Override
+    public String toString() {
+        return getName() != null ? getName() : "";
     }
 }

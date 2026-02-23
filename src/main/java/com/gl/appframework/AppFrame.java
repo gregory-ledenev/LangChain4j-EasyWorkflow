@@ -24,8 +24,13 @@
 
 package com.gl.appframework;
 
+import com.gl.appframework.actions.ActionGroup;
+import com.gl.appframework.actions.BasicAction;
+import com.gl.appframework.actions.StandardActions;
+
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.*;
@@ -33,6 +38,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.gl.appframework.Application.getSharedApplication;
+import static com.gl.appframework.UISupport.isMacOS;
 
 /**
  * The base class for all application frames.
@@ -53,6 +59,9 @@ public class AppFrame extends JFrame implements Updatable {
     public AppFrame(String uid) throws HeadlessException {
         this.uid = uid;
 
+        if (! isMacOS())
+            initDefaultMenuBarActionGroups(menuBarActionGroups);
+
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 
         addWindowListener(new WindowAdapter() {
@@ -63,15 +72,24 @@ public class AppFrame extends JFrame implements Updatable {
             }
 
             @Override
+            public void windowDeactivated(WindowEvent e) {
+                deactivated();
+            }
+
+            @Override
             public void windowActivated(WindowEvent e) {
-                getAppScreenManager().ifPresent(asm -> {
-                    if (asm.getActiveAppScreen() == null && !asm.getAppScreens().isEmpty())
-                        asm.setActiveAppScreen(asm.getAppScreens().get(0));
-                });
+                activated();
             }
         });
 
         installAppModule(new BasicAppScreenManager());
+    }
+
+    protected void activated() {
+        getAppScreenManager().ifPresent(asm -> asm.activateFirstAppScreen());
+    }
+
+    protected void deactivated() {
     }
 
     /**
@@ -222,5 +240,71 @@ public class AppFrame extends JFrame implements Updatable {
      */
     public Optional<AppScreenManager> getAppScreenManager() {
         return Optional.ofNullable((AppScreenManager) appModulesMap.get(AppScreenManager.ID));
+    }
+
+    /**
+     * Returns the currently active application frame based on keyboard focus.
+     *
+     * @return The active {@link AppFrame}, or {@code null} if no frame or a non-app frame is active.
+     */
+    public static AppFrame getActiveAppFrame() {
+        Window activeWindow = KeyboardFocusManager.getCurrentKeyboardFocusManager().getActiveWindow();
+        if (activeWindow instanceof  AppFrame)
+            return (AppFrame) activeWindow;
+        else if (activeWindow instanceof JDialog dialog)
+            return dialog.getOwner() instanceof AppFrame ? (AppFrame) dialog.getOwner() : null;
+        return null;
+    }
+
+    public static final String MENUBAR_ACTION_GROUP_FILE = "file";
+    public static final String MENUBAR_ACTION_GROUP_EDIT = "edit";
+    public static final String MENUBAR_ACTION_GROUP_VIEW = "view";
+    public static final String MENUBAR_ACTION_GROUP_OPTIONS = "options";
+    public static final String MENUBAR_ACTION_GROUP_HELP = "help";
+
+    public ActionGroup getMenuBarActionGroup(String key) {
+        return getMenuNarActionGroups().get(key);
+    }
+
+    public LazyValues<ActionGroup> getMenuNarActionGroups() {
+        return isMacOS() ? sharedMenuBarActionGroups : menuBarActionGroups;
+    }
+
+    static void initDefaultMenuBarActionGroups(LazyValues<ActionGroup> menuBarActionGroups) {
+        menuBarActionGroups.addSupplier(MENUBAR_ACTION_GROUP_FILE, () -> {
+            ActionGroup result = new ActionGroup("File", null, true, new Action[0]);
+            if (!isMacOS())
+                result.addAction(StandardActions.createExitAction());
+            return result;
+        });
+
+        menuBarActionGroups.addSupplier(MENUBAR_ACTION_GROUP_EDIT, () -> {
+            return new ActionGroup("Edit", null, true,
+                    new ActionGroup(
+                            StandardActions.createCutAction(),
+                            StandardActions.createCopyAction(),
+                            StandardActions.createPasteAction(),
+                            StandardActions.createDeleteAction()
+                    )
+            );
+        });
+
+        menuBarActionGroups.addSupplier(MENUBAR_ACTION_GROUP_VIEW, () -> new ActionGroup("View", null, true, new Action[0]));
+
+        menuBarActionGroups.addSupplier(MENUBAR_ACTION_GROUP_OPTIONS, () -> new ActionGroup("Options", null, true,
+                new ActionGroup(StandardActions.createAppearanceActionGroup())));
+
+        menuBarActionGroups.addSupplier(MENUBAR_ACTION_GROUP_HELP, () -> new ActionGroup("Help", null, true,
+                new ActionGroup(StandardActions.createVisitSiteAction()),
+                new ActionGroup(StandardActions.createAboutAction())
+        ));
+    }
+
+    private static LazyValues<ActionGroup> sharedMenuBarActionGroups = new LazyValues<>();
+    private LazyValues<ActionGroup> menuBarActionGroups = new LazyValues<>();
+
+    static {
+        if (isMacOS())
+            initDefaultMenuBarActionGroups(sharedMenuBarActionGroups);
     }
 }

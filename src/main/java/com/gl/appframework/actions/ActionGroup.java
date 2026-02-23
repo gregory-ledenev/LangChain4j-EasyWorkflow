@@ -381,4 +381,9 @@ public class ActionGroup extends BasicAction implements ActionGroupListener, Pro
 
         return actions.indexOf(action);
     }
+
+    @Override
+    public String toString() {
+        return super.toString() + ": " + actions.toString();
+    }
 }

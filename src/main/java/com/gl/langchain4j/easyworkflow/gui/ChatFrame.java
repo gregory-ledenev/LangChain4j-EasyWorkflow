@@ -366,18 +366,21 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                         pnlChat.getRenderMarkdownAction(),
                         pnlChat.getClearAfterSendingAction()
                 ),
-                new ActionGroup(),
-                modelsActionGroup,
-                new ActionGroup("Appearance", new AutoIcon(ICON_SPACER), true,
-                        new StateAction("Light", null, exclusiveGroup,
-                                e -> applyAppearance(Appearance.Light),
-                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Light)),
-                        new StateAction("Dark", null, exclusiveGroup,
-                                e -> applyAppearance(Appearance.Dark),
-                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Dark)),
-                        new StateAction("Auto", null, exclusiveGroup,
-                                e -> applyAppearance(Appearance.Auto),
-                                a -> a.setSelected(getOptions().getAppearance() == Appearance.Auto))
+                new ActionGroup(
+                        new ActionGroup(modelsActionGroup)
+                ),
+                new ActionGroup(
+                        new ActionGroup("Appearance", new AutoIcon(ICON_SPACER), true,
+                                new StateAction("Light", null, exclusiveGroup,
+                                        e -> applyAppearance(Appearance.Light),
+                                        a -> a.setSelected(getOptions().getAppearance() == Appearance.Light)),
+                                new StateAction("Dark", null, exclusiveGroup,
+                                        e -> applyAppearance(Appearance.Dark),
+                                        a -> a.setSelected(getOptions().getAppearance() == Appearance.Dark)),
+                                new StateAction("Auto", null, exclusiveGroup,
+                                        e -> applyAppearance(Appearance.Auto),
+                                        a -> a.setSelected(getOptions().getAppearance() == Appearance.Auto))
+                        )
                 )
         );
     }
@@ -456,7 +459,7 @@ public class ChatFrame extends AppFrame implements AboutProvider, ChatPane.Execu
                 )
         );
 
-        if (!isMac()) {
+        if (!isMacOS()) {
             BasicAction exitAction = new BasicAction("Exit", null, e -> Application.getSharedApplication().exit(false));
             exitAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_F4, KeyEvent.ALT_DOWN_MASK));
 

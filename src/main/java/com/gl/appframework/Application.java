@@ -27,6 +27,7 @@ package com.gl.appframework;
 import javax.swing.*;
 import java.awt.*;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.gl.appframework.UISupport.*;
@@ -37,8 +38,8 @@ import static com.gl.appframework.UISupport.*;
  */
 @SuppressWarnings("ALL")
 public class Application {
-
-    private static Application sharedApplication;
+    private String id = Application.class.getName();
+    private static final AtomicReference<Application> sharedApplication = new AtomicReference<>();
 
     static {
         Icons.loadIcons();
@@ -54,10 +55,25 @@ public class Application {
      * @return The shared Application instance.
      */
     public static Application getSharedApplication() {
-        if (sharedApplication == null) {
-            sharedApplication = new Application();
-        }
-        return sharedApplication;
+        return sharedApplication.updateAndGet(a -> a == null ? new Application() : a);
+    }
+
+    /**
+     * Gets the unique identifier for this application.
+     *
+     * @return The application ID string.
+     */
+    public String getId() {
+        return id;
+    }
+
+    /**
+     * Sets the unique identifier for this application.
+     *
+     * @param id The application ID string to set.
+     */
+    public void setId(String id) {
+        this.id = id;
     }
 
     /**
@@ -146,7 +162,7 @@ public class Application {
      */
     public void about() {
         // disallow showing second dialog on Mac when invoked via system menu
-        if (isMac()) {
+        if (isMacOS()) {
             for (Window window : Window.getWindows()) {
                 if (window instanceof JDialog dialog && dialog.isShowing())  {
                     return;

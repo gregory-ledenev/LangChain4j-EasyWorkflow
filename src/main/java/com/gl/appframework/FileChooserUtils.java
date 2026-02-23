@@ -370,7 +370,7 @@ public class FileChooserUtils {
                             JOptionPane.ERROR_MESSAGE);
                     result = null; // Force re-selection
                 } else {
-                    if (UISupport.isMac() || JOptionPane.showConfirmDialog(owner, getFileOverwritePrompt(result), title,
+                    if (UISupport.isMacOS() || JOptionPane.showConfirmDialog(owner, getFileOverwritePrompt(result), title,
                             JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
                         break;
                     }

@@ -31,7 +31,6 @@ import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.comp.ActionPopupMenu;
-import com.gl.langchain4j.easyworkflow.gui.GUIPlayground;
 import com.jthemedetecor.OsThemeDetector;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
@@ -286,7 +285,7 @@ public class UISupport {
      * @return The {@link Preferences} object for the application.
      */
     public static Preferences getPreferences() {
-        return Preferences.userRoot().node(GUIPlayground.class.getName().replace(".", "/"));
+        return Preferences.userRoot().node(Application.getSharedApplication().getId().replace(".", "/"));
     }
 
     /**
@@ -372,7 +371,7 @@ public class UISupport {
         if (darkAppearance == null || darkAppearance != isDarkAppearance) {
             darkAppearance = isDarkAppearance;
             try {
-                boolean isMac = isMac();
+                boolean isMac = isMacOS();
                 UIManager.setLookAndFeel(darkAppearance ?
                         (isMac ? new FlatMacDarkLaf() : new FlatDarkLaf()) :
                         (isMac ? new FlatMacLightLaf() : new FlatLightLaf()));
@@ -391,7 +390,7 @@ public class UISupport {
      *
      * @return true if the OS is macOS, false otherwise.
      */
-    public static boolean isMac() {
+    public static boolean isMacOS() {
         String osName = System.getProperty("os.name").toLowerCase();
         return osName.contains("mac") || osName.contains("darwin");
     }

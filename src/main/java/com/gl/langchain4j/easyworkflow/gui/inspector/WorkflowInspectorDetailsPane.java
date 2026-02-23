@@ -646,7 +646,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                             namedValue.value()));
                 }
             }
-
+            setIcon(null);
             return this;
         }
     }

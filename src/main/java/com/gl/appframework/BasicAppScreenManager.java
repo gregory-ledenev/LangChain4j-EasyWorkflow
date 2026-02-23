@@ -45,10 +45,16 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
     private AppScreen<AppFrame> activeAppScreen;
     private final ActionToolBar actionToolBar = new ActionToolBar(SwingConstants.VERTICAL, getAppScreenManagerActionGroup());
     private ActionGroup appScreenManagerActionGroup;
+    private boolean installSwitcher = true;
 
-    public BasicAppScreenManager() {
+    public BasicAppScreenManager(boolean installSwitcher) {
+        this.installSwitcher = installSwitcher;
         setLayout(new CardLayout());
         actionToolBar.setFloatable(false);
+    }
+
+    public BasicAppScreenManager() {
+        this(true);
     }
 
     @Override
@@ -78,6 +84,16 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
             this.activeAppScreen = anAppScreen;
             CardLayout cardLayout = (CardLayout) getLayout();
             cardLayout.show(this, anAppScreen.getId());
+        }
+    }
+
+    @Override
+    public void activateFirstAppScreen() {
+        for (AppScreen<AppFrame> screen : appScreens) {
+            if (screen.canActivate()) {
+                setActiveAppScreen(screen);
+                break;
+            }
         }
     }
 
@@ -137,7 +153,8 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
             }
         }
         appFrame.add(this, BorderLayout.CENTER);
-        appFrame.add(actionToolBar, BorderLayout.WEST);
+        if (installSwitcher)
+            appFrame.add(actionToolBar, BorderLayout.WEST);
     }
 
     @Override

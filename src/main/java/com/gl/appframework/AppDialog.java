@@ -161,7 +161,7 @@ public class AppDialog<T, R> extends JDialog implements Updatable {
         btnCancel.setActionCommand(ACTION_COMMAND_CANCEL);
         btnCancel.addActionListener(this::actionPerformed);
 
-        if (UISupport.isMac()) {
+        if (UISupport.isMacOS()) {
             addButton(btnCancel, false);
             addButton(okButton, false);
         } else {

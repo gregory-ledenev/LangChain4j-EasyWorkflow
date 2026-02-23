@@ -29,7 +29,6 @@ import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
-import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -53,17 +52,58 @@ public class ActionMenuSupport {
      */
     public static void setupPopupMenu(JPopupMenu popupMenu, ActionGroup actionGroup) {
         popupMenu.removeAll();
+        setupPopupMenuListener(popupMenu, actionGroup);
         setupPopupMenu(popupMenu, actionGroup, new HashMap<>());
     }
 
     /**
      * Sets up a {@link JPopupMenu} with actions from an {@link ActionGroup}, using a provided map to manage button groups.
+     * This method recursively processes {@link ActionGroup}s to build the menu structure.
      *
      * @param popupMenu      The {@link JPopupMenu} to set up.
      * @param actionGroup    The {@link ActionGroup} containing the actions.
      * @param buttonGroupMap A map of group names to {@link ButtonGroup} instances for exclusive selection actions.
      */
     public static void setupPopupMenu(JPopupMenu popupMenu, ActionGroup actionGroup, Map<String, ButtonGroup> buttonGroupMap) {
+        for (int i = 0; i < actionGroup.getActions().size(); i++) {
+            Action action = actionGroup.getActions().get(i);
+            if (action == null)
+                continue;
+
+            if (action instanceof ActionGroup subGroup) {
+                if (subGroup.isPopup()) {
+                    createSubMenu(popupMenu, buttonGroupMap, action, subGroup);
+                } else {
+                    // Non-popup group: recursively add its items.
+                    setupPopupMenu(popupMenu, subGroup, buttonGroupMap);
+                    // Add a separator after the group, if it's not the last action.
+                    if (i < actionGroup.getActions().size() - 1) {
+                        if (popupMenu.getComponentCount() > 0 && !(popupMenu.getComponent(popupMenu.getComponentCount() - 1) instanceof JSeparator)) {
+                            popupMenu.addSeparator();
+                        }
+                    }
+                }
+            } else {
+                addMenuItem(popupMenu, action, buttonGroupMap);
+            }
+        }
+        // Clean up trailing separators.
+        if (popupMenu.getComponentCount() > 0 && popupMenu.getComponent(popupMenu.getComponentCount() - 1) instanceof JSeparator) {
+            popupMenu.remove(popupMenu.getComponentCount() - 1);
+        }
+    }
+
+    private static void createSubMenu(JPopupMenu popupMenu, Map<String, ButtonGroup> buttonGroupMap, Action action, ActionGroup subGroup) {
+        JMenu subMenu = createMenu(action);
+        popupMenu.add(subMenu);
+        subMenu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null); // Cast to Icon
+        setupSelectedIcon(subGroup, subMenu);
+        setupPopupMenuListener(subMenu.getPopupMenu(), subGroup);
+        setupPopupMenu(subMenu.getPopupMenu(), subGroup, buttonGroupMap); // Pass buttonGroupMap for nested groups
+        subMenu.setEnabled(checkEnabled(subMenu));
+    }
+
+    private static void setupPopupMenuListener(JPopupMenu popupMenu, ActionGroup actionGroup) {
         popupMenu.addPopupMenuListener(new PopupMenuListener() {
             @Override
             public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
@@ -81,34 +121,6 @@ public class ActionMenuSupport {
             public void popupMenuCanceled(PopupMenuEvent e) {
             }
         });
-        int i = 0;
-        for (Action action : actionGroup.getActions()) {
-            if (action == null)
-                continue;
-
-            if (action instanceof ActionGroup subGroup) {
-                if (subGroup.isPopup()) {
-                    JMenu subMenu = createMenu(action);
-                    popupMenu.add(subMenu);
-                    subMenu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null); // Cast to Icon
-                    setupSelectedIcon(subGroup, subMenu);
-                    setupPopupMenu(subMenu.getPopupMenu(), subGroup, buttonGroupMap); // Pass buttonGroupMap for nested groups
-                    subMenu.setEnabled(checkEnabled(subMenu));
-                } else {
-                    // If it's an ActionGroup but not a popup, treat its actions as direct menu items
-                    for (Action subAction : subGroup.getActions()) {
-                        addMenuItem(popupMenu, subAction, buttonGroupMap);
-                    }
-                    if (i < actionGroup.getActions().size() - 1)
-                        popupMenu.addSeparator(); // Separator after a non-popup action group's items
-                }
-            } else {
-                addMenuItem(popupMenu, action, buttonGroupMap);
-            }
-            i++;
-        }
-        if (popupMenu.getComponent(popupMenu.getComponentCount() - 1) instanceof JSeparator)
-            popupMenu.remove(popupMenu.getComponentCount() - 1);
     }
 
     /**
@@ -125,25 +137,27 @@ public class ActionMenuSupport {
         return false;
     }
 
+    /**
+     * Adds a menu item to a popup menu for a given action. This method handles creating the appropriate
+     * JMenuItem (or subclass) based on the action type.
+     *
+     * @param popupMenu      The popup menu to add the item to.
+     * @param action         The action to create the menu item from.
+     * @param buttonGroupMap A map for managing radio button groups.
+     */
     private static void addMenuItem(JPopupMenu popupMenu, Action action, Map<String, ButtonGroup> buttonGroupMap) {
-        JMenuItem menuItem = null;
+        JMenuItem menuItem;
         if (action instanceof StateAction stateAction) {
             if (stateAction.getExclusiveGroup() != null) {
                 ButtonGroup buttonGroup = buttonGroupMap.computeIfAbsent(stateAction.getExclusiveGroup(), k -> new ButtonGroup());
                 JRadioButtonMenuItem rbMenuItem = createRadioButtonMenuItem(stateAction);
                 buttonGroup.add(rbMenuItem);
                 popupMenu.add(rbMenuItem);
+                menuItem = rbMenuItem;
             } else {
                 menuItem = createMenuCheckBoxItem(stateAction);
                 popupMenu.add(menuItem);
             }
-        } else if (action instanceof ActionGroup subGroup && !subGroup.isPopup()) {
-            // This case handles non-popup ActionGroups that are not nested within another ActionGroup
-            // Their actions are added directly to the current popupMenu
-            for (Action subAction : subGroup.getActions()) {
-                addMenuItem(popupMenu, subAction, buttonGroupMap);
-            }
-            popupMenu.addSeparator();
         } else {
             menuItem = createMenuItem(action);
             popupMenu.add(menuItem);
@@ -177,6 +191,7 @@ public class ActionMenuSupport {
                 JMenu menu = createMenu(subGroup);
                 menuBar.add(menu);
                 menu.setIcon(subGroup.getValue(Action.SMALL_ICON) instanceof Icon ? (Icon) subGroup.getValue(Action.SMALL_ICON) : null);
+                setupPopupMenuListener(menu.getPopupMenu(), subGroup);
                 setupPopupMenu(menu.getPopupMenu(), subGroup, buttonGroupMap);
             } else {
                 // Top-level actions in a menu bar are typically JMenus, not direct JMenuItems.
@@ -227,7 +242,7 @@ public class ActionMenuSupport {
     }
 
     private static void setupSelectedIcon(Action action, JMenuItem result) {
-        if (UISupport.isMac()) {
+        if (UISupport.isMacOS()) {
             UISupport.AutoIcon icon = action.getValue(Action.SMALL_ICON) instanceof UISupport.AutoIcon ? (UISupport.AutoIcon) action.getValue(Action.SMALL_ICON) : null;
             if (icon != null)
                 result.setSelectedIcon(UISupport.getIcon(icon.getKey(), true));
