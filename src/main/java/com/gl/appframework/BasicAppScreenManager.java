@@ -66,7 +66,7 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
     public void setActiveAppScreen(AppScreen<AppFrame> anAppScreen) {
         Objects.requireNonNull(anAppScreen);
 
-        if (! anAppScreen.canActivate())
+        if (anAppScreen == getActiveAppScreen() || ! anAppScreen.canActivate())
             return;
 
         AppScreen<AppFrame> activeAppScreen = getActiveAppScreen();

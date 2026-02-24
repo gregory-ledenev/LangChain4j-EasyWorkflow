@@ -42,11 +42,11 @@ public class SampleApp {
                     addAction(getAppScreenManager().map(AppScreenManager::getAppScreenManagerActionGroup).orElse(null));
 
             installAppModule(new MenuBarModule<SampleFrame>(new ActionGroup(
-//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_FILE),
-//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_EDIT),
-//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW),
-                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_OPTIONS)
-//                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_HELP)
+                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_FILE),
+                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_EDIT),
+                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW),
+                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_OPTIONS),
+                    getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_HELP)
             )));
         }
     }

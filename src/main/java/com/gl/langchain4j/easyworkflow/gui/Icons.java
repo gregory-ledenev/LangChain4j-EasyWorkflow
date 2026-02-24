@@ -19,6 +19,8 @@ public class Icons {
     public static final String ICON_SEND = "send";
     public static final String ICON_WRENCH = "wrench";
     public static final String ICON_QUESTION = "question";
+    public static final String ICON_HOME = "home";
+    public static final String ICON_BELL = "bell";
 
     public static void loadIcons() {
         loadIcon(ICON_AGENT, "icons/agent");
@@ -33,11 +35,13 @@ public class Icons {
         loadIcon(ICON_SEND, "icons/send");
         loadIcon(ICON_WRENCH, "icons/wrench");
         loadIcon(ICON_QUESTION, "icons/question");
+        loadIcon(ICON_HOME, "icons/home");
+        loadIcon(ICON_BELL, "icons/bell");
     }
 
     public static void loadIcon(String iconKey, String fileName) {
         UISupport.loadIcon(Icons.class, iconKey, fileName);
     }
 
-    public static final ImageIcon LOGO_ICON = new ImageIcon(Objects.requireNonNull(ChatFrame.class.getResource("icons/logo.png")));
+    public static final ImageIcon LOGO_ICON = new ImageIcon(Objects.requireNonNull(ChatScreen.class.getResource("icons/logo.png")));
 }

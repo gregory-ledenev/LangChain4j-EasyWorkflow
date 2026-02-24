@@ -28,6 +28,7 @@ import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
 
 import javax.swing.*;
+import java.awt.*;
 
 /**
  * A basic implementation of the {@link AppScreen} interface extending {@link JPanel}.
@@ -48,6 +49,7 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
     private StateAction activationAction;
 
     public BasicAppScreen(String id) {
+        super(new BorderLayout(0, 0));
         this.id = id;
     }
 

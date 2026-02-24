@@ -25,12 +25,10 @@
 package com.gl.appframework;
 
 import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StandardActions;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.KeyEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.*;
@@ -38,6 +36,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.gl.appframework.Application.getSharedApplication;
+import static com.gl.appframework.UISupport.getOptions;
 import static com.gl.appframework.UISupport.isMacOS;
 
 /**
@@ -132,11 +131,22 @@ public class AppFrame extends JFrame implements Updatable {
         }
     }
 
+    private boolean isRestoreFrameBounds() {
+        return System.getProperty("com.gl.appframework.AppFrame.restoreFrameBounds",
+                        String.valueOf(true)).
+                equals(String.valueOf(true));
+    }
+
     /**
      * Restores the state of the frame. Subclasses should override this method
      * to load any saved state (e.g., window position, size, user preferences).
      */
     public void restoreState() {
+        if (isRestoreFrameBounds()) {
+            Rectangle frameBounds = getOptions().getFrameBounds();
+            if (frameBounds != null)
+                setBounds(frameBounds);
+        }
     }
 
     /**
@@ -144,6 +154,7 @@ public class AppFrame extends JFrame implements Updatable {
      * to persist any relevant state information (e.g., window position, size, user preferences).
      */
     public void saveState() {
+        getOptions().setFrameBounds(getBounds());
     }
 
     /**
