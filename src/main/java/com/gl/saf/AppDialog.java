@@ -84,6 +84,12 @@ public class AppDialog<T, R> extends JDialog implements Updatable {
         init();
     }
 
+    /**
+     * Retrieves a button from the dialog based on its action command.
+     *
+     * @param actionCommand The action command string associated with the button.
+     * @return The {@link JButton} associated with the given action command, or {@code null} if not found.
+     */
     public JButton getButton(String actionCommand) {
         return buttonsByActionCommand.get(actionCommand);
     }

@@ -31,6 +31,8 @@ import javax.swing.text.Document;
 import java.awt.*;
 import java.util.Objects;
 
+import static com.gl.saf.Appearance.isDarkAppearance;
+
 /**
  * An extended {@link JTextField} that supports placeholder text.
  */
@@ -112,7 +114,7 @@ public class JTextFieldEx extends JTextField {
                 placeholderColor = Color.GRAY;
             }
 
-            g2.setColor(UISupport.isDarkAppearance() ? placeholderColor.darker() : placeholderColor.brighter());
+            g2.setColor(isDarkAppearance() ? placeholderColor.darker() : placeholderColor.brighter());
             g2.setFont(getFont());
 
             FontMetrics fm = g2.getFontMetrics();

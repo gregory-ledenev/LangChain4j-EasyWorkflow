@@ -24,18 +24,12 @@
 
 package com.gl.saf;
 
-import com.formdev.flatlaf.FlatDarkLaf;
-import com.formdev.flatlaf.FlatLightLaf;
-import com.formdev.flatlaf.themes.FlatMacDarkLaf;
-import com.formdev.flatlaf.themes.FlatMacLightLaf;
 import com.gl.saf.actions.ActionGroup;
 import com.gl.saf.actions.BasicAction;
 import com.gl.saf.comp.ActionPopupMenu;
-import com.jthemedetecor.OsThemeDetector;
 import org.commonmark.node.Node;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
-import org.slf4j.Logger;
 
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;
@@ -53,26 +47,16 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.*;
-import java.beans.PropertyChangeListener;
-import java.beans.PropertyChangeSupport;
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.prefs.Preferences;
 
+import static com.gl.saf.Appearance.isDarkAppearance;
 import static com.gl.saf.IconFactory.*;
 
 /**
- * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
- * preferences.
+ * Provides utility methods and constants for UI-related operations
  */
 @SuppressWarnings("ALL")
 public class UISupport {
-    final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
-    private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
-    private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
-    private static Boolean darkAppearance;
-    private static Options options;
-
     /**
      * Sets up a context menu (popup menu) for a given {@link JTextComponent} with standard text editing actions (Cut,
      * Copy, Paste).
@@ -187,144 +171,40 @@ public class UISupport {
         });
     }
 
-
-    /**
-     * Creates an {@link Action} with a title, icon, and an action listener.
-     *
-     * @param title          The title of the action.
-     * @param icon           The icon for the action.
-     * @param actionListener The consumer to be called when the action is performed.
-     * @return A new {@link Action} instance.
-     */
-    public static BasicAction createAction(String title, Icon icon,
-                                           Consumer<ActionEvent> actionListener) {
-        return new BasicAction(title, icon, actionListener);
-    }
-
-    /**
-     * Retrieves the user preferences node for the application.
-     *
-     * @return The {@link Preferences} object for the application.
-     */
-    public static Preferences getPreferences() {
-        return Preferences.userRoot().node(Application.getSharedApplication().getId().replace(".", "/"));
-    }
-
-    /**
-     * Gets the singleton instance of {@link Options}.
-     *
-     * @return The {@link Options} instance.
-     */
-    public static Options getOptions() {
-        if (options == null)
-            options = new Options();
-        return options;
-    }
-
-    /**
-     * Applies the appearance settings based on the current options. This method will set the look and feel to light,
-     * dark, or auto-detect.
-     */
-    public static void applyAppearance() {
-        switch (getOptions().getAppearance()) {
-            case Light -> setDarkAppearance(false);
-            case Dark -> setDarkAppearance(true);
-            case Auto -> setDarkAppearance(osThemeDetector.isDark());
-        }
-
-        for (Window window : Window.getWindows()) {
-            SwingUtilities.updateComponentTreeUI(window);
-            window.revalidate();
-            window.repaint();
-        }
-
-        firePropertyChange(Options.PROP_APPEARANCE_DARK, !darkAppearance, darkAppearance);
-    }
-
-    /**
-     * Adds a {@link PropertyChangeListener} to the listener list. The listener is registered for all properties.
-     *
-     * @param listener The {@link PropertyChangeListener} to be added.
-     */
-    public static void addPropertyChangeListener(PropertyChangeListener listener) {
-        propertyChangeSupport.addPropertyChangeListener(listener);
-    }
-
-    /**
-     * Removes a {@link PropertyChangeListener} from the listener list.
-     *
-     * @param listener The {@link PropertyChangeListener} to be removed.
-     */
-    public static void removePropertyChangeListener(PropertyChangeListener listener) {
-        propertyChangeSupport.removePropertyChangeListener(listener);
-    }
-
-    private static void firePropertyChange(String propertyName, Object oldValue, Object newValue) {
-        propertyChangeSupport.firePropertyChange(propertyName, oldValue, newValue);
-    }
-
-    /**
-     * Applies a specific appearance setting and updates the options.
-     *
-     * @param appearance The desired {@link Appearance} to apply.
-     */
-    public static void applyAppearance(Appearance appearance) {
-        getOptions().setAppearance(appearance);
-        applyAppearance();
-        boolean dark = osThemeDetector.isDark();
-        firePropertyChange(Options.PROP_APPEARANCE_DARK, !dark, dark);
-    }
-
-    /**
-     * Checks if the current appearance is dark.
-     *
-     * @return true if the dark appearance is active, false otherwise.
-     */
-    public static boolean isDarkAppearance() {
-        return darkAppearance != null ? darkAppearance : false;
-    }
-
-    /**
-     * Sets the application's look and feel to dark or light.
-     *
-     * @param isDarkAppearance true for dark appearance, false for light appearance.
-     */
-    public static void setDarkAppearance(boolean isDarkAppearance) {
-        if (darkAppearance == null || darkAppearance != isDarkAppearance) {
-            darkAppearance = isDarkAppearance;
-            try {
-                boolean isMac = isMacOS();
-                UIManager.setLookAndFeel(darkAppearance ?
-                        (isMac ? new FlatMacDarkLaf() : new FlatDarkLaf()) :
-                        (isMac ? new FlatMacLightLaf() : new FlatLightLaf()));
-                if (isMac) {
-                    UIManager.put("ToggleButton.toolbar.selectedBackground",
-                            darkAppearance ? Color.DARK_GRAY : new Color(216, 216, 255));
-                }
-            } catch (Exception ex) {
-                System.err.println("Failed to initialize LaF");
-            }
-        }
-    }
-
     /**
      * Checks if the current operating system is macOS.
      *
      * @return true if the OS is macOS, false otherwise.
      */
     public static boolean isMacOS() {
-        String osName = System.getProperty("os.name").toLowerCase();
-        return osName.contains("mac") || osName.contains("darwin");
+        return getOSType() == OSType.MacOS;
     }
 
     /**
-     * Retrieves the singleton instance of {@link OsThemeDetector}. This detector can be used to determine the operating
-     * system's current theme (light or dark) and to listen for theme changes.
-     *
-     * @return The {@link OsThemeDetector} instance.
+     * Enumeration of supported operating system types.
      */
-    public static OsThemeDetector getDetector() {
-        return osThemeDetector;
+    public static enum OSType {
+        Windows, MacOS, Linux, Unix, Other
+    }
+
+    /**
+     * Determines the current operating system type.
+     *
+     * @return The {@link OSType} corresponding to the current environment.
+     */
+    public static OSType getOSType() {
+        String osName = System.getProperty("os.name").toLowerCase();
+        if (osName.contains("mac") || osName.contains("darwin")) {
+            return OSType.MacOS;
+        } else if (osName.contains("win")) {
+            return OSType.Windows;
+        } else if (osName.contains("linux")) {
+            return OSType.Linux;
+        } else if (osName.contains("unix")) {
+            return OSType.Unix;
+        } else {
+            return OSType.Other;
+        }
     }
 
     /**
@@ -492,17 +372,6 @@ public class UISupport {
         SwingUtilities.invokeLater(() -> verticalScrollBar.setValue((int) (scrollPercentage * (verticalScrollBar.getMaximum() - verticalScrollBar.getVisibleAmount()))));
     }
 
-    enum ImageFilter {
-        None, Lighter, Inverted
-    }
-
-    /**
-     * Enum representing the different appearance options for the application.
-     */
-    public enum Appearance {
-        Light, Dark, Auto
-    }
-
     /**
      * An {@link UndoableEditListener} implementation that manages undo/redo operations for a {@link JTextComponent}.
      */
@@ -587,154 +456,6 @@ public class UISupport {
     private static class ImageIconUIResource extends ImageIcon implements UIResource {
         ImageIconUIResource(Image image) {
             super(image);
-        }
-    }
-
-    /**
-     * Manages user preferences for the application.
-     */
-    public static class Options {
-        public static final String PROP_RENDER_MARKDOWN = "renderMarkdown";
-        public static final String PROP_APPEARANCE = "appearance";
-        public static final String PROP_APPEARANCE_DARK = "appearanceDark";
-        public static final String PROP_FRAME_BOUNDS = "frameBounds";
-        public static final String PROP_CLEAR_AFTER_SENDING = "clearAfterSending";
-        public static final String PROP_OPEN_FILE_AFTER_EXPORTING = "openFileAfterSharing";
-        private final PropertyChangeSupport propetyChangeSupport = new PropertyChangeSupport(this);
-
-        /**
-         * Checks if markdown rendering is enabled.
-         *
-         * @return true if markdown rendering is enabled, false otherwise.
-         */
-        public boolean isRenderMarkdown() {
-            return getPreferences().getBoolean(PROP_RENDER_MARKDOWN, true);
-        }
-
-        /**
-         * Sets whether markdown rendering should be enabled.
-         *
-         * @param renderMarkdown true to enable markdown rendering, false to disable.
-         */
-        public void setRenderMarkdown(boolean renderMarkdown) {
-            if (isRenderMarkdown() != renderMarkdown) {
-                getPreferences().putBoolean(PROP_RENDER_MARKDOWN, renderMarkdown);
-                propetyChangeSupport.firePropertyChange(PROP_RENDER_MARKDOWN, !renderMarkdown, renderMarkdown);
-            }
-        }
-
-        /**
-         * Gets the currently selected appearance (Light, Dark, Auto).
-         *
-         * @return The current appearance setting.
-         */
-        public Appearance getAppearance() {
-            return Appearance.values()[getPreferences().getInt(PROP_APPEARANCE, Appearance.Auto.ordinal())];
-        }
-
-        /**
-         * Sets the application's appearance.
-         *
-         * @param appearance The desired appearance setting.
-         */
-        public void setAppearance(Appearance appearance) {
-            if (getAppearance() != appearance) {
-                Appearance oldValue = getAppearance();
-                getPreferences().putInt(PROP_APPEARANCE, appearance.ordinal());
-                propetyChangeSupport.firePropertyChange(PROP_APPEARANCE, oldValue, appearance);
-            }
-        }
-
-        /**
-         * Retrieves the stored bounds of the main application frame.
-         *
-         * @return A {@link Rectangle} representing the frame's bounds, or null if not found.
-         */
-        public Rectangle getFrameBounds() {
-            String bounds = getPreferences().get(PROP_FRAME_BOUNDS, null);
-            if (bounds != null) {
-                String[] wh = bounds.split(", ");
-                try {
-                    return new Rectangle(Integer.parseInt(wh[0]), Integer.parseInt(wh[1]),
-                            Integer.parseInt(wh[2]), Integer.parseInt(wh[3]));
-                } catch (NumberFormatException e) {
-                    logger.error("failed to read frame bounds", e);
-                }
-            }
-            return null;
-
-        }
-
-        /**
-         * Stores the bounds of the main application frame.
-         *
-         * @param frameBounds The {@link Rectangle} representing the frame's current bounds.
-         */
-        public void setFrameBounds(Rectangle frameBounds) {
-            if (!Objects.equals(getFrameBounds(), frameBounds)) {
-                getPreferences().put(PROP_FRAME_BOUNDS, "%s, %s, %s, %s".formatted(frameBounds.x, frameBounds.y, frameBounds.width, frameBounds.height));
-                propetyChangeSupport.firePropertyChange(PROP_FRAME_BOUNDS, getFrameBounds(), frameBounds);
-            }
-        }
-
-        /**
-         * Checks if the "clear after sending" option is enabled.
-         *
-         * @return true if the user message form should be cleared after sending, false otherwise.
-         */
-        public boolean isClearAfterSending() {
-            return getPreferences().getBoolean(PROP_CLEAR_AFTER_SENDING, true);
-        }
-
-        /**
-         * Sets whether the user message form should be cleared after sending.
-         *
-         * @param isCleaAfterSending true to enable clearing after sending, false to disable.
-         */
-        public void setClearAfterSending(boolean isCleaAfterSending) {
-            if (isClearAfterSending() != isCleaAfterSending) {
-                getPreferences().putBoolean(PROP_CLEAR_AFTER_SENDING, isCleaAfterSending);
-                propetyChangeSupport.firePropertyChange(PROP_CLEAR_AFTER_SENDING, !isCleaAfterSending, isCleaAfterSending);
-            }
-        }
-
-        /**
-         * Checks if the "open file after exporting" option is enabled.
-         *
-         * @return true if the exported file should be opened automatically, false otherwise.
-         */
-        public boolean isOpenFileAfterSharing() {
-            return getPreferences().getBoolean(PROP_OPEN_FILE_AFTER_EXPORTING, false);
-        }
-
-        /**
-         * Sets whether the exported file should be opened automatically.
-         *
-         * @param value true to enable opening after exporting, false to disable.
-         */
-        public void setOpenFileAfterSharing(boolean value) {
-            if (isOpenFileAfterSharing() != value) {
-                getPreferences().putBoolean(PROP_OPEN_FILE_AFTER_EXPORTING, value);
-                propetyChangeSupport.firePropertyChange(PROP_OPEN_FILE_AFTER_EXPORTING, !value, value);
-            }
-        }
-
-        /**
-         * Adds a {@link PropertyChangeListener} to the listener list. The listener is registered for all properties.
-         *
-         * @param propertyChangeListener The {@link PropertyChangeListener} to be added.
-         */
-        public void addPropertyChangeListener(PropertyChangeListener propertyChangeListener) {
-            propetyChangeSupport.addPropertyChangeListener(propertyChangeListener);
-        }
-
-        /**
-         * Removes a {@link PropertyChangeListener} from the listener list.
-         *
-         * @param propertyChangeListener The {@link PropertyChangeListener} to be removed.
-         */
-        public void removePropertyChangeListener(PropertyChangeListener propertyChangeListener) {
-            propetyChangeSupport.removePropertyChangeListener(propertyChangeListener);
         }
     }
 

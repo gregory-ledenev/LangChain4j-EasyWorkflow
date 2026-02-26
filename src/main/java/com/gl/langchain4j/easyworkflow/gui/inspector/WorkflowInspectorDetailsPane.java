@@ -24,9 +24,9 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
+import com.gl.langchain4j.easyworkflow.gui.GUIPlaygroundPreferences;
 import com.gl.saf.*;
 import com.gl.saf.actions.ActionGroup;
-import com.gl.saf.UISupport.*;
 import com.gl.saf.actions.BasicAction;
 import com.gl.saf.actions.StateAction;
 import com.gl.saf.comp.*;
@@ -150,7 +150,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
             add(scrollPane, BorderLayout.CENTER);
 
             JPopupMenu popupMenu = new JPopupMenu();
-            JMenuItem mniCopy = new JMenuItem(UISupport.createAction("Copy", new AutoIcon(ICON_COPY), e -> copy()));
+            JMenuItem mniCopy = new JMenuItem(new BasicAction("Copy", new AutoIcon(ICON_COPY), e -> copy()));
             popupMenu.add(mniCopy);
             edtValue.setComponentPopupMenu(popupMenu);
         }
@@ -158,14 +158,15 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
         @Override
         public void removeNotify() {
             super.removeNotify();
-            UISupport.getOptions().removePropertyChangeListener(this);
+
+            ApplicationPreferences.getApplicationPreferences().removePropertyChangeListener(this);
         }
 
         @Override
         public void addNotify() {
             super.addNotify();
 
-            UISupport.getOptions().addPropertyChangeListener(this);
+            ApplicationPreferences.getApplicationPreferences().addPropertyChangeListener(this);
         }
 
         private void copy() {
@@ -183,7 +184,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
         public void setValue(String value) {
             this.value = value;
             if (value != null) {
-                edtValue.setText("<html>%s</html>".formatted(UISupport.getOptions().isRenderMarkdown() ? UISupport.convertMarkdownToHtml(value) : value));
+                edtValue.setText("<html>%s</html>".formatted(GUIPlaygroundPreferences.getApplicationPreferences().isRenderMarkdown() ? UISupport.convertMarkdownToHtml(value) : value));
             } else {
                 edtValue.setText(null);
             }
@@ -192,7 +193,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
 
         @Override
         public void propertyChange(PropertyChangeEvent evt) {
-            if (evt.getSource() == UISupport.getOptions() && evt.getPropertyName().equals(Options.PROP_RENDER_MARKDOWN)) {
+            if (evt.getSource() == ApplicationPreferences.getApplicationPreferences() && evt.getPropertyName().equals(GUIPlaygroundPreferences.PROP_RENDER_MARKDOWN)) {
                 setValue(value);
             }
         }
@@ -284,7 +285,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
         }
 
         private static Preferences getPreferences() {
-            return UISupport.getPreferences().node("Inspector.ValuesPane");
+            return Application.getUserPreferences().node("Inspector.ValuesPane");
         }
 
         private static NamedValue createNamedValue(String icon, String name, Object value) {

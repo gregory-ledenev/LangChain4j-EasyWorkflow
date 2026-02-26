@@ -26,6 +26,8 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.gui.*;
+import com.gl.saf.Appearance;
 import com.gl.saf.LoggerFactory;
 import com.gl.saf.Updatable;
 import com.gl.saf.actions.ActionGroup;
@@ -36,14 +38,10 @@ import com.gl.saf.comp.ActionToolBar;
 import com.gl.saf.comp.HeaderPane;
 import com.gl.saf.UISupport;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
-import com.gl.langchain4j.easyworkflow.gui.ChatPromptsDialog;
-import com.gl.langchain4j.easyworkflow.gui.ChatPromptsStorage;
 import com.gl.saf.form.FormEditorType;
 import com.gl.saf.form.FormElement;
 import com.gl.saf.form.FormPanel;
-import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
-import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import dev.langchain4j.service.Result;
 import org.slf4j.Logger;
 
@@ -67,6 +65,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
+import static com.gl.langchain4j.easyworkflow.gui.GUIPlaygroundPreferences.getApplicationPreferences;
 import static com.gl.saf.IconFactory.*;
 import static com.gl.saf.Icons.*;
 import static com.gl.saf.Icons.ICON_CHAT;
@@ -236,11 +235,11 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
     /**
      * Applies the specified appearance to the ChatPane and its components.
      *
-     * @param darkAppearance The appearance to apply (Light, Dark, or Auto).
+     * @param type The appearance to apply (Light, Dark, or Auto).
      * @param chatPane       The ChatPane instance to apply the appearance to.
      */
-    public static void applyAppearance(Appearance darkAppearance, ChatPane chatPane) {
-        UISupport.applyAppearance(darkAppearance);
+    public static void applyAppearance(Appearance.Type type, ChatPane chatPane) {
+        Appearance.applyAppearance(type);
         SwingUtilities.updateComponentTreeUI(chatPane.getParent());
     }
 
@@ -341,12 +340,12 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
 
     private void setupActions() {
         renderMarkdownAction = new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT), null,
-                e -> getOptions().setRenderMarkdown(!getOptions().isRenderMarkdown()),
-                a -> a.setSelected(getOptions().isRenderMarkdown()));
+                e -> getApplicationPreferences().setRenderMarkdown(!GUIPlaygroundPreferences.getApplicationPreferences().isRenderMarkdown()),
+                a -> a.setSelected(getApplicationPreferences().isRenderMarkdown()));
         renderMarkdownAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, KeyEvent.SHIFT_DOWN_MASK | Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx()));
         clearAfterSendingAction = new StateAction("Clear Prompt After Sending", new AutoIcon(ICON_CHAT), null,
-                e -> getOptions().setClearAfterSending(!getOptions().isClearAfterSending()),
-                a -> a.setSelected(getOptions().isClearAfterSending()));
+                e -> getApplicationPreferences().setClearAfterSending(!getApplicationPreferences().isClearAfterSending()),
+                a -> a.setSelected(getApplicationPreferences().isClearAfterSending()));
 
         BasicAction resendAction = new BasicAction("Resend", new AutoIcon(ICON_SEND), e ->
                 resendLast(),
@@ -513,7 +512,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
 
             lastUserMessage = chatMessageForMap(uid, message, true);
             addChatMessage(lastUserMessage);
-            if (getOptions().isClearAfterSending())
+            if (getApplicationPreferences().isClearAfterSending())
                 edtMessage.clearForm();
 
             setWaitingForResponse(true);

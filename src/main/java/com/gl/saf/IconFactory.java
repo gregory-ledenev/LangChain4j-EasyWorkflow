@@ -11,12 +11,16 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static com.gl.saf.UISupport.isDarkAppearance;
+import static com.gl.saf.Appearance.isDarkAppearance;
 
 @SuppressWarnings("StringConcatenationArgumentToLogCall")
 public class IconFactory {
     private static final Map<String, ImageIcon> icons = new ConcurrentHashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(IconFactory.class);
+
+    enum ImageFilter {
+        None, Lighter, Inverted
+    }
 
     /**
      * Represents the visual style of an icon.
@@ -111,11 +115,11 @@ public class IconFactory {
                             if (preserveOriginal || style == IconStyle.Dark)
                                 icons.put(iconKey, new ImageIcon(new BaseMultiResolutionImage(images.toArray(new Image[0]))));
                             else
-                                icons.put(iconKey, loadImageIcon(images, UISupport.ImageFilter.Lighter));
+                                icons.put(iconKey, loadImageIcon(images, ImageFilter.Lighter));
                         } else if (! preserveOriginal && style == IconStyle.Dark) {
                             List<Image> lightImages = loadImageVariants(clazz, getIconKey(baseIconKey, IconStyle.Light, size, selected, rollover));
                             if (! lightImages.isEmpty())
-                                icons.put(iconKey, loadImageIcon(lightImages, UISupport.ImageFilter.Inverted));
+                                icons.put(iconKey, loadImageIcon(lightImages, ImageFilter.Inverted));
                         }
                     }
                 }
@@ -200,7 +204,7 @@ public class IconFactory {
         return null;
     }
 
-    private static ImageIcon loadImageIcon(List<Image> imageVariants, UISupport.ImageFilter imageFilter) {
+    private static ImageIcon loadImageIcon(List<Image> imageVariants, ImageFilter imageFilter) {
         List<Image> images = imageVariants;
         switch (imageFilter) {
             case Lighter -> images = imageVariants.stream()
@@ -267,6 +271,7 @@ public class IconFactory {
         private boolean darkAppearance;
         private ImageIcon icon;
 
+
         /**
          * Creates an AutoIcon with default settings (Auto size, unselected, no rollover).
          *
@@ -326,8 +331,8 @@ public class IconFactory {
          * @return The resolved {@link ImageIcon}.
          */
         public ImageIcon getIcon() {
-            if (this.darkAppearance != UISupport.isDarkAppearance() || this.icon == null) {
-                this.darkAppearance = UISupport.isDarkAppearance();
+            if (this.darkAppearance != isDarkAppearance() || this.icon == null) {
+                this.darkAppearance = isDarkAppearance();
                 this.icon = IconFactory.getIcon(key, IconStyle.Auto, size, selected, rollover);
                 if (this.icon == null)
                     logger.error("No icon for key: %s".formatted(key));

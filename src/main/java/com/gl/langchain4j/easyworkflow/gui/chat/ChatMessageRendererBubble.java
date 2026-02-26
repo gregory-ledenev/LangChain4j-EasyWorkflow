@@ -29,7 +29,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.geom.GeneralPath;
 
-import static com.gl.saf.UISupport.isDarkAppearance;
+import static com.gl.saf.Appearance.isDarkAppearance;
 
 /**
  * A custom panel that renders a chat message within a bubble shape.

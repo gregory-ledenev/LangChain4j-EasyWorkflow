@@ -33,6 +33,7 @@ import javax.swing.text.View;
 import java.awt.*;
 import java.util.Objects;
 
+import static com.gl.saf.Appearance.isDarkAppearance;
 import static com.gl.saf.Icons.*;
 
 public class ActionTooltipRenderer extends JPanel {
@@ -137,9 +138,9 @@ public class ActionTooltipRenderer extends JPanel {
         if (backColor == null) // workaround for Synth
             backColor = getDefaultBackground();
 
-        lblNoteDivider.setForeground(getDarker(backColor, UISupport.isDarkAppearance() ? 8 : 0.7));
+        lblNoteDivider.setForeground(getDarker(backColor, isDarkAppearance() ? 8 : 0.7));
 
-        lblAcceleratorKey.setForeground(getDarker(backColor, UISupport.isDarkAppearance() ? 10 : 0.5));
+        lblAcceleratorKey.setForeground(getDarker(backColor, isDarkAppearance() ? 10 : 0.5));
     }
 
     public boolean isShowing() {

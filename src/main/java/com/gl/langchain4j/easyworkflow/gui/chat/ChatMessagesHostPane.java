@@ -25,6 +25,7 @@
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
+import com.gl.saf.Appearance;
 import com.gl.saf.UISupport;
 
 import javax.swing.*;
@@ -122,13 +123,13 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
     @Override
     public void addNotify() {
         super.addNotify();
-        UISupport.addPropertyChangeListener(this);
+        Appearance.addPropertyChangeListener(this);
     }
 
     @Override
     public void removeNotify() {
         super.removeNotify();
-        UISupport.removePropertyChangeListener(this);
+        Appearance.removePropertyChangeListener(this);
         if (updateScrollToBottomButtonTimer != null)
             updateScrollToBottomButtonTimer.stop();
         if (scrollToBottomTimer != null)
@@ -264,7 +265,7 @@ public class ChatMessagesHostPane extends JPanel implements PropertyChangeListen
 
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
-        if (evt.getPropertyName().equals(UISupport.Options.PROP_APPEARANCE_DARK))
+        if (evt.getPropertyName().equals(Appearance.PROP_APPEARANCE_DARK))
             appearanceChanged();
     }
 

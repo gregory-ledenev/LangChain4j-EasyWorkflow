@@ -8,7 +8,6 @@ import javax.swing.*;
 import java.awt.*;
 
 import static com.gl.saf.IconFactory.*;
-import static com.gl.saf.UISupport.applyAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.*;
 
 public class SampleApp {

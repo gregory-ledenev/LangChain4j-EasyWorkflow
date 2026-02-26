@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static com.gl.saf.Application.getSharedApplication;
-import static com.gl.saf.UISupport.getOptions;
+import static com.gl.saf.ApplicationPreferences.getApplicationPreferences;
 import static com.gl.saf.UISupport.isMacOS;
 
 /**
@@ -150,7 +150,7 @@ public class AppFrame extends JFrame implements Updatable {
      */
     public void restoreState() {
         if (isRestoreFrameBounds()) {
-            Rectangle frameBounds = getOptions().getFrameBounds();
+            Rectangle frameBounds = getApplicationPreferences().getFrameBounds();
             if (frameBounds != null)
                 setBounds(frameBounds);
         }
@@ -161,7 +161,7 @@ public class AppFrame extends JFrame implements Updatable {
      * to persist any relevant state information (e.g., window position, size, user preferences).
      */
     public void saveState() {
-        getOptions().setFrameBounds(getBounds());
+        getApplicationPreferences().setFrameBounds(getBounds());
     }
 
     /**

@@ -34,6 +34,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static com.gl.saf.Appearance.isDarkAppearance;
+
 /**
  * A basic implementation of {@link AppScreenManager} that uses a {@link CardLayout}
  * to manage and switch between different {@link AppScreen} components.
@@ -252,7 +254,7 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
             setBorder(UISupport.createCustomLineBorder(UISupport.getDefaultBorderColor(), false, false, false, true));
             setOpaque(true);
             Color background = UIManager.getColor("Panel.background");
-            setBackground(UISupport.isDarkAppearance() ?
+            setBackground(isDarkAppearance() ?
                     new Color(5, 5, 20) :
                     new Color(Math.min(background.getRed() - 2, 255),
                             Math.min(background.getGreen() - 2, 255),

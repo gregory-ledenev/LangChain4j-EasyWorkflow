@@ -33,7 +33,7 @@ import java.beans.PropertyChangeListener;
 import java.util.*;
 import java.util.List;
 
-import static com.gl.saf.UISupport.getOptions;
+import static com.gl.saf.ApplicationPreferences.getApplicationPreferences;
 
 /**
  * A panel that displays a list of chat messages, supporting markdown rendering and a typing indicator.
@@ -187,19 +187,19 @@ public class ChatMessagesPane extends JPanel implements Scrollable, PropertyChan
     public void addNotify() {
         super.addNotify();
 
-        getOptions().addPropertyChangeListener(this);
+        getApplicationPreferences().addPropertyChangeListener(this);
     }
 
     @Override
     public void removeNotify() {
         super.removeNotify();
 
-        getOptions().removePropertyChangeListener(this);
+        getApplicationPreferences().removePropertyChangeListener(this);
     }
 
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
-        if (evt.getSource() == getOptions() && evt.getPropertyName().equals("renderMarkdown")) {
+        if (evt.getSource() == getApplicationPreferences() && evt.getPropertyName().equals("renderMarkdown")) {
             updateRenderers();
         }
     }

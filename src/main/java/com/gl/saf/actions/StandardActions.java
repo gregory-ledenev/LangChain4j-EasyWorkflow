@@ -31,9 +31,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 
+import static com.gl.saf.Appearance.applyAppearance;
+import static com.gl.saf.ApplicationPreferences.getApplicationPreferences;
 import static com.gl.saf.Icons.*;
-import static com.gl.saf.UISupport.applyAppearance;
-import static com.gl.saf.UISupport.getOptions;
 
 /**
  * Provides factory methods for creating standard UI actions such as Cut, Copy, Paste, etc.
@@ -140,14 +140,14 @@ public class StandardActions {
         String exclusiveGroup = "appearance";
         return new ActionGroup("Appearance", new AutoIcon(ICON_SPACER), true,
                 new StateAction("Light", null, exclusiveGroup,
-                        e -> applyAppearance(UISupport.Appearance.Light),
-                        a -> a.setSelected(getOptions().getAppearance() == UISupport.Appearance.Light)),
+                        e -> applyAppearance(Appearance.Type.Light),
+                        a -> a.setSelected(getApplicationPreferences().getAppearance() == Appearance.Type.Light)),
                 new StateAction("Dark", null, exclusiveGroup,
-                        e -> applyAppearance(UISupport.Appearance.Dark),
-                        a -> a.setSelected(getOptions().getAppearance() == UISupport.Appearance.Dark)),
+                        e -> applyAppearance(Appearance.Type.Dark),
+                        a -> a.setSelected(getApplicationPreferences().getAppearance() == Appearance.Type.Dark)),
                 new StateAction("Auto", null, exclusiveGroup,
-                        e -> applyAppearance(UISupport.Appearance.Auto),
-                        a -> a.setSelected(getOptions().getAppearance() == UISupport.Appearance.Auto))
+                        e -> applyAppearance(Appearance.Type.Auto),
+                        a -> a.setSelected(getApplicationPreferences().getAppearance() == Appearance.Type.Auto))
         );
     }
 }

@@ -58,6 +58,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static com.gl.saf.Appearance.isDarkAppearance;
 import static com.gl.saf.Icons.*;
 import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.WorkflowItem.Type.*;
@@ -999,7 +1000,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                      Group,
                      Sequence,
                      PlannerGroup,
-                     ParallelGroup -> UISupport.isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
+                     ParallelGroup -> isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
                 default -> null;
             };
         }
@@ -1206,9 +1207,9 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         @Override
         public Color getBackgroundColor() {
             return (switch (type) {
-                case Agent -> UISupport.isDarkAppearance() ? BACKGROUND_AGENT_DARK : BACKGROUND_AGENT;
-                case Match -> UISupport.isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
-                default -> UISupport.isDarkAppearance() ? BACKGROUND_AGENT_NONAI_DARK : BACKGROUND_AGENT_NONAI;
+                case Agent -> isDarkAppearance() ? BACKGROUND_AGENT_DARK : BACKGROUND_AGENT;
+                case Match -> isDarkAppearance() ? BACKGROUND_STATEMENT_DARK : BACKGROUND_STATEMENT;
+                default -> isDarkAppearance() ? BACKGROUND_AGENT_NONAI_DARK : BACKGROUND_AGENT_NONAI;
             });
         }
 
@@ -1351,7 +1352,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         private Color getBorderColor() {
-            return UISupport.isDarkAppearance() ? Color.GRAY : Color.DARK_GRAY;
+            return isDarkAppearance() ? Color.GRAY : Color.DARK_GRAY;
         }
 
         private void paintStartEndShape(Graphics2D graphics, Rectangle rect, boolean isHighlighted) {
@@ -1404,7 +1405,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
         }
 
         private void paintHighlight(Graphics2D graphics, Rectangle rect) {
-            graphics.setColor(UISupport.isDarkAppearance() ? Color.GREEN : HIGHLIGHT_COLOR);
+            graphics.setColor(isDarkAppearance() ? Color.GREEN : HIGHLIGHT_COLOR);
             graphics.fillOval(rect.x, rect.y, rect.width, rect.height);
         }
 
@@ -1578,7 +1579,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                                     value.getType().equals(TYPE_END))) ? INDICATOR_LINE_BORDER : INDICATOR_BORDER);
             pnlStateIndicator.setPreferredSize(new Dimension(50, 0));
 
-            lblIcon.setIcon(value.getIconKey() != null ? IconFactory.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus) ? IconFactory.IconStyle.Dark : IconFactory.IconStyle.Light, IconFactory.IconSize.Large, false, false) : null);
+            lblIcon.setIcon(value.getIconKey() != null ? IconFactory.getIcon(value.getIconKey(), isDarkAppearance() || (isSelected && cellHasFocus) ? IconFactory.IconStyle.Dark : IconFactory.IconStyle.Light, IconFactory.IconSize.Large, false, false) : null);
             String title = value.getTitle();
             boolean userMessagePresent = listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null;
             boolean errorsPresent = false;
@@ -1628,7 +1629,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                 setBackground(value.getBackgroundColor() != null ? value.getBackgroundColor() : list.getBackground());
                 setForeground(list.getForeground());
                 lblTitle.setForeground(list.getForeground());
-                Color subTitleForeground = UISupport.isDarkAppearance() ? Color.LIGHT_GRAY : Color.GRAY;
+                Color subTitleForeground = isDarkAppearance() ? Color.LIGHT_GRAY : Color.GRAY;
                 lblSubTitle.setForeground(subTitleForeground);
                 lblSubTitle2.setForeground(subTitleForeground);
             }

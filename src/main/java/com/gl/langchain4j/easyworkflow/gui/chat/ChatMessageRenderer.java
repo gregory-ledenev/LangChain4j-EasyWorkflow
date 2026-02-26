@@ -41,9 +41,9 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.Map;
 
+import static com.gl.langchain4j.easyworkflow.gui.GUIPlaygroundPreferences.getApplicationPreferences;
+import static com.gl.saf.Appearance.isDarkAppearance;
 import static com.gl.saf.Icons.*;
-import static com.gl.saf.UISupport.getOptions;
-import static com.gl.saf.UISupport.isDarkAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
 
 /**
@@ -157,7 +157,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
      * Updates the text pane's content based on the chat message and markdown rendering preference.
      */
     public void updateFromChatMessage() {
-        String text = getOptions().isRenderMarkdown() ?
+        String text = getApplicationPreferences().isRenderMarkdown() ?
                 chatMessage.bestMessage() :
                 chatMessage.message();
 
@@ -199,8 +199,8 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
                 new ActionGroup(
                         new StateAction("Render Markdown", new AutoIcon(ICON_DOCUMENT),
                                 null,
-                                e -> getOptions().setRenderMarkdown(! getOptions().isRenderMarkdown()),
-                                a -> a.setSelected(getOptions().isRenderMarkdown()))
+                                e -> getApplicationPreferences().setRenderMarkdown(! getApplicationPreferences().isRenderMarkdown()),
+                                a -> a.setSelected(getApplicationPreferences().isRenderMarkdown()))
                 )
         );
         popupMenu.setActionGroup(actionGroup);

@@ -92,6 +92,25 @@ public class GUIPlayground extends Playground.BasicPlayground {
                 workflowDebugger : null;
     }
 
+    static {
+        Application.setApplicationSupplier(PlaygroudApplication::new);
+    }
+
+    static class PlaygroudApplication extends Application<GUIPlaygroundPreferences> {
+        public PlaygroudApplication() {
+            super(Playground.class.getName());
+
+            setAboutProvider(ChatFrame.createAboutProvider());
+        }
+
+        @Override
+        public GUIPlaygroundPreferences getApplicationPreferences() {
+            if (applicationPreferences == null)
+                applicationPreferences = new GUIPlaygroundPreferences();
+            return applicationPreferences;
+        }
+    }
+
     /**
      * Initiates the chat interface for the playground.
      *
@@ -122,9 +141,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     private void showChatFrame(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title != null ? title : "Playground");
-
-        Application.getSharedApplication().setId(GUIPlayground.class.getName());
-        Application.getSharedApplication().setAboutProvider(ChatFrame.createAboutProvider());
 
         if (title == null)
             title = "Playground - %s".formatted(agentClass.getSimpleName());
@@ -203,8 +219,6 @@ public class GUIPlayground extends Playground.BasicPlayground {
 
     private void showChatDialog(Object agent, Map<String, Object> userMessage, String title) {
         System.setProperty("apple.awt.application.name", title != null ? title : "Playground");
-
-        Application.getSharedApplication().setId(GUIPlayground.class.getName());
 
         if (title == null)
             title = "Playground - %s".formatted(agentClass.getSimpleName());

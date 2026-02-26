@@ -16,6 +16,7 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.gl.saf.Appearance.isDarkAppearance;
 import static com.gl.saf.Icons.ICON_CHAT;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.isToday;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
@@ -233,7 +234,7 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
                 lblDate.setForeground(list.getForeground());
                 lblCounter.setForeground(list.getForeground());
                 lblCounter.setIcon(ICON_CHAT_DARK);
-                Color subTitleForeground = UISupport.isDarkAppearance() ? Color.LIGHT_GRAY : Color.GRAY;
+                Color subTitleForeground = isDarkAppearance() ? Color.LIGHT_GRAY : Color.GRAY;
                 lblRequest.setForeground(subTitleForeground);
                 lblResponse.setForeground(subTitleForeground);
             }

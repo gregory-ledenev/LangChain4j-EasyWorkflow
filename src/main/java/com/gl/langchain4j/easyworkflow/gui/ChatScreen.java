@@ -56,6 +56,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import static com.gl.saf.Application.getUserPreferences;
+import static com.gl.saf.ApplicationPreferences.getApplicationPreferences;
 import static com.gl.saf.Icons.*;
 import static com.gl.saf.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.AgentInvocationTraceEntryArchive;
@@ -344,8 +346,8 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
                 ),
                 new ActionGroup(null, null, false,
                         new StateAction("Open File After Sharing", null, null,
-                                e -> getOptions().setOpenFileAfterSharing(!getOptions().isOpenFileAfterSharing()),
-                                a -> a.setSelected(getOptions().isOpenFileAfterSharing()))
+                                e -> getApplicationPreferences().setOpenFileAfterSharing(!getApplicationPreferences().isOpenFileAfterSharing()),
+                                a -> a.setSelected(getApplicationPreferences().isOpenFileAfterSharing()))
                 )
         );
 
@@ -465,14 +467,14 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
     private void shareContent(String contentType, String content, String fileNameProperty, String defaultFileName) {
         FileChooserUtils fileChooserUtils = getFileChooserUtils();
 
-        String fileStr = getPreferences().get(fileNameProperty, defaultFileName);
+        String fileStr = getUserPreferences().get(fileNameProperty, defaultFileName);
         File file = fileChooserUtils.chooseFileToSave(new File(fileStr), true);
         if (file != null) {
             try {
-                getPreferences().put(fileNameProperty, file.getAbsolutePath());
+                getUserPreferences().put(fileNameProperty, file.getAbsolutePath());
                 Files.write(Paths.get(file.getAbsolutePath()), content.getBytes());
 
-                if (getOptions().isOpenFileAfterSharing() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
+                if (getApplicationPreferences().isOpenFileAfterSharing() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)) {
                     openFile(file);
                 } else {
                     NotificationCenter.getInstance().postNotification(new NotificationCenter.Notification(

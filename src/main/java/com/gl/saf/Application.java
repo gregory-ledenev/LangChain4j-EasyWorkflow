@@ -29,7 +29,11 @@ import java.awt.*;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
+import java.util.prefs.Preferences;
 
+import static com.gl.saf.Appearance.applyAppearance;
+import static com.gl.saf.Appearance.getAppearanceDetector;
 import static com.gl.saf.UISupport.*;
 
 /**
@@ -37,16 +41,48 @@ import static com.gl.saf.UISupport.*;
  * handling application-level events like quit and about, and providing a singleton instance.
  */
 @SuppressWarnings("ALL")
-public class Application {
-    private String id = Application.class.getName();
+public class Application<T extends ApplicationPreferences> {
+
     private static final AtomicReference<Application> sharedApplication = new AtomicReference<>();
-    private AboutProvider aboutProvider;
+    private static Supplier<Application> applicationSupplier = () -> new Application();
 
     static {
         Icons.loadIcons();
         System.setProperty("apple.awt.application.appearance", "system");
-        UIManager.put( "ScrollBar.width", 8);
+        UIManager.put("ScrollBar.width", 8);
 //        System.setProperty("apple.laf.useScreenMenuBar", "true");
+    }
+
+    private final String id;
+    protected T applicationPreferences;
+    /**
+     * Gets the singleton instance of {@link ApplicationPreferences}.
+     *
+     * @return The {@link ApplicationPreferences} instance.
+     */
+
+
+    private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
+        if (getApplicationPreferences().getAppearance() == Appearance.Type.Auto)
+            SwingUtilities.invokeLater(() -> applyAppearance());
+    };
+    private AboutProvider aboutProvider;
+    private UpdateThread fUpdateThread;
+
+    /**
+     * Constructs a new Application instance using the class name as the default identifier.
+     */
+    public Application() {
+        this(Application.class.getName());
+    }
+
+    /**
+     * Constructs a new Application instance with a specific identifier.
+     *
+     * @param id The unique identifier for this application, used for preference storage.
+     */
+    public Application(String id) {
+        this.id = id;
     }
 
     /**
@@ -56,7 +92,41 @@ public class Application {
      * @return The shared Application instance.
      */
     public static Application getSharedApplication() {
-        return sharedApplication.updateAndGet(a -> a == null ? new Application() : a);
+        return sharedApplication.updateAndGet(a -> a == null ? applicationSupplier.get() : a);
+    }
+
+    /**
+     * Gets the current supplier used to create the Application instance.
+     *
+     * @return The {@link Supplier} of {@link Application}.
+     */
+    public static Supplier<Application> getApplicationSupplier() {
+        return applicationSupplier;
+    }
+
+    /**
+     * Sets the supplier used to create the Application instance. Tkes no effect if shared application is already created.
+     *
+     * @param applicationSupplier The {@link Supplier} to be used for application creation.
+     */
+    public static void setApplicationSupplier(Supplier<Application> applicationSupplier) {
+        Application.applicationSupplier = Objects.requireNonNull(applicationSupplier);
+    }
+
+    /**
+     * Retrieves the user preferences node for the application.
+     *
+     * @return The {@link Preferences} object for the application.
+     */
+    public static Preferences getUserPreferences() {
+        return Preferences.userRoot().node(Application.getSharedApplication().getId().replace(".", "/"));
+    }
+
+    public T getApplicationPreferences() {
+        if (applicationPreferences == null) {
+            applicationPreferences = (T) new ApplicationPreferences();
+        }
+        return applicationPreferences;
     }
 
     /**
@@ -69,15 +139,6 @@ public class Application {
     }
 
     /**
-     * Sets the unique identifier for this application.
-     *
-     * @param id The application ID string to set.
-     */
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    /**
      * Launches the application with the given AppFrame.
      * Sets up desktop handlers for quit and about actions.
      *
@@ -87,7 +148,7 @@ public class Application {
         Objects.requireNonNull(frame);
 
         applyAppearance();
-        getDetector().registerListener(appearanceChangeHandler);
+        getAppearanceDetector().registerListener(appearanceChangeHandler);
 
         startUpdates();
 
@@ -146,17 +207,13 @@ public class Application {
             }
         }
 
-        getDetector().removeListener(appearanceChangeHandler);
+        getAppearanceDetector().removeListener(appearanceChangeHandler);
 
         stopUpdates();
 
         if (canExit)
             System.exit(0);
     }
-    private final Consumer<Boolean> appearanceChangeHandler = isDarkMode -> {
-        if (getOptions().getAppearance() == Appearance.Auto)
-            SwingUtilities.invokeLater(() -> applyAppearance());
-    };
 
     /**
      * Displays the "About" dialog provided by an {@link AboutProvider} if available.
@@ -165,7 +222,7 @@ public class Application {
         // disallow showing second dialog on Mac when invoked via system menu
         if (isMacOS()) {
             for (Window window : Window.getWindows()) {
-                if (window instanceof JDialog dialog && dialog.isShowing())  {
+                if (window instanceof JDialog dialog && dialog.isShowing()) {
                     return;
                 }
             }
@@ -179,8 +236,10 @@ public class Application {
         }
     }
 
-    private UpdateThread fUpdateThread;
-
+    /**
+     * Starts the background update thread if it is not already running.
+     * The update thread is responsible for periodic application tasks.
+     */
     public void startUpdates() {
         if (fUpdateThread == null) {
             fUpdateThread = new UpdateThread();
@@ -188,6 +247,10 @@ public class Application {
         }
     }
 
+    /**
+     * Stops the background update thread by interrupting it and clearing the reference.
+     * This should be called during application shutdown.
+     */
     public void stopUpdates() {
         if (fUpdateThread != null) {
             fUpdateThread.interrupt();
