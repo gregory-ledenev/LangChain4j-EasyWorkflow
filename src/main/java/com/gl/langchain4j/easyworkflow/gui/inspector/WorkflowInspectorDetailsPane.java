@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.prefs.Preferences;
 
+import static com.gl.appframework.IconFactory.*;
 import static com.gl.appframework.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
@@ -149,7 +150,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
             add(scrollPane, BorderLayout.CENTER);
 
             JPopupMenu popupMenu = new JPopupMenu();
-            JMenuItem mniCopy = new JMenuItem(UISupport.createAction("Copy", new UISupport.AutoIcon(ICON_COPY), e -> copy()));
+            JMenuItem mniCopy = new JMenuItem(UISupport.createAction("Copy", new AutoIcon(ICON_COPY), e -> copy()));
             popupMenu.add(mniCopy);
             edtValue.setComponentPopupMenu(popupMenu);
         }
@@ -222,7 +223,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                 e -> expandAllValues(true),
                 a -> a.setEnabled(getSelectedValue() != null));
         private final Action actionCollapseAll = new BasicAction("Collapse All",
-                new UISupport.AutoIcon(ICON_COLLAPSE),
+                new AutoIcon(ICON_COLLAPSE),
                 e -> collapseAllValues(),
                 a -> a.setEnabled(getSelectedValue() != null));
         private DefaultMutableTreeNode agentMetadataNode;
@@ -235,7 +236,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
         private ActionGroup toolbarActionGroup;
         private DefaultMutableTreeNode agenticScopeNode;
         private final Action actionShowAgenticScope = new BasicAction("Show Agentic Scope",
-                new UISupport.AutoIcon(ICON_FILING_CABINET),
+                new AutoIcon(ICON_FILING_CABINET),
                 e -> showAgenticScope(),
                 a -> a.setEnabled(canShowAgenticScope()));
         private DefaultMutableTreeNode progressionNode;

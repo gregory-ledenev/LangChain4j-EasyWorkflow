@@ -1,5 +1,6 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
+import com.gl.appframework.IconFactory;
 import com.gl.appframework.LoggerFactory;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
@@ -175,8 +176,8 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
         private final JLabel lblResponse;
         private final JLabel lblCounter;
 
-        private static final Icon ICON_CHAT_DARK = UISupport.getIcon(ICON_CHAT, false);
-        private static final Icon ICON_CHAT_LIGHT = UISupport.getIcon(ICON_CHAT, true);
+        private static final Icon ICON_CHAT_DARK = IconFactory.getIcon(ICON_CHAT, IconFactory.IconStyle.Light, IconFactory.IconSize.Auto, false, false);
+        private static final Icon ICON_CHAT_LIGHT = IconFactory.getIcon(ICON_CHAT, IconFactory.IconStyle.Dark, IconFactory.IconSize.Auto, false, false);
 
         public ChatHistoryItemRenderer() {
             setLayout(new BorderLayout());
@@ -191,7 +192,7 @@ public class ChatHistoryDialog extends AppDialog<List<ChatHistoryStorage.ChatHis
             lblDate.setFont(lblDate.getFont().deriveFont(Font.BOLD));
             header.add(lblDate);
             header.add(Box.createHorizontalGlue());
-            lblCounter = new JLabel(new UISupport.AutoIcon(ICON_CHAT));
+            lblCounter = new JLabel(new IconFactory.AutoIcon(ICON_CHAT));
             header.setAlignmentX(Component.LEFT_ALIGNMENT);
             header.add(lblCounter);
             content.add(header);

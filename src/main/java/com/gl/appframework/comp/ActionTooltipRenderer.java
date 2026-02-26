@@ -24,6 +24,8 @@
 
 package com.gl.appframework.comp;
 
+import com.gl.appframework.IconFactory;
+import com.gl.appframework.IconFactory.AutoIcon;
 import com.gl.appframework.UISupport;
 
 import javax.swing.*;
@@ -75,7 +77,7 @@ public class ActionTooltipRenderer extends JPanel {
         lblNoteDivider.setVisible(false);
         lblNote.setVisible(false);
         lblNote.setText("Disable reason here");
-        lblNote.setIcon(new UISupport.AutoIcon(ICON_INFO));
+        lblNote.setIcon(new AutoIcon(ICON_INFO));
 
         Box row1 = Box.createHorizontalBox();
         row1.add(lblToolTip);

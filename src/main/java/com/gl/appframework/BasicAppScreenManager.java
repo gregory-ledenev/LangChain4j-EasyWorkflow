@@ -40,51 +40,48 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 public class BasicAppScreenManager extends JPanel implements AppScreenManager, AppModuleListener {
 
-    private AppFrame appFrame;
+    public static final String ID_PLACEHOLDER = "$placeholder";
     private final List<AppScreen<AppFrame>> appScreens = new CopyOnWriteArrayList<>();
+    private final boolean installSwitcher;
+    private final JComponent placeholder;
+    private AppFrame appFrame;
     private AppScreen<AppFrame> activeAppScreen;
-    private final ActionToolBar actionToolBar = new ActionToolBar(SwingConstants.VERTICAL, getAppScreenManagerActionGroup());
     private ActionGroup appScreenManagerActionGroup;
-    private boolean installSwitcher = true;
+    private final Switcher switcher = new Switcher(getAppScreenManagerActionGroup());
 
-    public BasicAppScreenManager(boolean installSwitcher) {
+    /**
+     * Constructs a new BasicAppScreenManager.
+     *
+     * @param installSwitcher if true, a switcher for switching screens will be installed in the frame.
+     * @param placeholder     an optional component to display when no screen is active.
+     */
+    public BasicAppScreenManager(boolean installSwitcher, JComponent placeholder) {
         this.installSwitcher = installSwitcher;
+        this.placeholder = placeholder;
         setLayout(new CardLayout());
-        actionToolBar.setFloatable(false);
     }
 
+    /**
+     * Constructs a new BasicAppScreenManager with the switcher installed and no placeholder.
+     */
     public BasicAppScreenManager() {
-        this(true);
+        this(true, new JPanel());
+    }
+
+    public Switcher getSwitcher() {
+        return switcher;
+    }
+
+    /**
+     * @return the optional placeholder component.
+     */
+    public JComponent getPlaceholder() {
+        return placeholder;
     }
 
     @Override
     public List<AppScreen<AppFrame>> getAppScreens() {
         return Collections.unmodifiableList(appScreens);
-    }
-
-    @Override
-    public void setActiveAppScreen(AppScreen<AppFrame> anAppScreen) {
-        Objects.requireNonNull(anAppScreen);
-
-        if (anAppScreen == getActiveAppScreen() || ! anAppScreen.canActivate())
-            return;
-
-        AppScreen<AppFrame> activeAppScreen = getActiveAppScreen();
-
-        boolean canProceed = true;
-        if (activeAppScreen != null) {
-            if (activeAppScreen.canPassivate())
-                activeAppScreen.passivate();
-            else
-                canProceed = false;
-        }
-
-        if (canProceed) {
-            anAppScreen.activate();
-            this.activeAppScreen = anAppScreen;
-            CardLayout cardLayout = (CardLayout) getLayout();
-            cardLayout.show(this, anAppScreen.getId());
-        }
     }
 
     @Override
@@ -100,6 +97,31 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
     @Override
     public AppScreen<AppFrame> getActiveAppScreen() {
         return activeAppScreen;
+    }
+
+    @Override
+    public void setActiveAppScreen(AppScreen<AppFrame> anAppScreen) {
+
+        if (anAppScreen == getActiveAppScreen() || (anAppScreen != null && !anAppScreen.canActivate()))
+            return;
+
+        AppScreen<AppFrame> activeAppScreen = getActiveAppScreen();
+
+        boolean canProceed = true;
+        if (activeAppScreen != null) {
+            if (activeAppScreen.canPassivate())
+                activeAppScreen.passivate();
+            else
+                canProceed = false;
+        }
+
+        if (canProceed) {
+            if (anAppScreen != null)
+                anAppScreen.activate();
+            this.activeAppScreen = anAppScreen;
+            CardLayout cardLayout = (CardLayout) getLayout();
+            cardLayout.show(this, anAppScreen != null ? anAppScreen.getId() : ID_PLACEHOLDER);
+        }
     }
 
     @Override
@@ -126,7 +148,7 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
 
     @Override
     public void update() {
-        actionToolBar.getActionGroup().update();
+        switcher.getActionToolBar().getActionGroup().update();
         for (AppScreen<AppFrame> appScreen : appScreens)
             appScreen.update();
     }
@@ -145,6 +167,10 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
     public void install(AppFrame owner) {
         appFrame = Objects.requireNonNull(owner);
         appFrame.addAppModuleListener(this);
+
+        if (placeholder != null)
+            add(placeholder, ID_PLACEHOLDER);
+
         for (AppModule<AppFrame> appModule : appFrame.getAppModules()) {
             if (appModule instanceof AppScreen<AppFrame> appScreen) {
                 appScreens.add(appScreen);
@@ -154,13 +180,13 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
         }
         appFrame.add(this, BorderLayout.CENTER);
         if (installSwitcher)
-            appFrame.add(actionToolBar, BorderLayout.WEST);
+            appFrame.add(switcher, BorderLayout.WEST);
     }
 
     @Override
     public boolean canUninstall() {
         for (AppScreen<?> appScreen : getAppScreens()) {
-            if (! appScreen.canUninstall())
+            if (!appScreen.canUninstall())
                 return false;
         }
         return true;
@@ -169,11 +195,15 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
     @Override
     public void uninstall() {
         appFrame.removeAppModuleListener(this);
+
+        if (placeholder != null)
+            remove(placeholder);
+
         for (AppScreen<?> appScreen : appScreens)
             remove(appScreen.getComponent());
         appScreens.clear();
         appFrame.remove(this);
-        appFrame.remove(actionToolBar);
+        appFrame.remove(switcher);
         appFrame = null;
         activeAppScreen = null;
     }
@@ -193,6 +223,41 @@ public class BasicAppScreenManager extends JPanel implements AppScreenManager, A
             appScreens.remove(appScreen);
             remove(appScreen.getComponent());
             appScreenManagerActionGroup.removeAction(appScreen.getActivationAction());
+        }
+    }
+
+    public static class Switcher extends JPanel {
+        private final ActionToolBar actionToolBar;
+
+        public Switcher(ActionGroup actionGroup) {
+            super(new BorderLayout());
+
+            actionToolBar = new ActionToolBar(SwingConstants.VERTICAL, actionGroup);
+            actionToolBar.revalidate();
+            actionToolBar.setFloatable(false);
+            actionToolBar.setMargin(new Insets(2, 2, 2, 2));
+            actionToolBar.setOpaque(false);
+
+            add(actionToolBar, BorderLayout.CENTER);
+        }
+
+        public ActionToolBar getActionToolBar() {
+            return actionToolBar;
+        }
+
+        @Override
+        public void updateUI() {
+            super.updateUI();
+
+            setBorder(UISupport.createCustomLineBorder(UISupport.getDefaultBorderColor(), false, false, false, true));
+            setOpaque(true);
+            Color background = UIManager.getColor("Panel.background");
+            setBackground(UISupport.isDarkAppearance() ?
+                    new Color(5, 5, 20) :
+                    new Color(Math.min(background.getRed() - 2, 255),
+                            Math.min(background.getGreen() - 2, 255),
+                            Math.min(background.getBlue(), 255),
+                            background.getAlpha()));
         }
     }
 }

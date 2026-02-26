@@ -81,11 +81,18 @@ public class AppFrame extends JFrame implements Updatable {
             }
         });
 
-        installAppModule(new BasicAppScreenManager());
+        createDefaultAppScreenManager().ifPresent(asm -> installAppModule(asm));
+    }
+
+    protected Optional<AppScreenManager> createDefaultAppScreenManager() {
+        return Optional.of(new BasicAppScreenManager());
     }
 
     protected void activated() {
-        getAppScreenManager().ifPresent(asm -> asm.activateFirstAppScreen());
+        getAppScreenManager().ifPresent(asm -> {
+            if (asm.getActiveAppScreen() == null)
+                asm.activateFirstAppScreen();
+        });
     }
 
     protected void deactivated() {
@@ -306,9 +313,18 @@ public class AppFrame extends JFrame implements Updatable {
                 new ActionGroup(StandardActions.createAppearanceActionGroup())));
 
         menuBarActionGroups.addSupplier(MENUBAR_ACTION_GROUP_HELP, () -> new ActionGroup("Help", null, true,
-                new ActionGroup(StandardActions.createVisitSiteAction()),
+                createVisitLinksActionGroup(Application.getSharedApplication().getAboutProvider()),
                 new ActionGroup(StandardActions.createAboutAction())
         ));
+    }
+
+    private static ActionGroup createVisitLinksActionGroup(AboutProvider aboutProvider) {
+        if (aboutProvider == null || aboutProvider.getAboutLinks().isEmpty())
+            return null;
+
+        return new ActionGroup(aboutProvider.getAboutLinks().stream()
+                .map(StandardActions::createVisitLinkAction)
+                .toArray(Action[]::new));
     }
 
     private static LazyValues<ActionGroup> sharedMenuBarActionGroups = new LazyValues<>();

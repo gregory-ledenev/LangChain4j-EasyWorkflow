@@ -129,7 +129,7 @@ public class ActionTooltip extends JToolTip implements ActionListener {
 
     protected String getDisableReason() {
         Action action = getAction (getComponent());
-        return action != null ? (String) action.getValue(BasicAction.DISABLE_REASON) : null;
+        return action != null ? (String) action.getValue(BasicAction.DISABLE_REASON_KEY) : null;
     }
 
     public String getTooltipText() {

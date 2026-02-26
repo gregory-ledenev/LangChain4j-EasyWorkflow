@@ -26,6 +26,8 @@
 
 package com.gl.appframework;
 
+import com.gl.appframework.IconFactory.AutoIcon;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -133,10 +135,10 @@ public class NotificationCenter {
          */
         public Icon getIcon() {
             return switch (type) {
-                case SUCCESS -> new UISupport.AutoIcon(Icons.ICON_NOTIFICATION_SUCCESS);
-                case INFORMATION -> new UISupport.AutoIcon(Icons.ICON_NOTIFICATION_INFORMATION);
-                case WARNING -> new UISupport.AutoIcon(Icons.ICON_NOTIFICATION_WARNING);
-                case ERROR -> new UISupport.AutoIcon(Icons.ICON_NOTIFICATION_ERROR);
+                case SUCCESS -> new AutoIcon(Icons.ICON_NOTIFICATION_SUCCESS);
+                case INFORMATION -> new AutoIcon(Icons.ICON_NOTIFICATION_INFORMATION);
+                case WARNING -> new AutoIcon(Icons.ICON_NOTIFICATION_WARNING);
+                case ERROR -> new AutoIcon(Icons.ICON_NOTIFICATION_ERROR);
             };
         }
 

@@ -63,6 +63,11 @@ public interface AppScreen<T extends AppFrame> extends AppModule<T> {
     Icon getIcon();
 
     /**
+     * @return The selected standard icon representing this screen.
+     */
+    Icon getSelectedIcon();
+
+    /**
      * @return The icon to display when the mouse hovers over the screen's trigger.
      */
     Icon getRolloverIcon();
@@ -71,6 +76,11 @@ public interface AppScreen<T extends AppFrame> extends AppModule<T> {
      * @return A high-resolution icon for large displays or prominent UI elements.
      */
     Icon getLargeIcon();
+
+    /**
+     * @return A high-resolution selected icon for large displays or prominent UI elements.
+     */
+    Icon getSelectedLargeIcon();
 
     /**
      * @return The large icon to display during mouse rollover.

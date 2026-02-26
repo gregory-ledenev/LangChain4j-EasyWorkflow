@@ -25,6 +25,7 @@
 package com.gl.appframework.form;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.appframework.IconFactory;
 import com.gl.appframework.ToolbarIcons;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.ActionGroup;
@@ -210,7 +211,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         if (formElements.size() > 1) {
             ActionPopupMenu popupMenu = (ActionPopupMenu) textComponent.getComponentPopupMenu();
             popupMenu.getActionGroup().addAction(new ActionGroup(
-                    new BasicAction("Clear All", new AutoIcon(ToolbarIcons.ICON_SPACER), e -> clearForm())
+                    new BasicAction("Clear All", new IconFactory.AutoIcon(ToolbarIcons.ICON_SPACER), e -> clearForm())
             ));
         }
     }

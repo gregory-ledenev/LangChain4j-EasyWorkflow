@@ -10,6 +10,7 @@ import com.gl.langchain4j.easyworkflow.gui.ToolbarIcons;
 import javax.swing.*;
 import java.awt.*;
 
+import static com.gl.appframework.IconFactory.*;
 import static com.gl.appframework.UISupport.applyAppearance;
 
 public class SampleApp {
@@ -57,7 +58,7 @@ public class SampleApp {
         );
 
         public WorkflowScreen() {
-            super("workflow", "Workflow", new UISupport.AutoIcon(ToolbarIcons.ICON_WORKFLOW), "Shows Workflow");
+            super("workflow", "Workflow", new AutoIcon(ToolbarIcons.ICON_WORKFLOW), "Shows Workflow");
 
             add(new JLabel("Some workflow content"));
         }
@@ -82,7 +83,7 @@ public class SampleApp {
         );
 
         public ExecutionScreen() {
-            super("execution", "Execution", new UISupport.AutoIcon(ToolbarIcons.ICON_EXECUTION_FLOW), "Shows Execution");
+            super("execution", "Execution", new AutoIcon(ToolbarIcons.ICON_EXECUTION_FLOW), "Shows Execution");
 
             add(new JLabel("Some execution content"));
         }

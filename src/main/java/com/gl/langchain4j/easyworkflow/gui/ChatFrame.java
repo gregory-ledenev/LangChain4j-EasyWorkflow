@@ -1,11 +1,8 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.AppFrame;
-import com.gl.appframework.BasicAppScreen;
-import com.gl.appframework.MenuBarModule;
-import com.gl.appframework.UISupport;
+import com.gl.appframework.*;
+import com.gl.appframework.IconFactory.AutoIcon;
 import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.actions.BasicAction;
 import com.gl.langchain4j.easyworkflow.Version;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
@@ -13,13 +10,11 @@ import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 
 import javax.swing.*;
 import java.awt.*;
-import java.net.URI;
+import java.util.List;
 
-import static com.gl.appframework.ToolbarIcons.ICON_GLOBE;
-import static com.gl.appframework.ToolbarIcons.ICON_HELP;
 import static com.gl.langchain4j.easyworkflow.gui.Icons.LOGO_ICON;
 
-public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
+public class ChatFrame extends AppFrame {
 
     private final ChatScreen chatScreen;
 
@@ -50,7 +45,6 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
         setMinimumSize(new Dimension(500, 700));
         setLocationRelativeTo(null);
 
-        setupMenuBarHelpActionGroup();
         getAppScreenManager().ifPresent(asm -> getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW).addAction(asm.getAppScreenManagerActionGroup()));
 
         installAppModule(new MenuBarModule<ChatFrame>(new ActionGroup(
@@ -63,7 +57,10 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
 
         chatScreen = new ChatScreen(chatEngine, playgroundContext, agent, workflowDebugger);
         installAppModule(chatScreen);
-        installAppModule(new BasicAppScreen<ChatFrame>("test", "Test", new UISupport.AutoIcon(Icons.ICON_BELL), "Test screen"));
+
+        BasicAppScreen<ChatFrame> testScreen = new BasicAppScreen<>("test", "Test", new AutoIcon(ToolbarIcons.ICON_BELL_TOOLBAR), "Test screen");
+        testScreen.setLargeIcon(new AutoIcon(Icons.ICON_HOME_PLAIN));
+        installAppModule(testScreen);
     }
 
     WorkflowDebugger getWorkflowDebugger() {
@@ -103,53 +100,46 @@ public class ChatFrame extends AppFrame implements UISupport.AboutProvider {
         );
     }
 
-    @Override
-    public void showAbout(Component parent) {
-        Object[] options = {"Site", "OK"};
-        Version version = Version.getInstance();
-        int result = JOptionPane.showOptionDialog(
-                parent,
-                """
-                        <html><b>Playground</b> by "%s"<br><br>
-                        <b>v%s</b>#%s <i>%s</i><br><br>
-                        Copyright © 2025-2026 Gregory Ledenev <i>(gregory.ledenev37@gmail.com)</i></html>""".formatted(
-                        version.getProjectName(),
-                        version.getProjectVersion(), version.getBuildNumber(), version.getBuildDate().toString()),
-                "About",
-                JOptionPane.DEFAULT_OPTION,
-                JOptionPane.INFORMATION_MESSAGE,
-                LOGO_ICON,
-                options,
-                options[1]
-        );
-        if (result == 0) {
-            visitSite();
-        }
-    }
+    private static final List<AboutProvider.AboutLink> ABOUT_LINKS = List.of(
+            new AboutProvider.AboutLink("EasyWorkflow for LangChain4j", "https://github.com/gregory-ledenev/LangChain4j-EasyWorkflow"),
+            new AboutProvider.AboutLink("LangChain4j", "https://docs.langchain4j.dev/")
+    );
 
-    @Override
-    public void visitSite() {
-        String url = "https://github.com/gregory-ledenev/LangChain4j-EasyWorkflow";
-        visitSite(url);
-    }
-
-    private static void visitSite(String url) {
-        Desktop desktop = Desktop.getDesktop();
-        if (desktop.isSupported(Desktop.Action.BROWSE)) {
-            try {
-                desktop.browse(new URI(url));
-            } catch (Exception e) {
-                e.printStackTrace();
+    /**
+     * Creates an {@link AboutProvider} that displays information about the application.
+     *
+     * @return A new instance of AboutProvider.
+     */
+    public static AboutProvider createAboutProvider() {
+        return new AboutProvider() {
+            @Override
+            public void showAbout(Component parent) {
+                Object[] options = {"Site", "OK"};
+                Version version = Version.getInstance();
+                int result = JOptionPane.showOptionDialog(
+                        parent,
+                        """
+                                <html><b>Playground</b> by "%s"<br><br>
+                                <b>v%s</b>#%s <i>%s</i><br><br>
+                                Copyright © 2025-2026 Gregory Ledenev <i>(gregory.ledenev37@gmail.com)</i></html>""".formatted(
+                                version.getProjectName(),
+                                version.getProjectVersion(), version.getBuildNumber(), version.getBuildDate().toString()),
+                        "About",
+                        JOptionPane.DEFAULT_OPTION,
+                        JOptionPane.INFORMATION_MESSAGE,
+                        LOGO_ICON,
+                        options,
+                        options[1]
+                );
+                if (result == 0) {
+                    openLink(getAboutLinks().get(0));
+                }
             }
-        }
-    }
 
-    private void setupMenuBarHelpActionGroup() {
-        getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_HELP).addAction(0,
-                new ActionGroup(null, null, false,
-                        new BasicAction("Visit 'EasyWorkflow for LangChain4j'", new UISupport.AutoIcon(ICON_GLOBE), e -> visitSite()),
-                        new BasicAction("Visit 'LangChain4j'", new UISupport.AutoIcon(ICON_GLOBE), e -> visitSite("https://docs.langchain4j.dev/"))
-                )
-        );
+            @Override
+            public List<AboutLink> getAboutLinks() {
+                return ABOUT_LINKS;
+            }
+        };
     }
 }

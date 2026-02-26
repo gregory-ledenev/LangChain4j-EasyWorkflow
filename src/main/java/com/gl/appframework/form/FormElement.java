@@ -1,5 +1,6 @@
 package com.gl.appframework.form;
 
+import com.gl.appframework.IconFactory;
 import com.gl.appframework.UISupport;
 
 import javax.swing.*;
@@ -149,7 +150,7 @@ public class FormElement<T> {
             sortOrder = annotation.sortOrder();
             mandatory = annotation.mandatory();
             if (!annotation.icon().isEmpty())
-                icon = new UISupport.AutoIcon(annotation.icon());
+                icon = new IconFactory.AutoIcon(annotation.icon());
         } else {
             if (propertyType.isEnum())
                 editorChoices = propertyType.getEnumConstants();

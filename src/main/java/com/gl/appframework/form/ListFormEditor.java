@@ -1,5 +1,7 @@
 package com.gl.appframework.form;
 
+import com.gl.appframework.IconFactory;
+import com.gl.appframework.IconFactory.AutoIcon;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.BasicAction;
@@ -45,7 +47,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
         String elementDisplayName = formElement.getElementDisplayName().isEmpty() ? "item" : formElement.getElementDisplayName();
         ActionGroup moveActionGroup = new ActionGroup();
         if (formElement.capabilities.contains(ListFormProperty.ListCapability.REORDER)) {
-            BasicAction actionMoveUp = new BasicAction("Move Up", new UISupport.AutoIcon(ICON_UP),
+            BasicAction actionMoveUp = new BasicAction("Move Up", new AutoIcon(ICON_UP),
                     this::moveUp,
                     a -> a.setEnabled(list.getSelectedValue() != null && list.getSelectedIndex() > 0));
             actionMoveUp.setShortDescription("Move selected %s up".formatted(elementDisplayName));
@@ -53,7 +55,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
             actionMoveUp.setAccelerator(keyStroke);
             UISupport.bindAction(list, "moveUp", keyStroke, actionMoveUp);
 
-            BasicAction actionMoveDown = new BasicAction("Move Down", new UISupport.AutoIcon(ICON_DOWN),
+            BasicAction actionMoveDown = new BasicAction("Move Down", new AutoIcon(ICON_DOWN),
                     this::moveDown,
                     a -> a.setEnabled(list.getSelectedValue() != null && list.getSelectedIndex() < listModel.size() - 1));
             actionMoveDown.setShortDescription("Move selected %s down".formatted(elementDisplayName));
@@ -67,7 +69,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
 
         ActionGroup editActionGroup = new ActionGroup();
         if (formElement.capabilities.contains(ListFormProperty.ListCapability.ADD)) {
-            BasicAction actionAdd = new BasicAction("Add", new UISupport.AutoIcon(ICON_PLUS),
+            BasicAction actionAdd = new BasicAction("Add", new AutoIcon(ICON_PLUS),
                     this::add,
                     a -> a.setEnabled(true));
             actionAdd.setShortDescription("Add new %s".formatted(elementDisplayName));
@@ -78,7 +80,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
         }
 
         if (formElement.capabilities.contains(ListFormProperty.ListCapability.EDIT)) {
-            BasicAction actionEdit = new BasicAction("Edit", new UISupport.AutoIcon(ICON_COMPOSE),
+            BasicAction actionEdit = new BasicAction("Edit", new AutoIcon(ICON_COMPOSE),
                     this::edit,
                     a -> a.setEnabled(list.getSelectedValue() != null));
             actionEdit.setShortDescription("Edit selected %s".formatted(elementDisplayName));
@@ -90,7 +92,7 @@ public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
         }
 
         if (formElement.capabilities.contains(ListFormProperty.ListCapability.DELETE)) {
-            BasicAction actionDelete = new BasicAction("Delete", new UISupport.AutoIcon(ICON_DELETE),
+            BasicAction actionDelete = new BasicAction("Delete", new AutoIcon(ICON_DELETE),
                     this::delete,
                     a -> a.setEnabled(list.getSelectedValue() != null));
             actionDelete.setShortDescription("Delete selected %s".formatted(elementDisplayName));

@@ -24,8 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
-import com.gl.appframework.UISupport;
-import com.gl.appframework.UISupport.AutoIcon;
+import com.gl.appframework.IconFactory.AutoIcon;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;

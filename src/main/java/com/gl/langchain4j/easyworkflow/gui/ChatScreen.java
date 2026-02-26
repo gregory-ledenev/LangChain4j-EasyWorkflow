@@ -29,6 +29,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.gl.appframework.*;
+import com.gl.appframework.IconFactory.AutoIcon;
 import com.gl.appframework.actions.*;
 import com.gl.appframework.comp.*;
 import com.gl.langchain4j.easyworkflow.*;
@@ -130,7 +131,10 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
                       PlaygroundContext playgroundContext,
                       Object agent,
                       WorkflowDebugger workflowDebugger) {
-        super(ID, "Playground", new AutoIcon(Icons.ICON_HOME), "Playground for agents");
+        super(ID, "Playground", new AutoIcon(ToolbarIcons.ICON_HOME_TOOLBAR), "Playground for agents");
+
+        setLargeIcon(new AutoIcon(Icons.ICON_PLAYGOUND));
+        setLongDescription("Playground that allows to test agents, observe their structure, check the execution flow, inspect their results, and fine tune agents");
 
         this.playgroundContext = playgroundContext;
         this.agent = agent;
@@ -511,7 +515,7 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
         editUserMessageAction = new BasicAction("Edit User Message...", new AutoIcon(ICON_COMPOSE),
                 e -> editUserMessage(),
                 a -> a.setEnabled(canEditUserMessage()));
-        editUserMessageAction.putValue(BasicAction.MENU_BAR_ITEM_NAME, "User Message...");
+        editUserMessageAction.putValue(BasicAction.MENU_ITEM_NAME_KEY, "User Message...");
         editUserMessageAction.setShortDescription("Edit user message");
         bindAction(pnlWorkflowInspectorStructure.getListView(),
                 "editUserMessage",

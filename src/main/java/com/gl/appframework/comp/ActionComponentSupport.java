@@ -45,7 +45,7 @@ public class ActionComponentSupport<T extends JComponent>
 
     @Override
     public void propertyChange(PropertyChangeEvent evt) {
-        if (evt.getPropertyName().equals(BasicAction.VISIBLE)) {
+        if (evt.getPropertyName().equals(BasicAction.VISIBLE_KEY)) {
             updateSeparatorsVisibilityLater();
         }
     }

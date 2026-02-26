@@ -60,7 +60,8 @@ public class HeaderPane extends JPanel{
         pnlTitle.add(toolbar);
         add(pnlTitle);
 
-        lblTitle.setFont(lblTitle.getFont().deriveFont(20f));
+        Font f = lblTitle.getFont().deriveFont(20f);
+        lblTitle.setFont(new Font(f.getName(), f.getStyle(), f.getSize()));
         add(lblSubtitle);
         lblSubtitle.setForeground(Color.gray);
 

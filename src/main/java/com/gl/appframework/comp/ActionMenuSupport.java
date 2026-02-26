@@ -24,6 +24,8 @@
 
 package com.gl.appframework.comp;
 
+import com.gl.appframework.IconFactory;
+import com.gl.appframework.IconFactory.AutoIcon;
 import com.gl.appframework.LoggerFactory;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.ActionGroup;
@@ -163,8 +165,8 @@ public class ActionMenuSupport {
             popupMenu.add(menuItem);
         }
 
-        if (menuItem != null && belongsToMenuBar(popupMenu)) {
-            String name = (String) action.getValue(BasicAction.MENU_BAR_ITEM_NAME);
+        if (belongsToMenuBar(popupMenu)) {
+            String name = (String) action.getValue(BasicAction.MENU_ITEM_NAME_KEY);
             if (name != null && !name.isEmpty())
                 menuItem.setText(name);
         }
@@ -213,7 +215,7 @@ public class ActionMenuSupport {
             protected void actionPropertyChanged(Action action, String propertyName) {
                 super.actionPropertyChanged(action, propertyName);
                 setToolTipText(null);
-                if (propertyName.equals(BasicAction.VISIBLE))
+                if (propertyName.equals(BasicAction.VISIBLE_KEY))
                     setVisible(BasicAction.isVisible(action));
             }
         };
@@ -232,7 +234,7 @@ public class ActionMenuSupport {
             @Override
             protected void actionPropertyChanged(Action action, String propertyName) {
                 super.actionPropertyChanged(action, propertyName);
-                if (propertyName.equals(BasicAction.VISIBLE))
+                if (propertyName.equals(BasicAction.VISIBLE_KEY))
                     setVisible(BasicAction.isVisible(action));
             }
         };
@@ -243,9 +245,9 @@ public class ActionMenuSupport {
 
     private static void setupSelectedIcon(Action action, JMenuItem result) {
         if (UISupport.isMacOS()) {
-            UISupport.AutoIcon icon = action.getValue(Action.SMALL_ICON) instanceof UISupport.AutoIcon ? (UISupport.AutoIcon) action.getValue(Action.SMALL_ICON) : null;
+            AutoIcon icon = action.getValue(Action.SMALL_ICON) instanceof AutoIcon ? (AutoIcon) action.getValue(Action.SMALL_ICON) : null;
             if (icon != null)
-                result.setSelectedIcon(UISupport.getIcon(icon.getKey(), true));
+                result.setSelectedIcon(IconFactory.getIcon(icon.getKey(), IconFactory.IconStyle.Auto, IconFactory.IconSize.Small, true, false));
         }
     }
 
@@ -260,7 +262,7 @@ public class ActionMenuSupport {
             @Override
             protected void actionPropertyChanged(Action action, String propertyName) {
                 super.actionPropertyChanged(action, propertyName);
-                if (propertyName.equals(BasicAction.VISIBLE))
+                if (propertyName.equals(BasicAction.VISIBLE_KEY))
                     setVisible(BasicAction.isVisible(action));
             }
         };
@@ -280,7 +282,7 @@ public class ActionMenuSupport {
             @Override
             protected void actionPropertyChanged(Action action, String propertyName) {
                 super.actionPropertyChanged(action, propertyName);
-                if (propertyName.equals(BasicAction.VISIBLE))
+                if (propertyName.equals(BasicAction.VISIBLE_KEY))
                     setVisible(BasicAction.isVisible(action));
             }
         };

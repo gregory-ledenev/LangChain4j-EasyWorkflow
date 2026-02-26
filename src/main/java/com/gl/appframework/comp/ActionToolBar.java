@@ -27,35 +27,40 @@ package com.gl.appframework.comp;
 import com.gl.appframework.actions.*;
 
 import javax.swing.*;
+import javax.swing.plaf.UIResource;
 import java.awt.*;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.gl.appframework.actions.BasicAction.COMPONENT_ACTION;
-import static com.gl.appframework.actions.BasicAction.COPY_NAME;
+import static com.gl.appframework.actions.BasicAction.COMPONENT_ACTION_KEY;
+import static com.gl.appframework.actions.BasicAction.RETAIN_NAME_KEY;
 
 /**
  * A specialized {@link JToolBar} that populates itself based on an {@link ActionGroup}.
  */
 public class ActionToolBar extends JToolBar {
 
-    private final ActionComponentSupport<ActionToolBar> actionComponentSupport =
-            new ActionComponentSupport<>(this,
-                    ActionToolBar::rebuild,
-                    ActionToolBar::updateSeparatorsVisibility);
     /**
      * Creates a new ActionToolBar and initializes it with the provided {@link ActionGroup}.
      *
      * @param actionGroup the group of actions to display in the toolbar
      */
     public ActionToolBar(ActionGroup actionGroup) {
+        this();
         setActionGroup(actionGroup);
-    }
+    }    private final ActionComponentSupport<ActionToolBar> actionComponentSupport =
+            new ActionComponentSupport<>(this,
+                    ActionToolBar::rebuild,
+                    ActionToolBar::updateSeparatorsVisibility);
 
     /**
      * Creates a new ActionToolBar with default horizontal orientation.
      */
     public ActionToolBar() {
+        this(JToolBar.HORIZONTAL);
     }
 
     /**
@@ -66,6 +71,8 @@ public class ActionToolBar extends JToolBar {
      */
     public ActionToolBar(int orientation) {
         super(orientation);
+
+        setLayout(new DefaultToolBarLayout(this));
     }
 
     /**
@@ -76,26 +83,8 @@ public class ActionToolBar extends JToolBar {
      * @param actionGroup the group of actions to display in the toolbar
      */
     public ActionToolBar(int orientation, ActionGroup actionGroup) {
-        super(orientation);
+        this(orientation);
         setActionGroup(actionGroup);
-    }
-
-    /**
-     * Returns the {@link ActionGroup} associated with this toolbar.
-     *
-     * @return the current action group
-     */
-    public ActionGroup getActionGroup() {
-        return actionComponentSupport.getActionGroup();
-    }
-
-    /**
-     * Sets the {@link ActionGroup} for this toolbar and refreshes the UI components.
-     *
-     * @param actionGroup the new action group to display
-     */
-    public void setActionGroup(ActionGroup actionGroup) {
-        actionComponentSupport.setActionGroup(actionGroup);
     }
 
     private static void rebuild(ActionToolBar actionToolBar) {
@@ -131,7 +120,7 @@ public class ActionToolBar extends JToolBar {
                 // Check if there's a visible component after this separator
                 boolean hasVisibleComponentAfter = false;
                 for (int j = i + 1; j < toolbar.getComponentCount(); j++) {
-                    if ( ! (toolbar.getComponent(j) instanceof JSeparator) &&
+                    if (!(toolbar.getComponent(j) instanceof JSeparator) &&
                             toolbar.getComponent(j).isVisible()) {
                         hasVisibleComponentAfter = true;
                         break;
@@ -159,7 +148,7 @@ public class ActionToolBar extends JToolBar {
 
             if (action instanceof ActionGroup subGroup) {
                 if (subGroup.isPopup()) {
-                    JButton popupButton = createToolbarButton(subGroup);
+                    JButton popupButton = createToolbarButton(toolbar, subGroup);
                     ActionPopupMenu subPopupMenu = new ActionPopupMenu();
                     subPopupMenu.setActionGroup(subGroup);
                     popupButton.addActionListener(e -> subPopupMenu.show(popupButton, 0, popupButton.getHeight()));
@@ -189,7 +178,7 @@ public class ActionToolBar extends JToolBar {
         if (action instanceof ComponentAction componentAction) {
             if (componentAction.getValue(Action.NAME) != null) {
                 final JLabel label = new JLabel(componentAction.getValue(Action.NAME).toString());
-                label.putClientProperty(COMPONENT_ACTION, action);
+                label.putClientProperty(COMPONENT_ACTION_KEY, action);
                 label.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
                 toolbar.add(label);
                 componentAction.getComponent().addPropertyChangeListener("enabled",
@@ -197,19 +186,20 @@ public class ActionToolBar extends JToolBar {
             }
             toolbar.add(componentAction.getComponent());
         } else if (action instanceof StateAction) {
-            toolbar.add(createToolbarToggleButton(action, false, buttonGroupMap));
+            toolbar.add(createToolbarToggleButton(toolbar, action, false, buttonGroupMap));
         } else {
-            toolbar.add(createToolbarButton(action));
+            toolbar.add(createToolbarButton(toolbar, action));
         }
     }
 
     /**
      * Creates a {@link JButton} for use in a toolbar, optionally preserving its text.
      *
-     * @param action The {@link Action} to associate with the button.
+     * @param toolbar The {@link JToolBar} to add the button to.
+     * @param action  The {@link Action} to associate with the button.
      * @return A new {@link JButton} instance configured for toolbar use.
      */
-    public static JButton createToolbarButton(Action action) {
+    public static JButton createToolbarButton(JToolBar toolbar, Action action) {
         JButton result = new JButton(action) {
             @Override
             public JToolTip createToolTip() {
@@ -219,12 +209,14 @@ public class ActionToolBar extends JToolBar {
             @Override
             protected void actionPropertyChanged(Action action, String propertyName) {
                 super.actionPropertyChanged(action, propertyName);
-                if (propertyName.equals(BasicAction.VISIBLE))
+                if (propertyName.equals(BasicAction.VISIBLE_KEY))
                     setVisible(BasicAction.isVisible(action));
+                if (propertyName.equals(BasicAction.NAME) && !Boolean.TRUE.equals(action.getValue(RETAIN_NAME_KEY)))
+                    setText(null);
             }
         };
         result.setVisible(BasicAction.isVisible(action));
-        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null)
+        if (!Boolean.TRUE.equals(action.getValue(RETAIN_NAME_KEY)) && action.getValue(Action.SMALL_ICON) != null)
             result.setText(null);
 
         boolean hasText = result.getText() != null;
@@ -233,18 +225,40 @@ public class ActionToolBar extends JToolBar {
         if (action instanceof ActionGroup)
             result.setText(hasText ? result.getText() + " ▾" : "▾");
 
+        if (toolbar.getOrientation() == VERTICAL) {
+            result.setHorizontalTextPosition(SwingConstants.CENTER);
+            result.setVerticalTextPosition(SwingConstants.BOTTOM);
+            result.setHorizontalAlignment(SwingConstants.CENTER);
+            result.setVerticalAlignment(SwingConstants.CENTER);
+        }
+
+        return result;
+    }
+
+    /**
+     * Returns the selected icon for the specified action, prioritizing the large icon.
+     *
+     * @param action The action to query.
+     * @return The selected icon, or {@code null} if none is set.
+     */
+    public static Icon getSelectedIcon(Action action) {
+        Icon result = (Icon) action.getValue(BasicAction.SELECTED_LARGE_ICON_KEY);
+        if (result == null)
+            result = (Icon) action.getValue(BasicAction.SELECTED_ICON_KEY);
+
         return result;
     }
 
     /**
      * Creates a {@link JToggleButton} for use in a toolbar, optionally preserving its text.
      *
+     * @param toolBar      The {@link JToolBar} to add the toggle button to.
      * @param action       The {@link Action} to associate with the toggle button.
      * @param preserveText If {@code true}, the toggle button's text will be kept; otherwise, it will be set to
      *                     {@code null}.
      * @return A new {@link JToggleButton} instance configured for toolbar use.
      */
-    public static JToggleButton createToolbarToggleButton(Action action, boolean preserveText, Map<String, ButtonGroup> buttonGroupMap) {
+    public static JToggleButton createToolbarToggleButton(JToolBar toolBar, Action action, boolean preserveText, Map<String, ButtonGroup> buttonGroupMap) {
         ButtonGroup buttonGroup = null;
         if (action instanceof StateAction stateAction) {
             if (stateAction.getExclusiveGroup() != null)
@@ -258,20 +272,139 @@ public class ActionToolBar extends JToolBar {
             }
 
             @Override
+            protected void configurePropertiesFromAction(Action a) {
+                super.configurePropertiesFromAction(a);
+
+                setSelectedIcon(ActionToolBar.getSelectedIcon(a));
+            }
+
+            @Override
             protected void actionPropertyChanged(Action action, String propertyName) {
                 super.actionPropertyChanged(action, propertyName);
-                if (propertyName.equals(BasicAction.VISIBLE))
+                if (propertyName.equals(BasicAction.VISIBLE_KEY))
                     setVisible(BasicAction.isVisible(action));
+                else if (propertyName.equals(BasicAction.SELECTED_LARGE_ICON_KEY) || propertyName.equals(BasicAction.SELECTED_ICON_KEY))
+                    setSelectedIcon(ActionToolBar.getSelectedIcon(action));
             }
         };
         result.setVisible(BasicAction.isVisible(action));
         if (buttonGroup != null)
             buttonGroup.add(result);
-        if (!Boolean.TRUE.equals(action.getValue(COPY_NAME)) && action.getValue(Action.SMALL_ICON) != null) {
+        if (!Boolean.TRUE.equals(action.getValue(RETAIN_NAME_KEY)) && action.getValue(Action.SMALL_ICON) != null) {
             result.setText(null);
         }
         boolean hasText = result.getText() != null;
         result.setMargin(new Insets(5, hasText ? 6 : 5, 5, hasText ? 6 : 5));
+
+        if (toolBar.getOrientation() == VERTICAL) {
+            result.setHorizontalTextPosition(SwingConstants.CENTER);
+            result.setVerticalTextPosition(SwingConstants.BOTTOM);
+            result.setHorizontalAlignment(SwingConstants.CENTER);
+            result.setVerticalAlignment(SwingConstants.CENTER);
+        }
+
         return result;
     }
+
+    /**
+     * Returns the {@link ActionGroup} associated with this toolbar.
+     *
+     * @return the current action group
+     */
+    public ActionGroup getActionGroup() {
+        return actionComponentSupport.getActionGroup();
+    }
+
+    /**
+     * Sets the {@link ActionGroup} for this toolbar and refreshes the UI components.
+     *
+     * @param actionGroup the new action group to display
+     */
+    public void setActionGroup(ActionGroup actionGroup) {
+        actionComponentSupport.setActionGroup(actionGroup);
+    }
+
+    private static class DefaultToolBarLayout
+            implements LayoutManager2, Serializable, PropertyChangeListener, UIResource {
+
+        BoxLayout lm;
+
+        JToolBar toolBar;
+
+        DefaultToolBarLayout(JToolBar toolBar) {
+            this.toolBar = toolBar;
+            if (toolBar.getOrientation() == JToolBar.VERTICAL) {
+                lm = new BoxLayout(toolBar, BoxLayout.PAGE_AXIS);
+            } else {
+                lm = new BoxLayout(toolBar, BoxLayout.LINE_AXIS);
+            }
+        }
+
+        public void addLayoutComponent(String name, Component comp) {
+            lm.addLayoutComponent(name, comp);
+        }
+
+        public void addLayoutComponent(Component comp, Object constraints) {
+            lm.addLayoutComponent(comp, constraints);
+        }
+
+        public void removeLayoutComponent(Component comp) {
+            lm.removeLayoutComponent(comp);
+        }
+
+        public Dimension preferredLayoutSize(Container target) {
+            return lm.preferredLayoutSize(target);
+        }
+
+        public Dimension minimumLayoutSize(Container target) {
+            return lm.minimumLayoutSize(target);
+        }
+
+        public Dimension maximumLayoutSize(Container target) {
+            return lm.maximumLayoutSize(target);
+        }
+
+        public void layoutContainer(Container target) {
+            lm.layoutContainer(target);
+            if (toolBar.getOrientation() == JToolBar.HORIZONTAL)
+                return;
+
+            int width = 0;
+            for (Component component : toolBar.getComponents()) {
+                if (component instanceof AbstractButton)
+                    width = Math.max(width, component.getWidth());
+            }
+            for (Component component : toolBar.getComponents()) {
+                if (component instanceof AbstractButton)
+                    component.setSize(width, component.getHeight());
+            }
+        }
+
+        public float getLayoutAlignmentX(Container target) {
+            return lm.getLayoutAlignmentX(target);
+        }
+
+        public float getLayoutAlignmentY(Container target) {
+            return lm.getLayoutAlignmentY(target);
+        }
+
+        public void invalidateLayout(Container target) {
+            lm.invalidateLayout(target);
+        }
+
+        public void propertyChange(PropertyChangeEvent e) {
+            String name = e.getPropertyName();
+            if (name.equals("orientation")) {
+                int o = (Integer) e.getNewValue();
+
+                if (o == JToolBar.VERTICAL)
+                    lm = new BoxLayout(toolBar, BoxLayout.PAGE_AXIS);
+                else {
+                    lm = new BoxLayout(toolBar, BoxLayout.LINE_AXIS);
+                }
+            }
+        }
+    }
+
+
 }

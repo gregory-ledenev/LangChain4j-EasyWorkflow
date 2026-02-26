@@ -35,8 +35,8 @@ import java.awt.*;
  * Provides standard management for screen metadata, lifecycle, and activation actions.
  */
 public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScreen<T> {
-    private T appFrame;
     private final String id;
+    private T appFrame;
     private String name;
     private Icon icon;
     private String shortDescription;
@@ -45,7 +45,8 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
     private Icon rolloverIcon;
     private Icon largeIcon;
     private Icon largeRolloverIcon;
-
+    private Icon selectedIcon;
+    private Icon selectedLargeIcon;
     private StateAction activationAction;
 
     public BasicAppScreen(String id) {
@@ -59,6 +60,26 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         this.name = name;
         this.icon = icon;
         this.shortDescription = shortDescription;
+    }
+
+    @Override
+    public Icon getSelectedIcon() {
+        return selectedIcon;
+    }
+
+    public void setSelectedIcon(Icon selectedIcon) {
+        this.selectedIcon = selectedIcon;
+        getActivationAction().setSelectedIcon(selectedIcon);
+    }
+
+    @Override
+    public Icon getSelectedLargeIcon() {
+        return selectedLargeIcon;
+    }
+
+    public void setSelectedLargeIcon(Icon selectedLargeIcon) {
+        this.selectedLargeIcon = selectedLargeIcon;
+        getActivationAction().setSelectedLargeIcon(selectedLargeIcon);
     }
 
     @Override
@@ -165,6 +186,8 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
                     });
             activationAction.setShortDescription(getShortDescription());
             activationAction.setLongDescription(getLongDescription());
+            activationAction.setLongDescription(getLongDescription());
+            activationAction.setRetainName(true);
         }
         return activationAction;
     }

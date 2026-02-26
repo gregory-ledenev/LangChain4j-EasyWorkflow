@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
+import static com.gl.appframework.IconFactory.*;
 import static com.gl.appframework.ToolbarIcons.*;
 
 /**
@@ -70,51 +71,9 @@ import static com.gl.appframework.ToolbarIcons.*;
 public class UISupport {
     final static OsThemeDetector osThemeDetector = OsThemeDetector.getDetector();
     private static final Logger logger = LoggerFactory.getLogger(UISupport.class);
-    private static final Map<String, ImageIcon> icons = new HashMap<>();
     private static final PropertyChangeSupport propertyChangeSupport = new PropertyChangeSupport(new Object());
     private static Boolean darkAppearance;
     private static Options options;
-
-    /**
-     * Loads an icon from the specified class's resources. This method loads two variants of the icon: a standard
-     * version and a high-resolution (@2x) version if available. The loaded icons are then stored internally, with a
-     * lighter version for light themes and an inverted version for dark themes.
-     *
-     * @param clazz    The class used to load the resource. This is typically the class where the icon is being used.
-     * @param iconKey  A unique string key to identify the icon. This key will be used later to retrieve the icon.
-     * @param fileName The base name of the icon file (e.g., "copy"). The method will look for "fileName.png" and
-     *                 "fileName@2x.png".
-     */
-    public static void loadIcon(Class clazz, String iconKey, String fileName) {
-        loadIcon(clazz, iconKey, fileName, false);
-    }
-
-    /**
-     * Loads an icon from the specified class's resources. This method loads two variants of the icon: a standard
-     * version and a high-resolution (@2x) version if available. The loaded icons are then stored internally, with a
-     * optional lighter version for light themes and an inverted version for dark themes.
-     *
-     * @param clazz            The class used to load the resource. This is typically the class where the icon is being
-     *                         used.
-     * @param iconKey          A unique string key to identify the icon. This key will be used later to retrieve the
-     *                         icon.
-     * @param fileName         The base name of the icon file (e.g., "copy"). The method will look for "fileName.png"
-     *                         and "fileName@2x.png".
-     * @param preserveOriginal If true, the original icon will be stored without applying theme-based filters
-     *                         (lighter/inverted). This is useful for icons that should retain their exact colors
-     *                         regardless of the theme.
-     */
-    public static void loadIcon(Class clazz, String iconKey, String fileName, boolean preserveOriginal) {
-        List<Image> images = loadImageVariants(clazz, fileName);
-
-        if (preserveOriginal) {
-            icons.put(getIconKey(iconKey, false),
-                    new ImageIcon(new BaseMultiResolutionImage(images.toArray(new Image[0]))));
-        } else {
-            icons.put(getIconKey(iconKey, false), loadImageIcon(images, ImageFilter.Lighter));
-            icons.put(getIconKey(iconKey, true), loadImageIcon(images, ImageFilter.Inverted));
-        }
-    }
 
     /**
      * Sets up a context menu (popup menu) for a given {@link JTextComponent} with standard text editing actions (Cut,
@@ -230,41 +189,6 @@ public class UISupport {
         });
     }
 
-    private static ImageIcon loadImageIcon(List<Image> imageVariants, ImageFilter imageFilter) {
-        List<Image> images = imageVariants;
-        switch (imageFilter) {
-            case Lighter -> images = imageVariants.stream()
-                    .map(image -> createFilteredImage(image, new GrayFilter(true, 45)))
-                    .map(image -> new ImageIcon(image).getImage())
-                    .toList();
-            case Inverted -> images = imageVariants.stream()
-                    .map(image -> createFilteredImage(image, new InvertFilter()))
-                    .map(image -> new ImageIcon(image).getImage())
-                    .toList();
-        }
-
-        return new ImageIcon(new BaseMultiResolutionImage(images.toArray(new Image[0])));
-    }
-
-    private static List<Image> loadImageVariants(Class clazz, String name) {
-        Image image1 = new ImageIcon(Objects.requireNonNull(clazz.getResource(name + ".png"))).getImage();
-        Image image2 = image1 instanceof MultiResolutionImage ?
-                null :
-                new ImageIcon(Objects.requireNonNull(UISupport.class.getResource(name + "@2x.png"))).getImage();
-
-        List<Image> images;
-        if (image1 instanceof MultiResolutionImage multi) {
-            images = multi.getResolutionVariants();
-        } else {
-            images = List.of(image1, image2);
-        }
-        return images;
-    }
-
-    private static Image createFilteredImage(Image i, RGBImageFilter filter) {
-        ImageProducer prod = new FilteredImageSource(i.getSource(), filter);
-        return Toolkit.getDefaultToolkit().createImage(prod);
-    }
 
     /**
      * Creates an {@link Action} with a title, icon, and an action listener.
@@ -393,38 +317,6 @@ public class UISupport {
     public static boolean isMacOS() {
         String osName = System.getProperty("os.name").toLowerCase();
         return osName.contains("mac") || osName.contains("darwin");
-    }
-
-    /**
-     * Retrieves an icon based on its key and the current appearance.
-     *
-     * @param iconKey The base key of the icon (e.g., "copy").
-     * @return The appropriate {@link Icon} for the given key and current theme.
-     */
-    public static ImageIcon getIcon(String iconKey) {
-        ImageIcon result = icons.get(getIconKey(iconKey));
-        if (result == null)
-            result = icons.get(getIconKey(iconKey, !isDarkAppearance()));
-        return result;
-    }
-
-    /**
-     * Retrieves an icon based on its key and a specified appearance.
-     *
-     * @param iconKey          The base key of the icon (e.g., "copy").
-     * @param isDarkAppearance true to get the dark appearance icon, false for the light appearance icon.
-     * @return The appropriate {@link Icon} for the given key and specified theme.
-     */
-    public static Icon getIcon(String iconKey, boolean isDarkAppearance) {
-        return icons.get(getIconKey(iconKey, isDarkAppearance));
-    }
-
-    private static String getIconKey(String iconKey) {
-        return getIconKey(iconKey, isDarkAppearance());
-    }
-
-    private static String getIconKey(String iconKey, boolean isDarkAppearance) {
-        return iconKey + (!isDarkAppearance ? "" : "-light");
     }
 
     /**
@@ -614,26 +506,6 @@ public class UISupport {
     }
 
     /**
-     * Functional interface for providing an "About" dialog or information. Implementations of this interface can be
-     * used to display application-specific information when an "About" action is triggered.
-     */
-    public interface AboutProvider {
-
-        /**
-         * Displays the "About" dialog or information.
-         *
-         * @param parent The parent component to which the dialog should be relative.
-         */
-        void showAbout(Component parent);
-
-        /**
-         * Opens the application's website or relevant URL in a web browser. This method is typically invoked when a
-         * "Visit Website" action is triggered from an "About" dialog or similar UI element.
-         */
-        void visitSite();
-    }
-
-    /**
      * An {@link UndoableEditListener} implementation that manages undo/redo operations for a {@link JTextComponent}.
      */
     public static class DefaultUndoableEditListener implements UndoableEditListener {
@@ -711,48 +583,6 @@ public class UISupport {
                         topBorder, leftBorder, bottomBorder, rightBorder));
             else
                 setBorder(null);
-        }
-    }
-
-    /**
-     * An Icon implementation that automatically loads the correct icon based on the current theme (light/dark).
-     */
-    public static class AutoIcon extends ImageIcon {
-        private final String key;
-
-        public AutoIcon(String aKey) {
-            key = aKey;
-
-            if (getIcon() == null)
-                throw new IllegalArgumentException("No icon for key: " + key);
-        }
-
-        public String getKey() {
-            return key;
-        }
-
-        @Override
-        public Image getImage() {
-            return getIcon().getImage();
-        }
-
-        public ImageIcon getIcon() {
-            return UISupport.getIcon(key);
-        }
-
-        @Override
-        public void paintIcon(Component c, Graphics g, int x, int y) {
-            getIcon().paintIcon(c, g, x, y);
-        }
-
-        @Override
-        public int getIconWidth() {
-            return getIcon().getIconWidth();
-        }
-
-        @Override
-        public int getIconHeight() {
-            return getIcon().getIconHeight();
         }
     }
 

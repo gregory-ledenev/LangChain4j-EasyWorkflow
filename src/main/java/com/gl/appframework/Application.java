@@ -26,6 +26,7 @@ package com.gl.appframework;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.desktop.AboutHandler;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -40,6 +41,7 @@ import static com.gl.appframework.UISupport.*;
 public class Application {
     private String id = Application.class.getName();
     private static final AtomicReference<Application> sharedApplication = new AtomicReference<>();
+    private AboutProvider aboutProvider;
 
     static {
         Icons.loadIcons();
@@ -158,7 +160,7 @@ public class Application {
     };
 
     /**
-     * Displays the "About" dialog provided by an {@link UISupport.AboutProvider} if available.
+     * Displays the "About" dialog provided by an {@link AboutProvider} if available.
      */
     public void about() {
         // disallow showing second dialog on Mac when invoked via system menu
@@ -171,7 +173,7 @@ public class Application {
         }
 
         for (Window window : Window.getWindows()) {
-            if (window instanceof UISupport.AboutProvider aboutProvider) {
+            if (window instanceof AboutProvider aboutProvider) {
                 aboutProvider.showAbout(window);
                 return;
             }
@@ -192,5 +194,24 @@ public class Application {
             fUpdateThread.interrupt();
             fUpdateThread = null;
         }
+    }
+
+    /**
+     * Gets the current AboutHandler.
+     *
+     * @return The AboutHandler instance.
+     */
+    public AboutProvider getAboutProvider() {
+        return aboutProvider;
+    }
+
+    /**
+     * Sets the AboutHandler to be used by the application. Note: it should be setup before the application launch,
+     * othrwise the changes may not be picked up.
+     *
+     * @param aboutProvider The AboutHandler to set.
+     */
+    public void setAboutProvider(AboutProvider aboutProvider) {
+        this.aboutProvider = aboutProvider;
     }
 }

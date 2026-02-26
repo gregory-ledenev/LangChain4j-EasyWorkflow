@@ -124,6 +124,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
         System.setProperty("apple.awt.application.name", title != null ? title : "Playground");
 
         Application.getSharedApplication().setId(GUIPlayground.class.getName());
+        Application.getSharedApplication().setAboutProvider(ChatFrame.createAboutProvider());
 
         if (title == null)
             title = "Playground - %s".formatted(agentClass.getSimpleName());

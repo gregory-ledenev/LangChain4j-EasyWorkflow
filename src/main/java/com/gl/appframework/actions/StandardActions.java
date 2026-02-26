@@ -24,10 +24,8 @@
 
 package com.gl.appframework.actions;
 
-import com.gl.appframework.AppFrame;
-import com.gl.appframework.Application;
-import com.gl.appframework.UISupport;
-import com.gl.appframework.UISupport.AboutProvider;
+import com.gl.appframework.*;
+import com.gl.appframework.IconFactory.AutoIcon;
 
 import javax.swing.*;
 import java.awt.*;
@@ -50,7 +48,7 @@ public class StandardActions {
      * @return an {@link Action} configured for cutting content.
      */
     public static Action createCutAction() {
-        BasicAction result = new DelegateAction("cut", "Cut", new UISupport.AutoIcon(ICON_CUT));
+        BasicAction result = new DelegateAction("cut", "Cut", new AutoIcon(ICON_CUT));
         result.setMnemonic('x');
         result.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_X, menuShortcutKeyMask));
         return result;
@@ -62,7 +60,7 @@ public class StandardActions {
      * @return an {@link Action} configured for copying content.
      */
     public static Action createCopyAction() {
-        BasicAction result = new DelegateAction("copy", "Copy", new UISupport.AutoIcon(ICON_COPY));
+        BasicAction result = new DelegateAction("copy", "Copy", new AutoIcon(ICON_COPY));
         result.setMnemonic('c');
         result.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_C, menuShortcutKeyMask));
         return result;
@@ -74,7 +72,7 @@ public class StandardActions {
      * @return an {@link Action} configured for pasting content.
      */
     public static Action createPasteAction() {
-        BasicAction result = new DelegateAction("paste", "Paste", new UISupport.AutoIcon(ICON_PASTE));
+        BasicAction result = new DelegateAction("paste", "Paste", new AutoIcon(ICON_PASTE));
         result.setMnemonic('v');
         result.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, menuShortcutKeyMask));
         return result;
@@ -86,7 +84,7 @@ public class StandardActions {
      * @return an {@link Action} configured for deleting content.
      */
     public static Action createDeleteAction() {
-        BasicAction result = new DelegateAction("delete", "Delete", new UISupport.AutoIcon(ICON_SPACER));
+        BasicAction result = new DelegateAction("delete", "Delete", new AutoIcon(ICON_SPACER));
         result.setMnemonic('d');
         result.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0));
         return result;
@@ -109,13 +107,13 @@ public class StandardActions {
      * @return an {@link Action} configured to show the About dialog.
      */
     public static Action createAboutAction() {
-        return new BasicAction("About...", new UISupport.AutoIcon(ICON_HELP),
+        return new BasicAction("About...", new AutoIcon(ICON_HELP),
                 e -> {
                     AppFrame activeAppFrame = AppFrame.getActiveAppFrame();
-                    if (activeAppFrame instanceof AboutProvider aboutProvider)
-                        aboutProvider.showAbout(activeAppFrame);
+                    if (Application.getSharedApplication().getAboutProvider() != null)
+                        Application.getSharedApplication().getAboutProvider().showAbout(activeAppFrame);
                 },
-                basicAction -> basicAction.setEnabled(AppFrame.getActiveAppFrame() instanceof AboutProvider));
+                basicAction -> basicAction.setEnabled(Application.getSharedApplication().getAboutProvider() != null));
     }
 
     /**
@@ -123,13 +121,14 @@ public class StandardActions {
      *
      * @return an {@link Action} configured to visit the application's website.
      */
-    public static Action createVisitSiteAction() {
-        return new BasicAction("Visit Site...", new UISupport.AutoIcon(ICON_HELP),
+    public static Action createVisitLinkAction(AboutProvider.AboutLink link) {
+        return new BasicAction("Visit '%s'...".formatted(link.title()),
+                new AutoIcon(ICON_GLOBE),
                 e -> {
-                    if (AppFrame.getActiveAppFrame() instanceof AboutProvider aboutProvider)
-                        aboutProvider.visitSite();
+                    if (Application.getSharedApplication().getAboutProvider() != null)
+                        Application.getSharedApplication().getAboutProvider().openLink(link);
                 },
-                basicAction -> basicAction.setEnabled(AppFrame.getActiveAppFrame() instanceof AboutProvider));
+                basicAction -> basicAction.setEnabled(Application.getSharedApplication().getAboutProvider() != null));
     }
 
     /**
@@ -139,7 +138,7 @@ public class StandardActions {
      */
     public static ActionGroup createAppearanceActionGroup() {
         String exclusiveGroup = "appearance";
-        return new ActionGroup("Appearance", new UISupport.AutoIcon(ICON_SPACER), true,
+        return new ActionGroup("Appearance", new AutoIcon(ICON_SPACER), true,
                 new StateAction("Light", null, exclusiveGroup,
                         e -> applyAppearance(UISupport.Appearance.Light),
                         a -> a.setSelected(getOptions().getAppearance() == UISupport.Appearance.Light)),

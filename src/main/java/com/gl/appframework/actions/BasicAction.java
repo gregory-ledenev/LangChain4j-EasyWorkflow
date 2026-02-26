@@ -38,13 +38,16 @@ import java.util.function.Consumer;
  */
 @SuppressWarnings("unused")
 public class BasicAction extends AbstractAction implements Updatable {
-    public static final String MENU_BAR_ITEM_NAME = "menuBarItemName";
-    public static final String ID = "id";
-    public static final String PARENT_ACTION_GROUP = "parentActionGroup";
-    public static final String COPY_NAME = "copyName";
-    public static final String DISABLE_REASON = "disableReason";
-    public static final String VISIBLE = "actionVisible";
-    public static final String COMPONENT_ACTION = "componentAction";
+    public static final String MENU_ITEM_NAME_KEY = "swingMenuItemName";
+    public static final String ID_KEY = "swingID";
+    public static final String PARENT_ACTION_GROUP_KEY = "swingParentActionGroup";
+    public static final String RETAIN_NAME_KEY = "swingRetainName";
+    public static final String DISABLE_REASON_KEY = "swingDisableReason";
+    public static final String VISIBLE_KEY = "swingVisible";
+    public static final String COMPONENT_ACTION_KEY = "swingComponentAction";
+    public static final String SELECTED_ICON_KEY = "swingSelectedIcon";
+    public static final String SELECTED_LARGE_ICON_KEY = "swingSelectedLargeIcon";
+
     private final Consumer<ActionEvent> actionListener;
     private final Consumer<? extends BasicAction> actionUpdater;
     private long when;
@@ -176,12 +179,12 @@ public class BasicAction extends AbstractAction implements Updatable {
         putValue(Action.LONG_DESCRIPTION, text);
     }
 
-    public boolean isCopyName() {
-        return Boolean.TRUE.equals(getValue(COPY_NAME));
+    public boolean isRetainName() {
+        return Boolean.TRUE.equals(getValue(RETAIN_NAME_KEY));
     }
 
-    public void setCopyName(boolean isCopyName) {
-        putValue(COPY_NAME, isCopyName);
+    public void setRetainName(boolean isRetainName) {
+        putValue(RETAIN_NAME_KEY, isRetainName);
     }
 
     /**
@@ -227,7 +230,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @return The disable reason text, or {@code null} if not set.
      */
     public String getDisableReason() {
-        return (String) getValue(DISABLE_REASON);
+        return (String) getValue(DISABLE_REASON_KEY);
     }
 
     /**
@@ -236,7 +239,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @param disableReason The text explaining why the action is disabled.
      */
     public void setDisableReason(String disableReason) {
-        putValue(DISABLE_REASON, disableReason);
+        putValue(DISABLE_REASON_KEY, disableReason);
     }
 
     /**
@@ -245,7 +248,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @return The ID of the action.
      */
     public String getId() {
-        String result = (String) getValue(ID);
+        String result = (String) getValue(ID_KEY);
         return result != null ? result : getName();
     }
 
@@ -255,7 +258,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @param id The ID of the action.
      */
     public void setId(String id) {
-        putValue(ID, id);
+        putValue(ID_KEY, id);
     }
 
     /**
@@ -264,7 +267,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @return The {@link ActionGroup} that contains this action.
      */
     public ActionGroup getParentActionGroup() {
-        return (ActionGroup) getValue(PARENT_ACTION_GROUP);
+        return (ActionGroup) getValue(PARENT_ACTION_GROUP_KEY);
     }
 
     /**
@@ -273,7 +276,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @param parent The {@link ActionGroup} that contains this action.
      */
     public void setParentActionGroup(ActionGroup parent) {
-        putValue(PARENT_ACTION_GROUP, parent);
+        putValue(PARENT_ACTION_GROUP_KEY, parent);
     }
 
     /**
@@ -283,7 +286,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @return The {@link ActionGroup} associated with the action.
      */
     public static ActionGroup getParentActionGroup(Action action) {
-        return (ActionGroup) Objects.requireNonNull(action).getValue(PARENT_ACTION_GROUP);
+        return (ActionGroup) Objects.requireNonNull(action).getValue(PARENT_ACTION_GROUP_KEY);
     }
 
     /**
@@ -293,7 +296,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @param parent The {@link ActionGroup} to associate with the action.
      */
     public static void setParentActionGroup(Action action, ActionGroup parent) {
-        Objects.requireNonNull(action).putValue(PARENT_ACTION_GROUP, parent);
+        Objects.requireNonNull(action).putValue(PARENT_ACTION_GROUP_KEY, parent);
     }
 
     /**
@@ -321,7 +324,7 @@ public class BasicAction extends AbstractAction implements Updatable {
      * @return {@code true} if the action is visible, {@code false} otherwise.
      */
     public static boolean isVisible(javax.swing.Action anAction) {
-        Object value = anAction.getValue(VISIBLE);
+        Object value = anAction.getValue(VISIBLE_KEY);
         return value == null || Boolean.TRUE.equals(value);
     }
 
@@ -333,7 +336,43 @@ public class BasicAction extends AbstractAction implements Updatable {
      */
     public static void setVisible(javax.swing.Action anAction, boolean visible) {
         if (isVisible(anAction) != visible)
-            anAction.putValue(VISIBLE, visible ? null : Boolean.FALSE);
+            anAction.putValue(VISIBLE_KEY, visible ? null : Boolean.FALSE);
+    }
+
+    /**
+     * Returns the icon used when the action is selected.
+     *
+     * @return The selected icon.
+     */
+    public Icon getSelectedIcon() {
+        return (Icon) getValue(SELECTED_ICON_KEY);
+    }
+
+    /**
+     * Sets the icon used when the action is selected.
+     *
+     * @param icon The selected icon.
+     */
+    public void setSelectedIcon(Icon icon) {
+        putValue(SELECTED_ICON_KEY, icon);
+    }
+
+    /**
+     * Returns the large icon used when the action is selected.
+     *
+     * @return The selected large icon.
+     */
+    public Icon getSelectedLargeIcon() {
+        return (Icon) getValue(SELECTED_LARGE_ICON_KEY);
+    }
+
+    /**
+     * Sets the large icon used when the action is selected.
+     *
+     * @param icon The selected large icon.
+     */
+    public void setSelectedLargeIcon(Icon icon) {
+        putValue(SELECTED_LARGE_ICON_KEY, icon);
     }
 
     /**
@@ -346,7 +385,7 @@ public class BasicAction extends AbstractAction implements Updatable {
         if (c instanceof AbstractButton)
             return ((AbstractButton) c).getAction();
         else
-            return (Action) c.getClientProperty(COMPONENT_ACTION);
+            return (Action) c.getClientProperty(COMPONENT_ACTION_KEY);
     }
 
     @Override

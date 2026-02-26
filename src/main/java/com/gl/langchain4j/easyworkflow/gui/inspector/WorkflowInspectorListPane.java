@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow.gui.inspector;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
+import com.gl.appframework.IconFactory;
 import com.gl.appframework.LoggerFactory;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.langchain4j.easyworkflow.SetStateAgents;
@@ -1577,7 +1578,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                                     value.getType().equals(TYPE_END))) ? INDICATOR_LINE_BORDER : INDICATOR_BORDER);
             pnlStateIndicator.setPreferredSize(new Dimension(50, 0));
 
-            lblIcon.setIcon(value.getIconKey() != null ? UISupport.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus)) : null);
+            lblIcon.setIcon(value.getIconKey() != null ? IconFactory.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus) ? IconFactory.IconStyle.Dark : IconFactory.IconStyle.Light, IconFactory.IconSize.Auto, false, false) : null);
             String title = value.getTitle();
             boolean userMessagePresent = listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null;
             boolean errorsPresent = false;
