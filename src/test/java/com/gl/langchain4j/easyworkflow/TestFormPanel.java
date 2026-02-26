@@ -1,8 +1,7 @@
 package com.gl.langchain4j.easyworkflow;
 
-import com.gl.appframework.form.*;
+import com.gl.saf.form.*;
 import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
-import com.gl.langchain4j.easyworkflow.gui.ToolbarIcons;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.*;

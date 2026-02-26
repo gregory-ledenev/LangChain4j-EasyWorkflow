@@ -1,22 +1,20 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.IconFactory;
-import com.gl.appframework.Icons;
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.AppDialog;
-import com.gl.appframework.UISupport;
-import com.gl.appframework.actions.BasicAction;
-import com.gl.appframework.actions.StateAction;
-import com.gl.appframework.comp.ActionToolBar;
+import com.gl.saf.actions.ActionGroup;
+import com.gl.saf.AppDialog;
+import com.gl.saf.UISupport;
+import com.gl.saf.actions.BasicAction;
+import com.gl.saf.actions.StateAction;
+import com.gl.saf.comp.ActionToolBar;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 
-import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.Icons.*;
-import static com.gl.appframework.Icons.ICON_UP;
+import static com.gl.saf.IconFactory.*;
+import static com.gl.saf.Icons.*;
+import static com.gl.saf.Icons.ICON_UP;
 
 public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPromptsStorage.ChatPrompt> {
     private ChatPromptsStorage chatPromptsStorage;

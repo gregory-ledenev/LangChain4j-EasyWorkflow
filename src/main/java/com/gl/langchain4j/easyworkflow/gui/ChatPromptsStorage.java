@@ -27,8 +27,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gl.appframework.LoggerFactory;
-import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.saf.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import org.slf4j.Logger;
 

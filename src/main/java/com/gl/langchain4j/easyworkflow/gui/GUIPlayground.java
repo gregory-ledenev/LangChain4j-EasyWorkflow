@@ -24,10 +24,10 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.LoggerFactory;
+import com.gl.saf.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
-import com.gl.appframework.Application;
+import com.gl.saf.Application;
 import com.gl.langchain4j.easyworkflow.playground.LocalPlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.Playground;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;

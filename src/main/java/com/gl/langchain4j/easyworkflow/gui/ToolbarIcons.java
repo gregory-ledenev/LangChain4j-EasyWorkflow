@@ -1,7 +1,5 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.IconFactory;
-
 public class ToolbarIcons {
 //    public static final String ICON_AGENT_TOOLBAR = "icons/toolbar/agent";
 //    public static final String ICON_EXPERT_TOOLBAR = "icons/toolbar/expert";

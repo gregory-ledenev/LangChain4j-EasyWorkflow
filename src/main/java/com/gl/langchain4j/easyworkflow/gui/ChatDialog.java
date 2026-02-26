@@ -25,7 +25,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.Updatable;
+import com.gl.saf.Updatable;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
 
 import javax.swing.*;

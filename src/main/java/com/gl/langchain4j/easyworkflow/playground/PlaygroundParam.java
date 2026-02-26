@@ -24,7 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.playground;
 
-import com.gl.appframework.form.FormEditorType;
+import com.gl.saf.form.FormEditorType;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;

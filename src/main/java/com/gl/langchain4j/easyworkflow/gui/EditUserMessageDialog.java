@@ -26,10 +26,10 @@
 
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.AppDialog;
-import com.gl.appframework.UISupport;
-import com.gl.appframework.actions.BasicAction;
+import com.gl.saf.actions.ActionGroup;
+import com.gl.saf.AppDialog;
+import com.gl.saf.UISupport;
+import com.gl.saf.actions.BasicAction;
 
 import javax.swing.*;
 import java.awt.*;

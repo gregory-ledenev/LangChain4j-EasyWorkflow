@@ -24,12 +24,11 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
-import com.gl.appframework.IconFactory.AutoIcon;
-import com.gl.appframework.Icons;
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.actions.BasicAction;
-import com.gl.appframework.actions.StateAction;
-import com.gl.appframework.comp.ActionPopupMenu;
+import com.gl.saf.IconFactory.AutoIcon;
+import com.gl.saf.actions.ActionGroup;
+import com.gl.saf.actions.BasicAction;
+import com.gl.saf.actions.StateAction;
+import com.gl.saf.comp.ActionPopupMenu;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -42,9 +41,9 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.Map;
 
-import static com.gl.appframework.Icons.*;
-import static com.gl.appframework.UISupport.getOptions;
-import static com.gl.appframework.UISupport.isDarkAppearance;
+import static com.gl.saf.Icons.*;
+import static com.gl.saf.UISupport.getOptions;
+import static com.gl.saf.UISupport.isDarkAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
 
 /**

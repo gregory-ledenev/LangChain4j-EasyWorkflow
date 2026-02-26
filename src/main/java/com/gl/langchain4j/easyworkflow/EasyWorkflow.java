@@ -27,7 +27,7 @@ package com.gl.langchain4j.easyworkflow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.gl.appframework.LoggerFactory;
+import com.gl.saf.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundParam;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;

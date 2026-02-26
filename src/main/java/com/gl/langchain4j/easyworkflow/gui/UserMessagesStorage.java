@@ -28,8 +28,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gl.appframework.LoggerFactory;
-import com.gl.langchain4j.easyworkflow.EasyWorkflow;
+import com.gl.saf.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import org.slf4j.Logger;

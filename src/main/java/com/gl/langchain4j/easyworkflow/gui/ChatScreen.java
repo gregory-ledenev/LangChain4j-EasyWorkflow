@@ -28,10 +28,10 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.gl.appframework.*;
-import com.gl.appframework.IconFactory.AutoIcon;
-import com.gl.appframework.actions.*;
-import com.gl.appframework.comp.*;
+import com.gl.saf.*;
+import com.gl.saf.IconFactory.AutoIcon;
+import com.gl.saf.actions.*;
+import com.gl.saf.comp.*;
 import com.gl.langchain4j.easyworkflow.*;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;
@@ -56,8 +56,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import static com.gl.appframework.Icons.*;
-import static com.gl.appframework.UISupport.*;
+import static com.gl.saf.Icons.*;
+import static com.gl.saf.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.AgentInvocationTraceEntryArchive;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane.PROP_SELECTED_VARIABLE;
@@ -131,6 +131,8 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
                       Object agent,
                       WorkflowDebugger workflowDebugger) {
         super(ID, "Playground", new AutoIcon(PlaygroundIcons.ICON_PLAYGOUND), "Playground for agents");
+
+        setLongDescription("Playground that allows to test agents, observe their structure, check the execution flow, inspect their results, and fine tune agents");
 
         this.playgroundContext = playgroundContext;
         this.agent = agent;

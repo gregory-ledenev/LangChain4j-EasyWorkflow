@@ -24,13 +24,12 @@
 
 package com.gl.langchain4j.easyworkflow.gui.inspector;
 
-import com.gl.appframework.*;
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.UISupport.*;
-import com.gl.appframework.actions.BasicAction;
-import com.gl.appframework.actions.StateAction;
-import com.gl.appframework.comp.*;
-import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
+import com.gl.saf.*;
+import com.gl.saf.actions.ActionGroup;
+import com.gl.saf.UISupport.*;
+import com.gl.saf.actions.BasicAction;
+import com.gl.saf.actions.StateAction;
+import com.gl.saf.comp.*;
 
 import javax.swing.*;
 import javax.swing.event.TreeSelectionEvent;
@@ -47,10 +46,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.prefs.Preferences;
 
-import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.Icons.*;
+import static com.gl.saf.IconFactory.*;
+import static com.gl.saf.Icons.*;
 import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.*;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
 
 /**

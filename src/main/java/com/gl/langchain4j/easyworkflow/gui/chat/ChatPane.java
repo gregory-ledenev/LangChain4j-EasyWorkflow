@@ -26,22 +26,21 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gl.appframework.Icons;
-import com.gl.appframework.LoggerFactory;
-import com.gl.appframework.Updatable;
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.actions.BasicAction;
-import com.gl.appframework.actions.StateAction;
-import com.gl.appframework.comp.ActionPopupMenu;
-import com.gl.appframework.comp.ActionToolBar;
-import com.gl.appframework.comp.HeaderPane;
-import com.gl.appframework.UISupport;
+import com.gl.saf.LoggerFactory;
+import com.gl.saf.Updatable;
+import com.gl.saf.actions.ActionGroup;
+import com.gl.saf.actions.BasicAction;
+import com.gl.saf.actions.StateAction;
+import com.gl.saf.comp.ActionPopupMenu;
+import com.gl.saf.comp.ActionToolBar;
+import com.gl.saf.comp.HeaderPane;
+import com.gl.saf.UISupport;
 import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.ChatPromptsDialog;
 import com.gl.langchain4j.easyworkflow.gui.ChatPromptsStorage;
-import com.gl.appframework.form.FormEditorType;
-import com.gl.appframework.form.FormElement;
-import com.gl.appframework.form.FormPanel;
+import com.gl.saf.form.FormEditorType;
+import com.gl.saf.form.FormElement;
+import com.gl.saf.form.FormPanel;
 import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
@@ -68,13 +67,12 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
-import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.Icons.*;
-import static com.gl.appframework.Icons.ICON_CHAT;
-import static com.gl.appframework.UISupport.*;
+import static com.gl.saf.IconFactory.*;
+import static com.gl.saf.Icons.*;
+import static com.gl.saf.Icons.ICON_CHAT;
+import static com.gl.saf.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.ICON_SEND;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 
 /**
  * A panel that provides a chat interface, including message input, display, and settings.

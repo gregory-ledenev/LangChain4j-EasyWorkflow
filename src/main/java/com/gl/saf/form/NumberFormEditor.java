@@ -1,0 +1,95 @@
+/*
+ * Copyright 2025 Gregory Ledenev (gregory.ledenev37@gmail.com)
+ *
+ * MIT License
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the “Software”), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+ * of the Software, and to permit persons to whom the Software is furnished to do
+ * so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+package com.gl.saf.form;
+
+import com.gl.saf.UISupport;
+
+import javax.swing.*;
+
+import static com.gl.saf.UISupport.setupUndomanager;
+
+/**
+ * A {@link FormEditor} implementation for numeric input fields.
+ * Handles parsing, validation, and UI setup for numbers within a {@link FormPanel}.
+ */
+class NumberFormEditor implements FormEditor<Number> {
+    private final JTextField textField;
+    private final FormElement<Number> formElement;
+    private final UISupport.DefaultUndoableEditListener undoableEditListener;
+
+    /**
+     * Constructs a new NumberFormEditor.
+     * @param formPanel the parent form panel
+     * @param formElement the metadata defining this form field
+     */
+    public NumberFormEditor(FormPanel formPanel, FormElement<Number> formElement) {
+        this.formElement = formElement;
+        this.textField = new JTextField(20);
+        FormPanel.setupFont(this.textField);
+        textField.getDocument().addDocumentListener(formPanel);
+        textField.setToolTipText(FormPanel.getTooltipText(formElement));
+        undoableEditListener = setupUndomanager(textField);
+        formPanel.setupPopupMenu(textField);
+        formPanel.setupShortcuts(textField);
+        setValue(formElement.getDefaultValue());
+    }
+
+    @Override
+    public void setValue(Number value) {
+        textField.setText(value != null ? value.toString() : null);
+        undoableEditListener.getUndoManager().discardAllEdits();
+    }
+
+    @Override
+    public Number getValue() {
+        return FormPanel.parseNumber(textField.getText(), formElement.getType());
+    }
+
+    @Override
+    public JComponent getComponent() {
+        return textField;
+    }
+
+    @Override
+    public String checkValidity(boolean strictCheck) {
+        boolean valid = !formElement.isMandatory();
+        if (valid)
+            return null;
+
+        if (strictCheck) {
+            valid = getValue() != null;
+        } else {
+            String text = textField.getText();
+            valid = text != null && !text.isEmpty();
+        }
+
+        return valid ? null : "'%s' is not specified or invalid.".formatted(formElement.getLabel());
+    }
+
+    @Override
+    public void requestFocus() {
+        textField.requestFocus();
+    }
+}

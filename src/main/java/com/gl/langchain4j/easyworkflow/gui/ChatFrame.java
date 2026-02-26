@@ -1,8 +1,8 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.*;
-import com.gl.appframework.IconFactory.AutoIcon;
-import com.gl.appframework.actions.ActionGroup;
+import com.gl.saf.*;
+import com.gl.saf.IconFactory.AutoIcon;
+import com.gl.saf.actions.ActionGroup;
 import com.gl.langchain4j.easyworkflow.Version;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatPane;

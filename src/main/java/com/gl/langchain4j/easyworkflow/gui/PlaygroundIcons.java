@@ -1,6 +1,6 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
-import com.gl.appframework.IconFactory;
+import com.gl.saf.IconFactory;
 
 import javax.swing.*;
 import java.util.Objects;

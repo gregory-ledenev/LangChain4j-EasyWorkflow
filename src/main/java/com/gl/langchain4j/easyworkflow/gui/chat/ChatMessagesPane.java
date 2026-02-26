@@ -24,7 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
-import com.gl.appframework.UISupport;
+import com.gl.saf.UISupport;
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,7 +33,7 @@ import java.beans.PropertyChangeListener;
 import java.util.*;
 import java.util.List;
 
-import static com.gl.appframework.UISupport.getOptions;
+import static com.gl.saf.UISupport.getOptions;
 
 /**
  * A panel that displays a list of chat messages, supporting markdown rendering and a typing indicator.

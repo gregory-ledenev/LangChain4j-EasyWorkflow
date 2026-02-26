@@ -1,16 +1,14 @@
 package com.gl.langchain4j.easyworkflow.samples;
 
-import com.gl.appframework.*;
-import com.gl.appframework.actions.ActionGroup;
-import com.gl.appframework.actions.BasicAction;
-import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
-import com.gl.langchain4j.easyworkflow.gui.ToolbarIcons;
+import com.gl.saf.*;
+import com.gl.saf.actions.ActionGroup;
+import com.gl.saf.actions.BasicAction;
 
 import javax.swing.*;
 import java.awt.*;
 
-import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.UISupport.applyAppearance;
+import static com.gl.saf.IconFactory.*;
+import static com.gl.saf.UISupport.applyAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.*;
 
 public class SampleApp {

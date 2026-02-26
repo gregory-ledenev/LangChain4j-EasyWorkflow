@@ -24,7 +24,7 @@
 
 package com.gl.langchain4j.easyworkflow;
 
-import com.gl.appframework.LoggerFactory;
+import com.gl.saf.LoggerFactory;
 import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.UserMessage;
