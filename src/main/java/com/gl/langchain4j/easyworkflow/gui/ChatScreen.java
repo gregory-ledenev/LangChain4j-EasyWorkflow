@@ -56,11 +56,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.Icons.*;
 import static com.gl.appframework.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.AgentInvocationTraceEntryArchive;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.Breakpoint;
-import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPane.PROP_SELECTED_VARIABLE;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
 
@@ -131,10 +130,7 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
                       PlaygroundContext playgroundContext,
                       Object agent,
                       WorkflowDebugger workflowDebugger) {
-        super(ID, "Playground", new AutoIcon(ToolbarIcons.ICON_HOME_TOOLBAR), "Playground for agents");
-
-        setLargeIcon(new AutoIcon(Icons.ICON_PLAYGOUND));
-        setLongDescription("Playground that allows to test agents, observe their structure, check the execution flow, inspect their results, and fine tune agents");
+        super(ID, "Playground", new AutoIcon(PlaygroundIcons.ICON_PLAYGOUND), "Playground for agents");
 
         this.playgroundContext = playgroundContext;
         this.agent = agent;
@@ -491,14 +487,14 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
 
     private void setupActions() {
         final String showGroup = "show";
-        showStructureAction = new StateAction("Structure", new AutoIcon(ICON_WORKFLOW), showGroup,
+        showStructureAction = new StateAction("Structure", new AutoIcon(PlaygroundIcons.ICON_WORKFLOW), showGroup,
                 e -> showWorkflowStructure(),
                 a -> a.setSelected(pnlWorkflowInspectorStructure.isVisible()));
         showStructureAction.setShortDescription("Show workflow structure");
         int menuShortcutKeyMask = Toolkit.getDefaultToolkit().getMenuShortcutKeyMaskEx();
         showStructureAction.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_2, menuShortcutKeyMask));
 
-        showExecutionAction = new StateAction("Execution", new AutoIcon(ICON_EXECUTION_FLOW), showGroup,
+        showExecutionAction = new StateAction("Execution", new AutoIcon(PlaygroundIcons.ICON_EXECUTION_FLOW), showGroup,
                 e -> showWorkflowExecution(),
                 a -> a.setSelected(pnlWorkflowInspectorExecution.isVisible()));
         showExecutionAction.setShortDescription("Show workflow execution");
@@ -757,7 +753,7 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
                         StandardActions.createCopyAction()
                 ),
                 new ActionGroup(
-                        new BasicAction("Refresh", new AutoIcon(ICON_TOOLBAR_REFRESH),
+                        new BasicAction("Refresh", new AutoIcon(ICON_REFRESH),
                                 e -> generateWorkflowSummary(true),
                                 a -> a.setEnabled(!summaryGenerating))
                 )

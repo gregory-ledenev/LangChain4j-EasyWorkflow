@@ -80,7 +80,7 @@ public interface AppScreen<T extends AppFrame> extends AppModule<T> {
     /**
      * @return A high-resolution selected icon for large displays or prominent UI elements.
      */
-    Icon getSelectedLargeIcon();
+    Icon getLargeSelectedIcon();
 
     /**
      * @return The large icon to display during mouse rollover.

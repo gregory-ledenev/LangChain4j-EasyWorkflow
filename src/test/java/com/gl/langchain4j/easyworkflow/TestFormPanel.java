@@ -1,7 +1,7 @@
 package com.gl.langchain4j.easyworkflow;
 
 import com.gl.appframework.form.*;
-import com.gl.langchain4j.easyworkflow.gui.Icons;
+import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
 import com.gl.langchain4j.easyworkflow.gui.ToolbarIcons;
 import org.junit.jupiter.api.Test;
 
@@ -147,9 +147,8 @@ public class TestFormPanel {
     }
 
     public static void main(String[] args) {
-        Icons.loadIcons();
-        ToolbarIcons.loadIcons();
-        com.gl.appframework.ToolbarIcons.loadIcons();
+        PlaygroundIcons.loadIcons();
+
         Person person = new Person("John", "Doe", new Date(1996 - 1900, Calendar.DECEMBER, 2), 30, true);
         Person person1 = new Person("Jane", "Smith", new Date(1990 - 1900, Calendar.MAY, 15), 34, false);
         Person person2 = new Person("Bob", "Johnson", new Date(1985 - 1900, Calendar.JULY, 10), 38, true);

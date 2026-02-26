@@ -2,6 +2,7 @@ package com.gl.appframework.form;
 
 import com.gl.appframework.IconFactory;
 import com.gl.appframework.IconFactory.AutoIcon;
+import com.gl.appframework.Icons;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.BasicAction;
@@ -14,7 +15,7 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.Icons.*;
 
 public class ListFormEditor extends JPanel implements FormEditor<List<Object>> {
     private final ListFormElement formElement;

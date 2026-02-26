@@ -129,9 +129,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
         if (title == null)
             title = "Playground - %s".formatted(agentClass.getSimpleName());
 
-        Icons.loadIcons();
-        ToolbarIcons.loadIcons();
-        com.gl.appframework.ToolbarIcons.loadIcons();
+        PlaygroundIcons.loadIcons();
 
         WorkflowDebugger debugger = getWorkflowDebugger();
         LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,
@@ -211,9 +209,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
         if (title == null)
             title = "Playground - %s".formatted(agentClass.getSimpleName());
 
-        Icons.loadIcons();
-        ToolbarIcons.loadIcons();
-        com.gl.appframework.ToolbarIcons.loadIcons();
+        PlaygroundIcons.loadIcons();
 
         WorkflowDebugger debugger = getWorkflowDebugger();
         LocalPlaygroundContext playgroundContext = new LocalPlaygroundContext(agent,

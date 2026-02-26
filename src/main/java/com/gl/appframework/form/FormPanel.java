@@ -26,7 +26,7 @@ package com.gl.appframework.form;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gl.appframework.IconFactory;
-import com.gl.appframework.ToolbarIcons;
+import com.gl.appframework.Icons;
 import com.gl.appframework.UISupport;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
@@ -44,9 +44,6 @@ import java.beans.PropertyDescriptor;
 import java.awt.event.ActionEvent;
 import java.util.List;
 import java.util.*;
-
-import static com.gl.appframework.UISupport.*;
-import static com.gl.appframework.comp.ActionMenuSupport.createMenuItem;
 
 /**
  * A panel that dynamically generates a form based on a list of {@link FormElement} objects. It supports various input
@@ -211,7 +208,7 @@ public class FormPanel extends JPanel implements Scrollable, DocumentListener {
         if (formElements.size() > 1) {
             ActionPopupMenu popupMenu = (ActionPopupMenu) textComponent.getComponentPopupMenu();
             popupMenu.getActionGroup().addAction(new ActionGroup(
-                    new BasicAction("Clear All", new IconFactory.AutoIcon(ToolbarIcons.ICON_SPACER), e -> clearForm())
+                    new BasicAction("Clear All", new IconFactory.AutoIcon(Icons.ICON_SPACER), e -> clearForm())
             ));
         }
     }

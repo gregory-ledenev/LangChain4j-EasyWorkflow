@@ -24,7 +24,6 @@
 
 package com.gl.appframework.comp;
 
-import com.gl.appframework.IconFactory;
 import com.gl.appframework.IconFactory.AutoIcon;
 import com.gl.appframework.UISupport;
 
@@ -34,7 +33,7 @@ import javax.swing.text.View;
 import java.awt.*;
 import java.util.Objects;
 
-import static com.gl.appframework.ToolbarIcons.ICON_INFO;
+import static com.gl.appframework.Icons.*;
 
 public class ActionTooltipRenderer extends JPanel {
     public static final Color DEFAULT_BACKGROUND = new Color(255, 255, 224);

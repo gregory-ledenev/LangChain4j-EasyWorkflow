@@ -30,6 +30,7 @@ import com.gl.appframework.UISupport.*;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
 import com.gl.appframework.comp.*;
+import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
 
 import javax.swing.*;
 import javax.swing.event.TreeSelectionEvent;
@@ -47,7 +48,8 @@ import java.util.Objects;
 import java.util.prefs.Preferences;
 
 import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.Icons.*;
+import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.*;
 
@@ -228,7 +230,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                 a -> a.setEnabled(getSelectedValue() != null));
         private DefaultMutableTreeNode agentMetadataNode;
         private final Action actionShowAgentMetadata = new BasicAction("Show Agent Metadata",
-                new AutoIcon(ICON_AGENT_TOOLBAR),
+                new AutoIcon(ICON_AGENT),
                 e -> showAgentMetadata(),
                 a -> a.setEnabled(canShowAgentMetadata()));
         private Map<String, Object> values;

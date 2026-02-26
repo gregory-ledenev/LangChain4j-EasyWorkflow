@@ -3,8 +3,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 import com.gl.appframework.*;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
-import com.gl.appframework.comp.ActionMenuBar;
-import com.gl.langchain4j.easyworkflow.gui.Icons;
+import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
 import com.gl.langchain4j.easyworkflow.gui.ToolbarIcons;
 
 import javax.swing.*;
@@ -12,6 +11,7 @@ import java.awt.*;
 
 import static com.gl.appframework.IconFactory.*;
 import static com.gl.appframework.UISupport.applyAppearance;
+import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.*;
 
 public class SampleApp {
     static {
@@ -20,9 +20,7 @@ public class SampleApp {
     }
 
     public static void main(String[] args) {
-        Icons.loadIcons();
-        ToolbarIcons.loadIcons();
-        com.gl.appframework.ToolbarIcons.loadIcons();
+        loadIcons();
 
         Application.getSharedApplication().launch(new SampleFrame());
     }
@@ -58,7 +56,7 @@ public class SampleApp {
         );
 
         public WorkflowScreen() {
-            super("workflow", "Workflow", new AutoIcon(ToolbarIcons.ICON_WORKFLOW), "Shows Workflow");
+            super("workflow", "Workflow", new AutoIcon(ICON_WORKFLOW), "Shows Workflow");
 
             add(new JLabel("Some workflow content"));
         }
@@ -83,7 +81,7 @@ public class SampleApp {
         );
 
         public ExecutionScreen() {
-            super("execution", "Execution", new AutoIcon(ToolbarIcons.ICON_EXECUTION_FLOW), "Shows Execution");
+            super("execution", "Execution", new AutoIcon(ICON_EXECUTION_FLOW), "Shows Execution");
 
             add(new JLabel("Some execution content"));
         }

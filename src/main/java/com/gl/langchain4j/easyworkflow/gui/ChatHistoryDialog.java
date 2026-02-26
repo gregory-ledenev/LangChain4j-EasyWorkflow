@@ -3,7 +3,6 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.gl.appframework.IconFactory;
 import com.gl.appframework.LoggerFactory;
 import com.gl.appframework.actions.BasicAction;
-import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
 import com.gl.appframework.AppDialog;
 import com.gl.appframework.UISupport;
@@ -17,7 +16,7 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.gl.appframework.ToolbarIcons.ICON_CHAT;
+import static com.gl.appframework.Icons.ICON_CHAT;
 import static com.gl.langchain4j.easyworkflow.EasyWorkflow.isToday;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
 import static java.text.DateFormat.SHORT;

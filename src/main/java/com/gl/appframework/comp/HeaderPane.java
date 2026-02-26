@@ -24,6 +24,8 @@
 
 package com.gl.appframework.comp;
 
+import com.gl.appframework.UISupport;
+
 import javax.swing.*;
 
 import java.awt.*;
@@ -60,8 +62,7 @@ public class HeaderPane extends JPanel{
         pnlTitle.add(toolbar);
         add(pnlTitle);
 
-        Font f = lblTitle.getFont().deriveFont(20f);
-        lblTitle.setFont(new Font(f.getName(), f.getStyle(), f.getSize()));
+        lblTitle.setFont(UISupport.deriveFont(lblTitle.getFont(), Font.BOLD, lblTitle.getFont().getSize() + 4f));
         add(lblSubtitle);
         lblSubtitle.setForeground(Color.gray);
 

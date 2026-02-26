@@ -27,6 +27,7 @@ package com.gl.langchain4j.easyworkflow.gui.inspector;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.gl.appframework.IconFactory;
+import com.gl.appframework.Icons;
 import com.gl.appframework.LoggerFactory;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.langchain4j.easyworkflow.SetStateAgents;
@@ -58,8 +59,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-import static com.gl.langchain4j.easyworkflow.EasyWorkflow.*;
-import static com.gl.langchain4j.easyworkflow.gui.Icons.*;
+import static com.gl.appframework.Icons.*;
+import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.*;
 import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane.WorkflowItem.Type.*;
 import static dev.langchain4j.agentic.planner.AgenticSystemTopology.SEQUENCE;
 import static javax.swing.BoxLayout.Y_AXIS;
@@ -1339,7 +1340,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
             textPanel.add(Box.createVerticalGlue());
             textPanel.add(Box.createVerticalStrut(5));
 
-            lblTitle.setFont(lblTitle.getFont().deriveFont(Font.BOLD));
+            lblTitle.setFont(UISupport.deriveFont(lblTitle.getFont(), Font.BOLD));
             textPanel.add(lblTitle);
 
             textPanel.add(lblSubTitle);
@@ -1578,7 +1579,7 @@ public abstract class WorkflowInspectorListPane extends AppPane {
                                     value.getType().equals(TYPE_END))) ? INDICATOR_LINE_BORDER : INDICATOR_BORDER);
             pnlStateIndicator.setPreferredSize(new Dimension(50, 0));
 
-            lblIcon.setIcon(value.getIconKey() != null ? IconFactory.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus) ? IconFactory.IconStyle.Dark : IconFactory.IconStyle.Light, IconFactory.IconSize.Auto, false, false) : null);
+            lblIcon.setIcon(value.getIconKey() != null ? IconFactory.getIcon(value.getIconKey(), UISupport.isDarkAppearance() || (isSelected && cellHasFocus) ? IconFactory.IconStyle.Dark : IconFactory.IconStyle.Light, IconFactory.IconSize.Large, false, false) : null);
             String title = value.getTitle();
             boolean userMessagePresent = listPane.getWorkflowDebugger().getUserMessageTemplate(value.getAgentClassName()) != null;
             boolean errorsPresent = false;

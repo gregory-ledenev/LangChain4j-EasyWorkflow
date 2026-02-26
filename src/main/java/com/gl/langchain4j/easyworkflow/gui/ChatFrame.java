@@ -12,7 +12,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.List;
 
-import static com.gl.langchain4j.easyworkflow.gui.Icons.LOGO_ICON;
+import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.LOGO_ICON;
 
 public class ChatFrame extends AppFrame {
 
@@ -58,8 +58,7 @@ public class ChatFrame extends AppFrame {
         chatScreen = new ChatScreen(chatEngine, playgroundContext, agent, workflowDebugger);
         installAppModule(chatScreen);
 
-        BasicAppScreen<ChatFrame> testScreen = new BasicAppScreen<>("test", "Test", new AutoIcon(ToolbarIcons.ICON_BELL_TOOLBAR), "Test screen");
-        testScreen.setLargeIcon(new AutoIcon(Icons.ICON_HOME_PLAIN));
+        BasicAppScreen<ChatFrame> testScreen = new BasicAppScreen<>("test", "Test", new AutoIcon(PlaygroundIcons.ICON_HOME), "Test screen");
         installAppModule(testScreen);
     }
 

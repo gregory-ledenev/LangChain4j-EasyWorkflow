@@ -31,7 +31,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 
-import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.Icons.*;
 import static com.gl.appframework.UISupport.applyAppearance;
 import static com.gl.appframework.UISupport.getOptions;
 

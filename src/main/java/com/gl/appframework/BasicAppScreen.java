@@ -49,17 +49,48 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
     private Icon selectedLargeIcon;
     private StateAction activationAction;
 
+    /**
+     * Constructs a new {@code BasicAppScreen} with the specified identifier.
+     * @param id the unique identifier for this screen
+     */
     public BasicAppScreen(String id) {
         super(new BorderLayout(0, 0));
         this.id = id;
     }
 
+    /**
+     * Constructs a new {@code BasicAppScreen} with the specified metadata.
+     *
+     * @param id               the unique identifier for this screen
+     * @param name             the display name of the screen
+     * @param icon             the icon representing the screen; if an {@link IconFactory.AutoIcon} is provided, a full icon set is generated
+     * @param shortDescription a brief description of the screen's purpose
+     */
     public BasicAppScreen(String id, String name, Icon icon, String shortDescription) {
         this(id);
 
         this.name = name;
-        this.icon = icon;
+        if (icon instanceof IconFactory.AutoIcon autoIcon)
+            setupIcons(autoIcon);
+        else
+            this.icon = icon;
         this.shortDescription = shortDescription;
+    }
+
+    /**
+     * Configures a suite of icons (standard, large, rollover, and selected states)
+     * based on a single {@link IconFactory.AutoIcon} template.
+     * @param icon the base auto-icon to use for generating the icon set
+     */
+    public void setupIcons(IconFactory.AutoIcon icon) {
+        if (icon != null) {
+            setIcon(icon);
+            setLargeIcon(new IconFactory.AutoIcon(icon.getKey(), IconFactory.IconSize.Large));
+            setSelectedIcon(new IconFactory.AutoIcon(icon.getKey(), IconFactory.IconSize.Auto, true, false));
+            setSelectedLargeIcon(new IconFactory.AutoIcon(icon.getKey(), IconFactory.IconSize.Large, true, false));
+            setRolloverIcon(new IconFactory.AutoIcon(icon.getKey(), IconFactory.IconSize.Auto, false, true));
+            setLargeRolloverIcon(new IconFactory.AutoIcon(icon.getKey(), IconFactory.IconSize.Large, false, true));
+        }
     }
 
     @Override
@@ -67,16 +98,24 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return selectedIcon;
     }
 
+    /**
+     * Sets the icon to be displayed when the screen is selected.
+     * @param selectedIcon the icon for the selected state
+     */
     public void setSelectedIcon(Icon selectedIcon) {
         this.selectedIcon = selectedIcon;
         getActivationAction().setSelectedIcon(selectedIcon);
     }
 
     @Override
-    public Icon getSelectedLargeIcon() {
+    public Icon getLargeSelectedIcon() {
         return selectedLargeIcon;
     }
 
+    /**
+     * Sets the large icon to be displayed when the screen is selected.
+     * @param selectedLargeIcon the large icon for the selected state
+     */
     public void setSelectedLargeIcon(Icon selectedLargeIcon) {
         this.selectedLargeIcon = selectedLargeIcon;
         getActivationAction().setSelectedLargeIcon(selectedLargeIcon);
@@ -92,6 +131,10 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return shortDescription;
     }
 
+    /**
+     * Sets the short description for this screen and updates the activation action.
+     * @param shortDescription a brief description of the screen
+     */
     public void setShortDescription(String shortDescription) {
         this.shortDescription = shortDescription;
         getActivationAction().setShortDescription(shortDescription);
@@ -102,6 +145,10 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return longDescription;
     }
 
+    /**
+     * Sets the long description for this screen and updates the activation action.
+     * @param longDescription a detailed description of the screen
+     */
     public void setLongDescription(String longDescription) {
         this.longDescription = longDescription;
         getActivationAction().setLongDescription(longDescription);
@@ -112,6 +159,10 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return disableReason;
     }
 
+    /**
+     * Sets the reason why this screen is disabled and updates the activation action.
+     * @param disableReason the text explaining why the screen is unavailable
+     */
     public void setDisableReason(String disableReason) {
         this.disableReason = disableReason;
         getActivationAction().setDisableReason(disableReason);
@@ -122,9 +173,14 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return icon;
     }
 
+    /**
+     * Sets the standard icon for this screen and updates the activation action.
+     * @param icon the icon to display
+     */
     public void setIcon(Icon icon) {
         this.icon = icon;
-        getActivationAction().putValue(Action.SMALL_ICON, icon);
+        if (activationAction != null)
+            activationAction.putValue(Action.SMALL_ICON, icon);
     }
 
     @Override
@@ -132,6 +188,10 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return rolloverIcon;
     }
 
+    /**
+     * Sets the icon to be displayed when the mouse rolls over the screen's activation component.
+     * @param rolloverIcon the icon for the rollover state
+     */
     public void setRolloverIcon(Icon rolloverIcon) {
         this.rolloverIcon = rolloverIcon;
     }
@@ -141,6 +201,10 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return largeIcon;
     }
 
+    /**
+     * Sets the large icon for this screen and updates the activation action.
+     * @param largeIcon the large icon to display
+     */
     public void setLargeIcon(Icon largeIcon) {
         this.largeIcon = largeIcon;
         getActivationAction().putValue(Action.LARGE_ICON_KEY, largeIcon);
@@ -151,6 +215,10 @@ public class BasicAppScreen<T extends AppFrame> extends JPanel implements AppScr
         return largeRolloverIcon;
     }
 
+    /**
+     * Sets the large icon to be displayed when the mouse rolls over the screen's activation component.
+     * @param largeRolloverIcon the large icon for the rollover state
+     */
     public void setLargeRolloverIcon(Icon largeRolloverIcon) {
         this.largeRolloverIcon = largeRolloverIcon;
     }

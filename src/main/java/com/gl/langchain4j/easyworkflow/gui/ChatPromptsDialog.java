@@ -1,6 +1,7 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.gl.appframework.IconFactory;
+import com.gl.appframework.Icons;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.AppDialog;
 import com.gl.appframework.UISupport;
@@ -14,7 +15,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 
 import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.Icons.*;
+import static com.gl.appframework.Icons.ICON_UP;
 
 public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPromptsStorage.ChatPrompt> {
     private ChatPromptsStorage chatPromptsStorage;

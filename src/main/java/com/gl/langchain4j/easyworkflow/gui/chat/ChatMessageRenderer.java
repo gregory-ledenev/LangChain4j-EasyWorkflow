@@ -25,6 +25,7 @@
 package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.gl.appframework.IconFactory.AutoIcon;
+import com.gl.appframework.Icons;
 import com.gl.appframework.actions.ActionGroup;
 import com.gl.appframework.actions.BasicAction;
 import com.gl.appframework.actions.StateAction;
@@ -41,7 +42,7 @@ import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.util.Map;
 
-import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.Icons.*;
 import static com.gl.appframework.UISupport.getOptions;
 import static com.gl.appframework.UISupport.isDarkAppearance;
 import static com.gl.langchain4j.easyworkflow.gui.chat.ChatPane.getChatPane;
@@ -61,7 +62,7 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
     private final ChatMessageRendererBubble bubbleBackground;
 
     private int lastWidth;
-    private final Icon iconPlay = UIManager.getLookAndFeel().getDisabledIcon(this, new AutoIcon(ICON_TOOLBAR_PLAY));
+    private final Icon iconPlay = UIManager.getLookAndFeel().getDisabledIcon(this, new AutoIcon(ICON_PLAY));
     private boolean showExecutionResults;
     /**
      * Constructs a ChatMessageRenderer for a given chat message.
@@ -191,8 +192,8 @@ public class ChatMessageRenderer extends JPanel implements Scrollable {
                         new BasicAction("Copy", new AutoIcon(ICON_COPY), e -> copy())
                 ),
                 new ActionGroup(
-                        new BasicAction("Resend", new AutoIcon(ICON_TOOLBAR_SEND), e -> resend()),
-                        new BasicAction("Show Execution Details", new AutoIcon(ICON_TOOLBAR_PLAY),
+                        new BasicAction("Resend", new AutoIcon(ICON_SEND), e -> resend()),
+                        new BasicAction("Show Execution Details", new AutoIcon(ICON_PLAY),
                                 e -> showExecutionDetails(),
                                 a -> a.setEnabled(canShowExecutionDetails()))
                 ),

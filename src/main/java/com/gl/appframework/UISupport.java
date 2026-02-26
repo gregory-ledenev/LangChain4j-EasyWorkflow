@@ -56,12 +56,10 @@ import java.awt.image.*;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.*;
-import java.util.List;
 import java.util.function.Consumer;
 import java.util.prefs.Preferences;
 
 import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.ToolbarIcons.*;
 
 /**
  * Provides utility methods and constants for UI-related operations, including icon management, theme handling, and user
@@ -102,10 +100,10 @@ public class UISupport {
                     e -> textComponent.replaceSelection("")));
         ActionGroup actionGroup = new ActionGroup(
                 new ActionGroup(
-                        new BasicAction("Cut", new AutoIcon(ICON_CUT),
+                        new BasicAction("Cut", new AutoIcon(Icons.ICON_CUT),
                                 e -> textComponent.cut(),
                                 a -> a.setEnabled(textComponent.isEditable() && textComponent.getSelectedText() != null)),
-                        new BasicAction("Copy", new AutoIcon(ICON_COPY),
+                        new BasicAction("Copy", new AutoIcon(Icons.ICON_COPY),
                                 e -> {
                                     int caretPosition = textComponent.getCaretPosition();
                                     boolean noSelection = textComponent.getSelectedText() == null || textComponent.getSelectedText().isEmpty();
@@ -118,7 +116,7 @@ public class UISupport {
                                     }
                                 },
                                 a -> a.setEnabled(textComponent.getText() != null)),
-                        new BasicAction("Paste", new AutoIcon(ICON_PASTE),
+                        new BasicAction("Paste", new AutoIcon(Icons.ICON_PASTE),
                                 e -> textComponent.paste(),
                                 a -> a.setEnabled(textComponent.isEditable())),
                         new BasicAction("Delete", null,
@@ -845,6 +843,44 @@ public class UISupport {
      * @return A new {@link Border} instance with a rounded rectangle shape.
      */
     public static Border createRoundRectBorder(Color lineColor) {
-        return new UISupport.RoundRectBorder(lineColor);
+        return new RoundRectBorder(lineColor);
+    }
+
+    /**
+     * Derives a new font by applying the specified style and size to an existing font. Overrides default bhavior that
+     * can return FontUIResource that can be cleared by UIManager
+     *
+     * @param font  The base font to derive from.
+     * @param style The style for the new font (e.g., {@link Font#PLAIN}, {@link Font#BOLD}).
+     * @return A new {@link Font} instance with the specified style and size.
+     */
+    public static Font deriveFont(Font font, int style) {
+        return deriveFont(font, style, font.getSize());
+    }
+
+    /**
+     * Derives a new font by applying the specified style and size to an existing font. Overrides default bhavior that
+     * can return FontUIResource that can be cleared by UIManager
+     *
+     * @param font The base font to derive from.
+     * @param size The point size for the new font.
+     * @return A new {@link Font} instance with the specified style and size.
+     */
+    public static Font deriveFont(Font font, float size) {
+        return deriveFont(font, font.getStyle(), size);
+    }
+
+    /**
+     * Derives a new font by applying the specified style and size to an existing font. Overrides default bhavior that
+     * can return FontUIResource that can be cleared by UIManager
+     *
+     * @param font  The base font to derive from.
+     * @param style The style for the new font (e.g., {@link Font#PLAIN}, {@link Font#BOLD}).
+     * @param size  The point size for the new font.
+     * @return A new {@link Font} instance with the specified style and size.
+     */
+    public static Font deriveFont(Font font, int style, float size) {
+        Font f = font.deriveFont(style, size);
+        return new Font(f.getName(), f.getStyle(), f.getSize());
     }
 }

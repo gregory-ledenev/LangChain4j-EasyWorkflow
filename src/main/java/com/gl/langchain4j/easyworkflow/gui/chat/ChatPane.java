@@ -26,6 +26,7 @@ package com.gl.langchain4j.easyworkflow.gui.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.appframework.Icons;
 import com.gl.appframework.LoggerFactory;
 import com.gl.appframework.Updatable;
 import com.gl.appframework.actions.ActionGroup;
@@ -41,6 +42,7 @@ import com.gl.langchain4j.easyworkflow.gui.ChatPromptsStorage;
 import com.gl.appframework.form.FormEditorType;
 import com.gl.appframework.form.FormElement;
 import com.gl.appframework.form.FormPanel;
+import com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
 import com.gl.langchain4j.easyworkflow.gui.ChatHistoryStorage;
 import dev.langchain4j.service.Result;
@@ -67,10 +69,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static com.gl.appframework.IconFactory.*;
-import static com.gl.appframework.ToolbarIcons.*;
+import static com.gl.appframework.Icons.*;
+import static com.gl.appframework.Icons.ICON_CHAT;
 import static com.gl.appframework.UISupport.*;
 import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.KEY_SESSION_UID;
-import static com.gl.langchain4j.easyworkflow.gui.Icons.ICON_SEND;
+import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.ICON_SEND;
 import static com.gl.langchain4j.easyworkflow.gui.ToolbarIcons.*;
 
 /**
@@ -347,17 +350,17 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
                 e -> getOptions().setClearAfterSending(!getOptions().isClearAfterSending()),
                 a -> a.setSelected(getOptions().isClearAfterSending()));
 
-        BasicAction resendAction = new BasicAction("Resend", new AutoIcon(ICON_TOOLBAR_SEND), e ->
+        BasicAction resendAction = new BasicAction("Resend", new AutoIcon(ICON_SEND), e ->
                 resendLast(),
                 a -> a.setEnabled(canResendLast()));
         resendAction.setShortDescription("Resend last message");
 
-        BasicAction resetExecutionAction = new BasicAction("Reset Execution", new AutoIcon(ICON_TOOLBAR_PLAY), e ->
+        BasicAction resetExecutionAction = new BasicAction("Reset Execution", new AutoIcon(ICON_PLAY), e ->
                 resetExecutionDetails(),
                 a -> a.setEnabled(canResetExecutionDetails()));
         resetExecutionAction.setShortDescription("Reset execution details");
 
-        BasicAction promptsAction = new BasicAction("Prompts", new AutoIcon(ICON_PROMPTS), e ->
+        BasicAction promptsAction = new BasicAction("Prompts", new AutoIcon(PlaygroundIcons.ICON_PROMPTS), e ->
                 showChatPrompts((JButton) e.getSource()),
                 a -> a.setEnabled(canShowChatPrompts()));
         promptsAction.setShortDescription("Show prompts");
