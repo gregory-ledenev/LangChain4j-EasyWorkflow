@@ -25,6 +25,7 @@
 package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.saf.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.gui.chat.ChatMessage;
@@ -141,7 +142,7 @@ public class ChatHistoryStorage {
      * Stores the current chat history to a JSON file in the user's home directory.
      */
     public synchronized void store() {
-        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        File userHome = new File(System.getProperty("user.home"), EasyWorkflow.getUserHomeFolder());
         if (!userHome.exists()) {
             boolean result = userHome.mkdirs();
             if (!result)
@@ -174,7 +175,7 @@ public class ChatHistoryStorage {
      * Loads the chat history from a JSON file in the user's home directory.
      */
     public synchronized void load() {
-        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        File userHome = new File(System.getProperty("user.home"), EasyWorkflow.getUserHomeFolder());
         if (!userHome.exists())
             return;
 

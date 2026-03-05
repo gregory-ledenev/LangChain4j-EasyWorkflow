@@ -70,7 +70,7 @@ import static com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorLis
  * engine.
  */
 @SuppressWarnings("ALL")
-public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.ExecutionDetailsProvider {
+public class ChatScreen extends BasicAppScreen<AppFrame> implements ChatPane.ExecutionDetailsProvider {
 
     public static final String PROP_FLOW_CHART_FILE = "flow-chart-file";
     public static final String PROP_STRUCTURE_FILE = "structure-file";
@@ -142,7 +142,7 @@ public class ChatScreen extends BasicAppScreen<ChatFrame> implements ChatPane.Ex
         setWorkflowDebugger(workflowDebugger);
         this.pnlChat.setChatEngine(chatEngine);
 
-        pnlChat.setPreferredSize(new Dimension(400, 700));
+        pnlChat.setPreferredSize(new Dimension(420, 700));
 
         if (workflowDebugger != null) {
             userMessagesStorage = new UserMessagesStorage(getPlaygroundContext(),

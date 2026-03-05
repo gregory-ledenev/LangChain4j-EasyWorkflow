@@ -27,6 +27,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.saf.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import org.slf4j.Logger;
@@ -265,7 +266,7 @@ public class ChatPromptsStorage implements Cloneable {
      * Persists the current list of prompts to a JSON file.
      */
     public synchronized void store() {
-        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        File userHome = new File(System.getProperty("user.home"), EasyWorkflow.getUserHomeFolder());
         if (!userHome.exists()) {
             boolean result = userHome.mkdirs();
             if (!result)
@@ -295,7 +296,7 @@ public class ChatPromptsStorage implements Cloneable {
      * Loads the list of prompts from the JSON file.
      */
     public synchronized void load() {
-        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        File userHome = new File(System.getProperty("user.home"), EasyWorkflow.getUserHomeFolder());
         if (!userHome.exists())
             return;
 

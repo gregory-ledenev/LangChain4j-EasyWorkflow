@@ -83,7 +83,6 @@ import static com.gl.langchain4j.easyworkflow.WorkflowDebugger.LineBreakpoint;
 @SuppressWarnings("ALL")
 public class EasyWorkflow {
     public static final String USER_HOME_FOLDER = ".EasyWorkflow";
-
     public static final String JSON_TYPE_AGENT = "agent";
     public static final String JSON_TYPE_NON_AI_AGENT = "nonAiAgent";
     public static final String JSON_TYPE_REPEAT = "repeat";
@@ -118,8 +117,26 @@ public class EasyWorkflow {
      */
     private static final AtomicReference<ExecutorService> sharedExecutorService = new AtomicReference<>();
     private static final Logger logger = LoggerFactory.getLogger(EasyWorkflow.class);
-
+    private static String userHomeFolder = USER_HOME_FOLDER;
     private EasyWorkflow() {
+    }
+
+    /**
+     * Returns the name of the user home folder used by EasyWorkflow for storing configuration or temporary files.
+     *
+     * @return The user home folder name.
+     */
+    public static String getUserHomeFolder() {
+        return userHomeFolder;
+    }
+
+    /**
+     * Sets the name of the user home folder used by EasyWorkflow.
+     *
+     * @param userHomeFolder The new user home folder name.
+     */
+    public static void setUserHomeFolder(String userHomeFolder) {
+        EasyWorkflow.userHomeFolder = userHomeFolder;
     }
 
     /**
@@ -160,9 +177,10 @@ public class EasyWorkflow {
      * Wraps a lambda expression with a proxy that overrides its {@code toString()} method to return a custom description.
      * This is useful for providing meaningful names to lambdas used in workflow definitions, which can then be
      * displayed in diagrams or logs.
-     * @param lambda The lambda expression to wrap.
+     *
+     * @param lambda      The lambda expression to wrap.
      * @param description The description to associate with the lambda.
-     * @param <T> The type of the lambda expression.
+     * @param <T>         The type of the lambda expression.
      * @return A proxied lambda expression with the custom description.
      */
     public static <T> T lambdaWithDescription(T lambda, String description) {
@@ -392,6 +410,23 @@ public class EasyWorkflow {
     }
 
     /**
+     * Checks if the given date is today's date.
+     *
+     * @param date The date to check.
+     * @return {@code true} if the date is today, {@code false} otherwise.
+     */
+    public static boolean isToday(Date date) {
+        Calendar currentCalendar = Calendar.getInstance();
+
+        Calendar calendar = Calendar.getInstance();
+        calendar.setTime(date);
+
+        return currentCalendar.get(Calendar.DAY_OF_MONTH) == calendar.get(Calendar.DAY_OF_MONTH) &&
+                currentCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH) &&
+                currentCalendar.get(Calendar.YEAR) == calendar.get(Calendar.YEAR);
+    }
+
+    /**
      * Represents an expression within the workflow, which can create an agent.
      */
     public interface Expression {
@@ -404,7 +439,13 @@ public class EasyWorkflow {
         String toMermaid(StringBuilder mermaid, AtomicInteger counter, String entryNodeId, String edgeLabel, List<String> completedNodes, Set<String> failedNodes, Set<String> runningNodes);
     }
 
-     /**
+    public static interface ToolExecutionListener {
+        void beforeExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest);
+
+        void afterExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest, String result, Throwable exception);
+    }
+
+    /**
      * A builder class for constructing an EasyWorkflow. It allows defining a sequence of agents and control flow
      * statements.
      *
@@ -1305,14 +1346,14 @@ public class EasyWorkflow {
              * @return A string containing the summary of the workflow.
              */
             @UserMessage("""
-                         Prepare a summary for a workflow according to its JSON representation.
-                         Keep it readable and user friendly.
-                         Don't include anything is not related to the workflow (offer to continue conversation etc.).
-                         Don't mention:
-                         - It's generated based on JSON
-                         - UID's
-                         The JSON representation is: '{{jsonRepresentation}}'.
-                         """)
+                    Prepare a summary for a workflow according to its JSON representation.
+                    Keep it readable and user friendly.
+                    Don't include anything is not related to the workflow (offer to continue conversation etc.).
+                    Don't mention:
+                    - It's generated based on JSON
+                    - UID's
+                    The JSON representation is: '{{jsonRepresentation}}'.
+                    """)
             @Agent(value = "prepares summary for a workflow", outputKey = "summary")
             public String getSummary(String jsonRepresentation);
 
@@ -2095,12 +2136,12 @@ public class EasyWorkflow {
         @SuppressWarnings({"rawtypes", "unchecked"})
         protected AgentBuilder<?, ?> createAgentBuilder(String agentId, WorkflowDebugger aWorkflowDebugger) {
             AgentBuilder agentBuilder = new AgentBuilder(agentClass) {
+                private final String id = agentId;
+                private final WorkflowDebugger workflowDebugger = aWorkflowDebugger;
                 private InputGuardrail[] inputGuardrailsLocal;
                 private OutputGuardrail[] outputGuardrailsLocal;
                 private Class[] inputGuardrailClassesLocal;
                 private Class[] outputGuardrailClassesLocal;
-                private final String id = agentId;
-                private final WorkflowDebugger workflowDebugger = aWorkflowDebugger;
 
 //                @Override
 //                public AgentBuilder tools(Object... objectsWithTools) {
@@ -2442,27 +2483,5 @@ public class EasyWorkflow {
 
             return result;
         }
-    }
-
-    public static interface ToolExecutionListener {
-        void beforeExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest);
-        void afterExecuteTool(String agentId, ToolExecutionRequest toolExecutionRequest, String result, Throwable exception);
-    }
-
-    /**
-     * Checks if the given date is today's date.
-     *
-     * @param date The date to check.
-     * @return {@code true} if the date is today, {@code false} otherwise.
-     */
-    public static boolean isToday(Date date) {
-        Calendar currentCalendar = Calendar.getInstance();
-
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTime(date);
-
-        return currentCalendar.get(Calendar.DAY_OF_MONTH) == calendar.get(Calendar.DAY_OF_MONTH) &&
-                currentCalendar.get(Calendar.MONTH) == calendar.get(Calendar.MONTH) &&
-                currentCalendar.get(Calendar.YEAR) == calendar.get(Calendar.YEAR);
     }
 }

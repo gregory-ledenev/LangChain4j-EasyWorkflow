@@ -53,26 +53,6 @@
     
     <dependencies>
         <dependency>
-            <groupId>com.jgoodies</groupId>
-            <artifactId>jgoodies-forms</artifactId>
-            <version>1.9.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.openani.jsystemthemedetector</groupId>
-            <artifactId>jSystemThemeDetector</artifactId>
-            <version>3.8</version>
-        </dependency>
-        <dependency>
-            <groupId>com.formdev</groupId>
-            <artifactId>flatlaf</artifactId>
-            <version>3.6.1</version>
-        </dependency>
-        <dependency>
-            <groupId>com.formdev</groupId>
-            <artifactId>flatlaf-extras</artifactId>
-            <version>3.6.1</version>
-        </dependency>
-        <dependency>
             <groupId>org.commonmark</groupId>
             <artifactId>commonmark</artifactId>
             <version>0.26.0</version>
@@ -155,6 +135,12 @@
             <artifactId>slf4j-jdk14</artifactId>
             <version>1.7.36</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.gregory-ledenev</groupId>
+            <artifactId>saf</artifactId>
+            <version>0.5.0</version>
+            <scope>compile</scope>
         </dependency>
 
     </dependencies>

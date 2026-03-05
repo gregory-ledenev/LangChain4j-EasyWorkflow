@@ -11,6 +11,7 @@ import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
+import java.util.Optional;
 
 import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.LOGO_ICON;
 
@@ -45,7 +46,7 @@ public class ChatFrame extends AppFrame {
         setMinimumSize(new Dimension(500, 700));
         setLocationRelativeTo(null);
 
-        getAppScreenManager().ifPresent(asm -> getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_VIEW).addAction(asm.getAppScreenManagerActionGroup()));
+        getAppScreenManager().ifPresent(asm -> ((BasicAppScreenManager)asm).getSwitcher().setVisible(false));
 
         installAppModule(new MenuBarModule<ChatFrame>(new ActionGroup(
                 getMenuBarActionGroup(AppFrame.MENUBAR_ACTION_GROUP_FILE),
@@ -57,9 +58,6 @@ public class ChatFrame extends AppFrame {
 
         chatScreen = new ChatScreen(chatEngine, playgroundContext, agent, workflowDebugger);
         installAppModule(chatScreen);
-
-        BasicAppScreen<ChatFrame> testScreen = new BasicAppScreen<>("test", "Test", new AutoIcon(PlaygroundIcons.ICON_HOME), "Test screen");
-        installAppModule(testScreen);
     }
 
     WorkflowDebugger getWorkflowDebugger() {

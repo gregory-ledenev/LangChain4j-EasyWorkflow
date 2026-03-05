@@ -15,7 +15,7 @@ public class GUIPlaygroundPreferences extends ApplicationPreferences {
      * @return the current {@link GUIPlaygroundPreferences} instance.
      */
     public static GUIPlaygroundPreferences getApplicationPreferences() {
-        return ((GUIPlayground.PlaygroudApplication) Application.getSharedApplication()).getApplicationPreferences();
+        return (GUIPlaygroundPreferences) Application.getSharedApplication().getApplicationPreferences();
     }
 
     /**

@@ -55,6 +55,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
     static {
         System.setProperty("apple.awt.application.appearance", "system");
         System.setProperty("apple.laf.useScreenMenuBar", "true");
+        System.setProperty("apple.awt.application.name", "Playground");
     }
 
     private ChatFrame chatFrame;

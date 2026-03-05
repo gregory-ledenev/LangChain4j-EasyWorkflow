@@ -42,6 +42,7 @@ import com.gl.saf.form.FormEditorType;
 import com.gl.saf.form.FormElement;
 import com.gl.saf.form.FormPanel;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
+import com.gl.saf.form.StringFormEditor;
 import dev.langchain4j.service.Result;
 import org.slf4j.Logger;
 
@@ -176,17 +177,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
         contentPanel.add(inputPanel, BorderLayout.SOUTH);
 
         edtMessage.addPropertyChangeListener(this);
-        JScrollPane messageScrollPane = new JScrollPane(edtMessage) {
-            @Override
-            public void updateUI() {
-                super.updateUI();
-
-                setOpaque(false);
-                getViewport().setOpaque(false);
-                setBorder(null);
-            }
-        };
-        inputPanel.add(messageScrollPane, BorderLayout.CENTER);
+        inputPanel.add(edtMessage, BorderLayout.CENTER);
 
         toolsToolbar = new ActionToolBar(JToolBar.VERTICAL) {
             @Override
@@ -688,6 +679,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
             ;
         }
         edtMessage.setFormElements(formElements);
+        if (formElements.size() == 1 && formElements.get(0).getEditorType() == FormEditorType.Note)
+            ((StringFormEditor) edtMessage.getFormEditor(formElements.get(0).getName())).setRetainBorder(false);
     }
 
     /**

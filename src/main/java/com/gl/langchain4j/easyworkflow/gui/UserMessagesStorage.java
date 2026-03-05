@@ -28,6 +28,7 @@ package com.gl.langchain4j.easyworkflow.gui;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gl.langchain4j.easyworkflow.EasyWorkflow;
 import com.gl.saf.LoggerFactory;
 import com.gl.langchain4j.easyworkflow.WorkflowDebugger;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
@@ -101,7 +102,7 @@ public class UserMessagesStorage {
      * Stores the user-defined user messages for the agents in the current workflow to a file under the user home folder.
      */
     public synchronized void store() {
-        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        File userHome = new File(System.getProperty("user.home"), EasyWorkflow.getUserHomeFolder());
         if (!userHome.exists()) {
             boolean result = userHome.mkdirs();
             if (! result)
@@ -134,7 +135,7 @@ public class UserMessagesStorage {
      * Loads the user-defined user messages from a file for the current agent.
      */
     public synchronized void load() {
-        File userHome = new File(System.getProperty("user.home"), USER_HOME_FOLDER);
+        File userHome = new File(System.getProperty("user.home"), EasyWorkflow.getUserHomeFolder());
         if (!userHome.exists())
             return;
 
