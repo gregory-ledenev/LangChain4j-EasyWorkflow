@@ -167,7 +167,7 @@ public class ChatScreen extends BasicAppScreen<AppFrame> implements ChatPane.Exe
             pnlWorkflowInspectorExecution.setPreferredSize(new Dimension(400, 700));
             pnlWorkflowInspectorExecution.setWorkflowDebugger(workflowDebugger);
             pnlWorkflowInspectorExecution.setPlaceHolderText("Run workflow to see execution results");
-            pnlWorkflowInspectorExecution.setPlaceHolderIcon(new AutoIcon(ICON_INFO_PLAIN));
+            pnlWorkflowInspectorExecution.setPlaceHolderIcon(new AutoIcon(ICON_INFO));
             pnlWorkflowInspectorExecution.setPlaceHolderVisible(true);
 
             pnlWorkflowSummaryView = new PreviewTextPane();
@@ -512,7 +512,7 @@ public class ChatScreen extends BasicAppScreen<AppFrame> implements ChatPane.Exe
 
         setupModelsAction();
 
-        editUserMessageAction = new BasicAction("Edit User Message...", new AutoIcon(ICON_COMPOSE),
+        editUserMessageAction = new BasicAction("Edit User Message...", new AutoIcon(ICON_COMPOSE, IconFactory.IconSize.Auto, true, false),
                 e -> editUserMessage(),
                 a -> a.setEnabled(canEditUserMessage()));
         editUserMessageAction.putValue(BasicAction.MENU_ITEM_NAME_KEY, "User Message...");
@@ -547,7 +547,7 @@ public class ChatScreen extends BasicAppScreen<AppFrame> implements ChatPane.Exe
         chatHistoryAction.setShortDescription("Chat history");
         chatHistoryAction.putValue(Action.ACCELERATOR_KEY, KeyStroke.getKeyStroke(KeyEvent.VK_O, menuShortcutKeyMask));
 
-        newChatAction = new BasicAction("New Chat", new AutoIcon(ICON_PLUS),
+        newChatAction = new BasicAction("New Chat", new AutoIcon(ICON_PLUS, IconFactory.IconSize.Auto, true, false),
                 e -> newChat(),
                 a -> a.setEnabled(!getChatMessages().isEmpty() && !getChatPane().isWaitingForResponse()));
         newChatAction.setShortDescription("New chat");

@@ -229,7 +229,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                 a -> a.setEnabled(getSelectedValue() != null));
         private DefaultMutableTreeNode agentMetadataNode;
         private final Action actionShowAgentMetadata = new BasicAction("Show Agent Metadata",
-                new AutoIcon(ICON_AGENT),
+                new AutoIcon(ICON_AGENT, IconSize.Auto, true, false),
                 e -> showAgentMetadata(),
                 a -> a.setEnabled(canShowAgentMetadata()));
         private Map<String, Object> values;
@@ -271,7 +271,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
             setValues(Map.of());
 
             setPlaceHolderText("No execution results or details");
-            setPlaceHolderIcon(new AutoIcon(ICON_INFO_PLAIN));
+            setPlaceHolderIcon(new AutoIcon(ICON_INFO));
             setPlaceHolderVisible(true);
 
             actionAlwaysExpand.putValue(Action.SHORT_DESCRIPTION, "Always Expand All");

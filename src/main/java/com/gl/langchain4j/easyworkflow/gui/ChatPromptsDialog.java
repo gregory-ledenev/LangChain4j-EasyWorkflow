@@ -67,6 +67,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
                     a.setSelected(selectedValue != null && selectedValue.isPinned());
                     a.setEnabled(selectedValue != null);
                 });
+        actionPin.setSelectedIcon(new AutoIcon(ICON_PIN, IconSize.Auto, true, false));
         actionPin.setRetainName(true);
         actionPin.setShortDescription("Toggle pinned prompt");
         String disableReason = "Disabled because no prompt is selected";
@@ -95,7 +96,7 @@ public class ChatPromptsDialog extends AppDialog<ChatPromptsStorage, ChatPrompts
         actionMoveDown.setAccelerator(keyStroke);
         UISupport.bindAction(list, "moveDown", keyStroke, actionMoveDown);
 
-        BasicAction actionDelete = new BasicAction("Delete", new AutoIcon(ICON_DELETE),
+        BasicAction actionDelete = new BasicAction("Delete", new AutoIcon(ICON_CLOSE),
                 this::delete,
                 a -> a.setEnabled(list.getSelectedValue() != null));
         actionDelete.setRetainName(true);
