@@ -712,12 +712,16 @@ public abstract class WorkflowInspectorListPane extends AppPane {
      */
     public void workflowDebuggerAgentFinished(Map<String, Object> states) {
         WorkflowDebugger.AgentInvocationTraceEntry traceEntry = (WorkflowDebugger.AgentInvocationTraceEntry) states.get(WorkflowDebugger.KEY_TRACE_ENTRY);
-        String uid = traceEntry.getId();
-        SwingUtilities.invokeLater(() -> findItemByUid(uid).ifPresent(item -> {
-            item.setState(WorkflowItem.State.Finished);
-            list.repaint();
-            updateSelection();
-        }));
+        if (traceEntry != null) {
+            String uid = traceEntry.getId();
+            SwingUtilities.invokeLater(() -> findItemByUid(uid).ifPresent(item -> {
+                item.setState(WorkflowItem.State.Finished);
+                list.repaint();
+                updateSelection();
+            }));
+        } else {
+            //tood: check me, it should not happened
+        }
     }
 
     public void workflowDebuggerToolStarted(Map<String, Object> states) {

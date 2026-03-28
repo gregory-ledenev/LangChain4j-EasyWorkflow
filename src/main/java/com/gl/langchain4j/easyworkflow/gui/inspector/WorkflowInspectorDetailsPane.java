@@ -242,7 +242,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
                 a -> a.setEnabled(canShowAgenticScope()));
         private DefaultMutableTreeNode progressionNode;
         private final Action actionShowProgression = new BasicAction("Show Progression",
-                new AutoIcon(ICON_TIMER),
+                new AutoIcon(ICON_TIMER, IconFactory.IconSize.Auto, true, false),
                 e -> showProgression(),
                 a -> a.setEnabled(canShowProgression()));
         /**
@@ -285,7 +285,7 @@ public class WorkflowInspectorDetailsPane extends AppSplitPane {
         }
 
         private static Preferences getPreferences() {
-            return Application.getUserPreferences().node("Inspector.ValuesPane");
+            return Application.getSharedApplication().getUserPreferences().node("Inspector.ValuesPane");
         }
 
         private static NamedValue createNamedValue(String icon, String name, Object value) {

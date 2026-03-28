@@ -39,6 +39,7 @@ import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorDetailsPan
 import com.gl.langchain4j.easyworkflow.gui.inspector.WorkflowInspectorListPane;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundContext;
 import com.gl.langchain4j.easyworkflow.playground.PlaygroundMetadata;
+import com.gl.saf.widgets.BasicAppScreen;
 import org.slf4j.Logger;
 
 import javax.swing.*;
@@ -56,7 +57,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
-import static com.gl.saf.Application.getUserPreferences;
 import static com.gl.saf.ApplicationPreferences.getApplicationPreferences;
 import static com.gl.saf.Icons.*;
 import static com.gl.saf.UISupport.*;
@@ -541,7 +541,7 @@ public class ChatScreen extends BasicAppScreen<AppFrame> implements ChatPane.Exe
 //                    menuShortcutKeyMask));
         }
 
-        chatHistoryAction = new BasicAction("Open Chat...", new AutoIcon(ICON_TIMER),
+        chatHistoryAction = new BasicAction("Open Chat...", new AutoIcon(ICON_TIMER, IconFactory.IconSize.Auto, true, false),
                 e -> showChats((JComponent) e.getSource()),
                 a -> a.setEnabled(canShowChats()));
         chatHistoryAction.setShortDescription("Chat history");
@@ -584,6 +584,10 @@ public class ChatScreen extends BasicAppScreen<AppFrame> implements ChatPane.Exe
             pnlWorkflowInspectorExecution.reset();
             pnlWorkflowInspectorDetails.setValues(null);
         }
+    }
+
+    public ChatHistoryStorage getChatHistoryStorage() {
+        return chatHistoryStorage;
     }
 
     private void storeNewChat() {

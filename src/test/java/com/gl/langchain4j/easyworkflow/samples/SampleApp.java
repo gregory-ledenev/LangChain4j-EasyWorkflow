@@ -3,6 +3,7 @@ package com.gl.langchain4j.easyworkflow.samples;
 import com.gl.saf.*;
 import com.gl.saf.actions.ActionGroup;
 import com.gl.saf.actions.BasicAction;
+import com.gl.saf.widgets.BasicAppScreen;
 
 import javax.swing.*;
 import java.awt.*;
@@ -19,7 +20,7 @@ public class SampleApp {
     public static void main(String[] args) {
         loadIcons();
 
-        Application.getSharedApplication().launch(new SampleFrame());
+        Application.getSharedApplication().launchApplication(new SampleFrame());
     }
 
     static class SampleFrame extends AppFrame {

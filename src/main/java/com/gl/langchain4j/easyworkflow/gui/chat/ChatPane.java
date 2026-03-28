@@ -81,6 +81,7 @@ import static com.gl.langchain4j.easyworkflow.gui.PlaygroundIcons.ICON_SEND;
 public class ChatPane extends JPanel implements PropertyChangeListener, Updatable {
 
     public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    static final int MAX_CHAT_PROMPTS_TO_SHOW = 15;
     private static final Logger logger = LoggerFactory.getLogger(ChatPane.class);
     private final ChatMessagesHostPane chatMessagesHostPane = new ChatMessagesHostPane();
     private final FormPanel edtMessage = new FormPanel();
@@ -111,6 +112,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
     private ActionGroup toolsActionGroup;
     private ChatMessage lastUserMessage;
     private ExecutionDetailsProvider executionDetailsProvider;
+    private Color inputPaneBorderColor = Color.GRAY;
+
     /**
      * Constructs a new ChatPane.
      */
@@ -176,6 +179,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
                                 new EmptyBorder(10, 10, 10, 10))));
         contentPanel.add(inputPanel, BorderLayout.SOUTH);
 
+        edtMessage.setOpaque(false);
         edtMessage.addPropertyChangeListener(this);
         inputPanel.add(edtMessage, BorderLayout.CENTER);
 
@@ -186,7 +190,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
             }
         };
 //        toolsToolbar.setBackground(Color.YELLOW);
-//        toolsToolbar.setOpaque(true);
+        toolsToolbar.setOpaque(false);
         toolsToolbar.setAlignmentX(Component.CENTER_ALIGNMENT);
         pnlButtons = new Box(BoxLayout.Y_AXIS);
         pnlButtons.setAlignmentX(RIGHT_ALIGNMENT);
@@ -226,8 +230,8 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
     /**
      * Applies the specified appearance to the ChatPane and its components.
      *
-     * @param type The appearance to apply (Light, Dark, or Auto).
-     * @param chatPane       The ChatPane instance to apply the appearance to.
+     * @param type     The appearance to apply (Light, Dark, or Auto).
+     * @param chatPane The ChatPane instance to apply the appearance to.
      */
     public static void applyAppearance(Appearance.Type type, ChatPane chatPane) {
         Appearance.applyAppearance(type);
@@ -369,8 +373,6 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
     private boolean canShowChatPrompts() {
         return chatEngine.getChatPromptsStorage() != null;
     }
-
-    static final int MAX_CHAT_PROMPTS_TO_SHOW = 15;
 
     private void showChatPrompts(JButton source) {
         ChatPromptsStorage storage = chatEngine.getChatPromptsStorage();
@@ -793,6 +795,15 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
         }
     }
 
+    public Color getInputPaneBorderColor() {
+        return inputPaneBorderColor;
+    }
+
+    public void setInputPaneBorderColor(Color inputPaneBorderColor) {
+        this.inputPaneBorderColor = inputPaneBorderColor;
+        repaint();
+    }
+
     /**
      * Interface for providing execution details for a given chat message.
      */
@@ -834,7 +845,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
         String getSystemMessageTemplate();
     }
 
-    static class InputPaneBorder extends AbstractBorder {
+    class InputPaneBorder extends AbstractBorder {
         public InputPaneBorder() {
         }
 
@@ -843,7 +854,7 @@ public class ChatPane extends JPanel implements PropertyChangeListener, Updatabl
             Graphics2D g2d = (Graphics2D) g;
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             Color oldColor = g2d.getColor();
-            g2d.setColor(Color.gray);
+            g2d.setColor(getInputPaneBorderColor());
             g2d.draw(new RoundRectangle2D.Float(x, y, width, height, 10, 10));
 
             g2d.setColor(oldColor);

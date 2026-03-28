@@ -197,7 +197,7 @@ public class GUIPlayground extends Playground.BasicPlayground {
         SwingUtilities.invokeLater(() -> {
             if (chatFrame != null) {
                 LoggerFactory.setLoggerAspect(LoggerFactory.createNotificationLoggerAspect());
-                Application.getSharedApplication().launch(chatFrame);
+                Application.getSharedApplication().launchApplication(chatFrame);
                 ChatPane chatPane = chatFrame.getChatPane();
                 chatPane.setUserMessage(userMessage);
             }
